@@ -11,7 +11,7 @@ namespace geojsonvt {
 
 #pragma mark - Tile
 
-Tile Tile::createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify) {
+Tile Tile::createTile(const std::vector<ProjectedFeature> &features, const uint8_t z2, const uint8_t tx, const uint8_t ty, const float tolerance, const float extent, const bool noSimplify) {
 
     Tile tile = Tile();
 
@@ -23,7 +23,7 @@ Tile Tile::createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint8
     return tile;
 }
 
-void Tile::addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify) {
+void Tile::addFeature(Tile &tile, const ProjectedFeature &feature, const uint8_t z2, const uint8_t tx, const uint8_t ty, const float tolerance, const float extent, const bool noSimplify) {
 
     ProjectedGeometryContainer *geom = (ProjectedGeometryContainer *)&feature.geometry;
     ProjectedFeatureType type = feature.type;
@@ -70,7 +70,7 @@ void Tile::addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint8_t
 
 }
 
-TilePoint Tile::transformPoint(ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, float extent) {
+TilePoint Tile::transformPoint(const ProjectedPoint &p, const uint8_t z2, const uint8_t tx, const uint8_t ty, const float extent) {
 
     uint16_t x = extent * (p.x * z2 - tx);
     uint16_t y = extent * (p.y * z2 - ty);
@@ -80,7 +80,7 @@ TilePoint Tile::transformPoint(ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_
 
 #pragma mark - GeoJSONVT
 
-GeoJSONVT::GeoJSONVT(std::string &data, uint8_t baseZoom_, uint8_t maxZoom_, uint32_t maxPoints_, float tolerance_, bool debug_)
+GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom_, uint32_t maxPoints_, float tolerance_, bool debug_)
     : baseZoom(baseZoom_),
       maxZoom(maxZoom_),
       maxPoints(maxPoints_),
@@ -291,7 +291,7 @@ Tile GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
     return Tile();
 }
 
-bool GeoJSONVT::isClippedSquare(std::vector<TileFeature> &features, float extent_, float buffer_) const {
+bool GeoJSONVT::isClippedSquare(const std::vector<TileFeature> &features, float extent_, float buffer_) const {
 
     if (features.size() != 1) {
         return false;
@@ -341,7 +341,7 @@ ProjectedPoint GeoJSONVT::intersectY(ProjectedPoint a, ProjectedPoint b, float y
 
 #pragma mark - Convert
 
-std::vector<ProjectedFeature> Convert::convert(JSDocument &data, float tolerance) {
+std::vector<ProjectedFeature> Convert::convert(const JSDocument &data, float tolerance) {
 
     std::vector<ProjectedFeature> features;
     const JSValue &rawType = data["type"];
@@ -379,7 +379,7 @@ std::vector<ProjectedFeature> Convert::convert(JSDocument &data, float tolerance
     return features;
 }
 
-void Convert::convertFeature(std::vector<ProjectedFeature> &features, JSValue &feature, float tolerance) {
+void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSValue &feature, float tolerance) {
 
     const JSValue &geom = feature["geometry"];
     const JSValue &rawType = geom["type"];
@@ -547,7 +547,7 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, JSValue &f
     }
 }
 
-ProjectedFeature Convert::create(Tags &tags, ProjectedFeatureType type, ProjectedGeometry &geometry) {
+ProjectedFeature Convert::create(const Tags &tags, ProjectedFeatureType type, const ProjectedGeometry &geometry) {
 
     ProjectedFeature feature = ProjectedFeature(geometry, type, tags);
     calcBBox(feature);
@@ -555,7 +555,7 @@ ProjectedFeature Convert::create(Tags &tags, ProjectedFeatureType type, Projecte
     return feature;
 }
 
-ProjectedGeometryContainer Convert::project(std::vector<LonLat> &lonlats, float tolerance) {
+ProjectedGeometryContainer Convert::project(const std::vector<LonLat> &lonlats, float tolerance) {
 
     ProjectedGeometryContainer projected;
     for (uint32_t i = 0; i < lonlats.size(); ++i) {
@@ -570,7 +570,7 @@ ProjectedGeometryContainer Convert::project(std::vector<LonLat> &lonlats, float 
     return projected;
 }
 
-ProjectedPoint Convert::projectPoint(LonLat p_) {
+ProjectedPoint Convert::projectPoint(const LonLat &p_) {
 
     float sine = std::sin(p_.lat * M_PI / 180);
     float x = p_.lon / 360 + 0.5;
@@ -617,7 +617,7 @@ void Convert::calcBBox(ProjectedFeature &feature) {
     }
 }
 
-void Convert::calcRingBBox(ProjectedPoint &minPoint, ProjectedPoint &maxPoint, ProjectedGeometryContainer &geometry) {
+void Convert::calcRingBBox(ProjectedPoint &minPoint, ProjectedPoint &maxPoint, const ProjectedGeometryContainer &geometry) {
 
     for (uint32_t i = 0; i < geometry.members.size(); ++i) {
         ProjectedPoint *p = (ProjectedPoint *)&geometry.members[i];
@@ -711,7 +711,7 @@ float Simplify::getSqSegDist(ProjectedPoint p, ProjectedPoint a, ProjectedPoint 
 
 #pragma mark - Clip
 
-std::vector<ProjectedFeature> Clip::clip(std::vector<ProjectedFeature> &features, uint32_t scale, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float)) {
+std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> &features, uint32_t scale, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float)) {
 
     k1 /= scale;
     k2 /= scale;
@@ -754,7 +754,7 @@ std::vector<ProjectedFeature> Clip::clip(std::vector<ProjectedFeature> &features
     return clipped;
 }
 
-ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis) {
+ProjectedGeometryContainer Clip::clipPoints(const ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis) {
 
     ProjectedGeometryContainer slice;
 
@@ -770,7 +770,7 @@ ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer &geometry
     return slice;
 }
 
-ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float), bool closed) {
+ProjectedGeometryContainer Clip::clipGeometry(const ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float), bool closed) {
 
     ProjectedGeometryContainer slices;
 

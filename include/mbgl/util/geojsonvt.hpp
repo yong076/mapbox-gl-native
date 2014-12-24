@@ -48,7 +48,7 @@ using JSValue = rapidjson::Value;
 class ProjectedGeometryContainer: public ProjectedGeometry {
 public:
     ProjectedGeometryContainer() {}
-    ProjectedGeometryContainer(std::vector<ProjectedGeometry *> &members_)
+    ProjectedGeometryContainer(const std::vector<ProjectedGeometry *> &members_)
         : members(members_) {}
 
 public:
@@ -67,7 +67,7 @@ enum class ProjectedFeatureType: uint8_t {
 
 class ProjectedFeature {
 public:
-    ProjectedFeature(ProjectedGeometry &geometry_, ProjectedFeatureType type_, Tags &tags_)
+    ProjectedFeature(const ProjectedGeometry &geometry_, ProjectedFeatureType type_, const Tags &tags_)
         : geometry(geometry_), type(type_), tags(tags_) {}
 
 public:
@@ -101,7 +101,7 @@ typedef ProjectedFeatureType TileFeatureType;
 
 class TileFeature {
 public:
-    TileFeature(std::vector<TileGeometry *> geometry_, TileFeatureType type_, Tags tags_)
+    TileFeature(const std::vector<TileGeometry *> geometry_, TileFeatureType type_, const Tags &tags_)
         : geometry(geometry_), type(type_), tags(tags_) {}
 
 public:
@@ -112,14 +112,14 @@ public:
 
 class Tile {
 public:
-    static Tile createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify);
+    static Tile createTile(const std::vector<ProjectedFeature> &features, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify);
 
-    static void addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify);
+    static void addFeature(Tile &tile, const ProjectedFeature &feature, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify);
 
     inline operator bool() const { return this->numPoints > 0; }
 
 private:
-    static TilePoint transformPoint(ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, float extent);
+    static TilePoint transformPoint(const ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, float extent);
 
 public:
     std::vector<TileFeature> features;
@@ -131,14 +131,14 @@ public:
 
 class GeoJSONVT {
 public:
-    GeoJSONVT(std::string &data, uint8_t baseZoom = 14, uint8_t maxZoom = 4, uint32_t maxPoints = 100, float tolerance = 3, bool debug = false);
+    GeoJSONVT(const std::string &data, uint8_t baseZoom = 14, uint8_t maxZoom = 4, uint32_t maxPoints = 100, float tolerance = 3, bool debug = false);
 
     Tile getTile(uint8_t z, uint8_t x, uint8_t y);
 
 private:
     void splitTile(std::vector<ProjectedFeature> &features, uint8_t z, uint8_t x, uint8_t y, int8_t cz = -1, int8_t cx = -1, int8_t cy = -1);
 
-    bool isClippedSquare(std::vector<TileFeature> &features, float extent, float buffer) const;
+    bool isClippedSquare(const std::vector<TileFeature> &features, float extent, float buffer) const;
 
     static uint64_t toID(uint32_t z, uint32_t x, uint32_t y);
 
@@ -152,7 +152,7 @@ private:
         uint8_t x;
         uint8_t y;
 
-        FeatureStackItem(std::vector<ProjectedFeature> &features_, uint8_t z_, uint8_t x_, uint8_t y_)
+        FeatureStackItem(const std::vector<ProjectedFeature> &features_, uint8_t z_, uint8_t x_, uint8_t y_)
             : features(features_), z(z_), x(x_), y(y_) {}
     };
 
@@ -171,22 +171,22 @@ private:
 
 class Convert {
 public:
-    static std::vector<ProjectedFeature> convert(JSDocument &data, float tolerance);
+    static std::vector<ProjectedFeature> convert(const JSDocument &data, float tolerance);
 
 private:
-    static void convertFeature(std::vector<ProjectedFeature> &features, JSValue &feature, float tolerance);
+    static void convertFeature(std::vector<ProjectedFeature> &features, const JSValue &feature, float tolerance);
 
-    static ProjectedFeature create(Tags &tags, ProjectedFeatureType type, ProjectedGeometry &geometry);
+    static ProjectedFeature create(const Tags &tags, ProjectedFeatureType type, const ProjectedGeometry &geometry);
 
-    static ProjectedGeometryContainer project(std::vector<LonLat> &lonlats, float tolerance = 0);
+    static ProjectedGeometryContainer project(const std::vector<LonLat> &lonlats, float tolerance = 0);
 
-    static ProjectedPoint projectPoint(LonLat p);
+    static ProjectedPoint projectPoint(const LonLat &p);
 
     static void calcSize(ProjectedGeometryContainer &geometryContainer);
 
     static void calcBBox(ProjectedFeature &feature);
 
-    static void calcRingBBox(ProjectedPoint &minPoint, ProjectedPoint &maxPoint, ProjectedGeometryContainer &geometry);
+    static void calcRingBBox(ProjectedPoint &minPoint, ProjectedPoint &maxPoint, const ProjectedGeometryContainer &geometry);
 };
 
 class Simplify {
@@ -199,12 +199,12 @@ private:
 
 class Clip {
 public:
-    static std::vector<ProjectedFeature> clip(std::vector<ProjectedFeature> &features, uint32_t scale, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float));
+    static std::vector<ProjectedFeature> clip(const std::vector<ProjectedFeature> &features, uint32_t scale, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float));
 
 private:
-    static ProjectedGeometryContainer clipPoints(ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis);
+    static ProjectedGeometryContainer clipPoints(const ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis);
 
-    static ProjectedGeometryContainer clipGeometry(ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float), bool closed);
+    static ProjectedGeometryContainer clipGeometry(const ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float), bool closed);
 
     static ProjectedGeometryContainer newSlice(ProjectedGeometryContainer &slices, ProjectedGeometryContainer &slice, float area, float dist);
 };
