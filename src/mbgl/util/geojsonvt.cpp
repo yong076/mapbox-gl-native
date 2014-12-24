@@ -350,10 +350,8 @@ std::vector<ProjectedFeature> Convert::convert(const JSDocument &data, float tol
         if (data.HasMember("features")) {
             const JSValue &rawFeatures = data["features"];
             if (rawFeatures.IsArray()) {
-                rapidjson::Value::ConstValueIterator itr = rawFeatures.Begin();
-                for (; itr != rawFeatures.End(); ++itr) {
-                    JSValue feature(itr);
-                    convertFeature(features, feature, tolerance);
+                for (rapidjson::SizeType i = 0; i < rawFeatures.Size(); ++i) {
+                    convertFeature(features, rawFeatures[i], tolerance);
                 }
             }
         }
@@ -419,10 +417,9 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
         if (geom.HasMember("coordinates")) {
             const JSValue &rawCoordinatePairs = geom["coordinates"];
             if (rawCoordinatePairs.IsArray()) {
-                rapidjson::Value::ConstValueIterator itr = rawCoordinatePairs.Begin();
-                for (; itr != rawCoordinatePairs.End(); ++itr) {
-                    std::array<double, 2> coordinates;
-                    const JSValue &rawCoordinates = *itr;
+                for (rapidjson::SizeType i = 0; i < rawCoordinatePairs.Size(); ++i) {
+                    std::array<double, 2> coordinates = {{ 0, 0 }};
+                    const JSValue &rawCoordinates = rawCoordinatePairs[i];
                     if (rawCoordinates.IsArray()) {
                         coordinates[0] = rawCoordinates[(rapidjson::SizeType)0].GetDouble();
                         coordinates[1] = rawCoordinates[(rapidjson::SizeType)1].GetDouble();
@@ -443,10 +440,9 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
         if (geom.HasMember("coordinates")) {
             const JSValue &rawCoordinatePairs = geom["coordinates"];
             if (rawCoordinatePairs.IsArray()) {
-                rapidjson::Value::ConstValueIterator itr = rawCoordinatePairs.Begin();
-                for (; itr != rawCoordinatePairs.End(); ++itr) {
-                    std::array<double, 2> coordinates;
-                    const JSValue &rawCoordinates = *itr;
+                for (rapidjson::SizeType i = 0; i < rawCoordinatePairs.Size(); ++i) {
+                    std::array<double, 2> coordinates = {{ 0, 0 }};
+                    const JSValue &rawCoordinates = rawCoordinatePairs[i];
                     if (rawCoordinates.IsArray()) {
                         coordinates[0] = rawCoordinates[(rapidjson::SizeType)0].GetDouble();
                         coordinates[1] = rawCoordinates[(rapidjson::SizeType)1].GetDouble();
@@ -466,15 +462,13 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
         if (geom.HasMember("coordinates")) {
             const JSValue &rawLines = geom["coordinates"];
             if (rawLines.IsArray()) {
-                rapidjson::Value::ConstValueIterator line_itr = rawLines.Begin();
-                for (; line_itr != rawLines.End(); ++line_itr) {
-                    const JSValue &rawCoordinatePairs = *line_itr;
+                for (rapidjson::SizeType i = 0; i < rawLines.Size(); ++i) {
+                    const JSValue &rawCoordinatePairs = rawLines[i];
                     if (rawCoordinatePairs.IsArray()) {
                         std::vector<LonLat> points;
-                        rapidjson::Value::ConstValueIterator point_itr = rawCoordinatePairs.Begin();
-                        for (; point_itr != rawCoordinatePairs.End(); ++point_itr) {
-                            std::array<double, 2> coordinates;
-                            const JSValue &rawCoordinates = *point_itr;
+                        for (rapidjson::SizeType j = 0; j < rawCoordinatePairs.Size(); ++j) {
+                            std::array<double, 2> coordinates = {{ 0, 0 }};
+                            const JSValue &rawCoordinates = rawCoordinatePairs[j];
                             if (rawCoordinates.IsArray()) {
                                 coordinates[0] = rawCoordinates[(rapidjson::SizeType)0].GetDouble();
                                 coordinates[1] = rawCoordinates[(rapidjson::SizeType)1].GetDouble();
@@ -504,14 +498,12 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
         if (geom.HasMember("coordinates")) {
             const JSValue &rawPolygons = geom["coordinates"];
             if (rawPolygons.IsArray()) {
-                rapidjson::Value::ConstValueIterator poly_itr = rawPolygons.Begin();
-                for (; poly_itr != rawPolygons.End(); ++poly_itr) {
+                for (rapidjson::SizeType i = 0; i < rawPolygons.Size(); ++i) {
                     std::vector<LonLat> points;
-                    const JSValue &rawLines = *poly_itr;
-                    rapidjson::Value::ConstValueIterator line_itr = rawLines.Begin();
-                    for (; line_itr != rawLines.End(); ++line_itr) {
-                        std::array<double, 2> coordinates;
-                        const JSValue &rawCoordinatePairs = *line_itr;
+                    const JSValue &rawLines = rawPolygons[i];
+                    for (rapidjson::SizeType j = 0; j < rawLines.Size(); ++j) {
+                        std::array<double, 2> coordinates = {{ 0, 0 }};
+                        const JSValue &rawCoordinatePairs = rawLines[i];
                         if (rawCoordinatePairs.IsArray()) {
                             coordinates[0] = rawCoordinatePairs[(rapidjson::SizeType)0].GetDouble();
                             coordinates[1] = rawCoordinatePairs[(rapidjson::SizeType)1].GetDouble();
@@ -533,9 +525,8 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
         if (geom.HasMember("geometries")) {
             const JSValue &rawGeometries = geom["geometries"];
             if (rawGeometries.IsArray()) {
-                rapidjson::Value::ConstValueIterator itr = rawGeometries.Begin();
-                for (; itr != rawGeometries.End(); ++itr) {
-//                    convertFeature(features, *itr, tolerance);
+                for (rapidjson::SizeType i = 0; i < rawGeometries.Size(); ++i) {
+                    convertFeature(features, rawGeometries[i], tolerance);
                 }
             }
         }
