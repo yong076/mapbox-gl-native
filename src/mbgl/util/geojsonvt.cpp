@@ -541,7 +541,7 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
 
 ProjectedFeature Convert::create(const Tags &tags, ProjectedFeatureType type, const ProjectedGeometry &geometry) {
 
-    ProjectedFeature feature = ProjectedFeature(geometry, type, tags);
+    ProjectedFeature feature(geometry, type, tags);
     calcBBox(feature);
 
     return feature;
@@ -568,12 +568,7 @@ ProjectedPoint Convert::projectPoint(const LonLat &p_) {
     float x = p_.lon / 360 + 0.5;
     float y = 0.5 - 0.25 * std::log((1 + sine) / (1 - sine)) / M_PI;
 
-    ProjectedPoint p;
-    p.x = x;
-    p.y = y;
-    p.z = 0;
-
-    return p;
+    return ProjectedPoint(x, y, 0);
 }
 
 void Convert::calcSize(ProjectedGeometryContainer &geometryContainer) {
