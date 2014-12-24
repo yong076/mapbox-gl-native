@@ -385,8 +385,9 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
     Tags tags;
 
     if (feature.HasMember("properties") && feature["properties"].IsObject()) {
-        rapidjson::Value::ConstMemberIterator itr = feature.MemberBegin();
-        for (; itr != feature.MemberEnd(); ++itr) {
+        const JSValue &properties = feature["properties"];
+        rapidjson::Value::ConstMemberIterator itr = properties.MemberBegin();
+        for (; itr != properties.MemberEnd(); ++itr) {
             std::string key { itr->name.GetString(), itr->name.GetStringLength() };
             std::string val { itr->value.GetString(), itr->value.GetStringLength() };
             tags[key] = val;
