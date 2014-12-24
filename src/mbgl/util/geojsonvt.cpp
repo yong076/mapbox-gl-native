@@ -582,7 +582,7 @@ void Convert::calcSize(ProjectedGeometryContainer &geometryContainer) {
     ProjectedPoint *a, *b = nullptr;
 
     for (uint32_t i = 0; i < geometryContainer.members.size(); ++i) {
-        a = (b->isValid() ? b : (ProjectedPoint *)&geometryContainer.members[i]);
+        a = (b != nullptr && b->isValid() ? b : (ProjectedPoint *)&geometryContainer.members[i]);
         b = (ProjectedPoint *)&geometryContainer.members[i + 1];
 
         area += a->x * b->y - b->x * a->y;
@@ -780,7 +780,7 @@ ProjectedGeometryContainer Clip::clipGeometry(const ProjectedGeometryContainer &
         ProjectedGeometryContainer slice;
 
         for (size_t j = 0; j < (len - 1); ++j) {
-            a = (b->isValid() ? b : (ProjectedPoint *)&points->members[j]);
+            a = (b != nullptr && b->isValid() ? b : (ProjectedPoint *)&points->members[j]);
             b = (ProjectedPoint *)&points->members[j + 1];
             ak = (bk ? bk : (axis == 0 ? a->x : a->y));
             bk = (axis == 0 ? b->x : b->y);
