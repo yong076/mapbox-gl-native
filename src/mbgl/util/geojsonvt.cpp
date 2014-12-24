@@ -396,7 +396,7 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
 
     if (type == "Point") {
 
-        std::array<double, 2> coordinates;
+        std::array<double, 2> coordinates = {{ 0, 0 }};
         if (geom.HasMember("coordinates")) {
             const JSValue &rawCoordinates = geom["coordinates"];
             if (rawCoordinates.IsArray()) {
