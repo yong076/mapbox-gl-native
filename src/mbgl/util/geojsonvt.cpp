@@ -360,10 +360,20 @@ std::vector<ProjectedFeature> Convert::convert(JSDocument &data, float tolerance
     } else if (std::string(data["type"].GetString()) == "Feature") {
         convertFeature(features, data, tolerance);
     } else {
-        JSValue feature;
-        feature.SetObject();
-        feature.AddMember("geometry", data, data.GetAllocator());
-        convertFeature(features, feature, tolerance);
+
+        /* In this case, we want to pass the entire JSON document as the
+         * value for key 'geometry' in a new JSON object, like so: 
+         *
+         * convertFeature(features, ["geometry": data], tolerance); (pseudo-code)
+         *
+         * Currently this fails due to lack of a proper copy constructor. 
+         * Maybe use move semantics? */
+
+//        JSValue feature;
+//        feature.SetObject();
+//        feature.AddMember("geometry", data, data.GetAllocator());
+//        convertFeature(features, feature, tolerance);
+
     }
 
     return features;
