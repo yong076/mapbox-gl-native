@@ -33,7 +33,7 @@ class SpriteAtlas;
 
 class Map : private util::noncopyable {
 public:
-    explicit Map(View&, FileSource&);
+    explicit Map(View&, FileSource&, std::string = "");
     ~Map();
 
     // Start the map render thread. It is asynchronous.

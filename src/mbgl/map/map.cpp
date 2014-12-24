@@ -23,6 +23,7 @@
 #include <mbgl/storage/file_source.hpp>
 #include <mbgl/platform/log.hpp>
 #include <mbgl/util/string.hpp>
+#include <mbgl/util/geojsonvt.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -86,7 +87,7 @@ const static bool sqliteVersionCheck = []() {
 
 using namespace mbgl;
 
-Map::Map(View& view_, FileSource& fileSource_)
+Map::Map(View& view_, FileSource& fileSource_, std::string featureJSON_)
     : loop(util::make_unique<uv::loop>()),
       view(view_),
 #ifndef NDEBUG
@@ -106,6 +107,15 @@ Map::Map(View& view_, FileSource& fileSource_)
     isClean.clear();
     isRendered.clear();
     isSwapped.test_and_set();
+
+    if (featureJSON_.length()) {
+
+        using namespace mbgl;
+        using namespace util;
+        using namespace geojsonvt;
+
+        GeoJSONVT vt = GeoJSONVT(featureJSON_);
+    }
 }
 
 Map::~Map() {
