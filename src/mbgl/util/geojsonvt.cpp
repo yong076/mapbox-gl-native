@@ -858,6 +858,6 @@ ProjectedGeometryContainer Clip::newSlice(ProjectedGeometryContainer &slices, Pr
     return ProjectedGeometryContainer();
 }
 
-}
-}
-}
+} // namespace geojsonvt
+} // namespace util
+} // namespace mbgl
