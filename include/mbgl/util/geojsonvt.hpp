@@ -74,8 +74,8 @@ public:
     ProjectedGeometry geometry;
     ProjectedFeatureType type;
     Tags tags;
-    ProjectedPoint minPoint = ProjectedPoint();
-    ProjectedPoint maxPoint = ProjectedPoint();
+    ProjectedPoint minPoint = ProjectedPoint(1, 1, 0);
+    ProjectedPoint maxPoint = ProjectedPoint(0, 0, 0);
 };
 
 class TileGeometry {
