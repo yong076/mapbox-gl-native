@@ -151,12 +151,12 @@ private:
     static ProjectedPoint intersectY(const ProjectedPoint &a, const ProjectedPoint &b, float y);
 
     struct FeatureStackItem {
-        std::vector<ProjectedFeature> features;
+        std::vector<ProjectedFeature> &features;
         uint8_t z;
         uint8_t x;
         uint8_t y;
 
-        FeatureStackItem(std::vector<ProjectedFeature> features_, uint8_t z_, uint8_t x_, uint8_t y_)
+        FeatureStackItem(std::vector<ProjectedFeature> &features_, uint8_t z_, uint8_t x_, uint8_t y_)
             : features(features_), z(z_), x(x_), y(y_) {}
     };
 
