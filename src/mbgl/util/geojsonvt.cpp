@@ -570,7 +570,7 @@ void Convert::calcSize(ProjectedGeometryContainer &geometryContainer) {
     double area = 0, dist = 0;
     ProjectedPoint a, b;
 
-    for (uint32_t i = 0; i < geometryContainer.members.size(); ++i) {
+    for (uint32_t i = 0; i < geometryContainer.members.size() - 1; ++i) {
         a = (b.isValid() ? b : geometryContainer.members[i].get<ProjectedPoint>());
         b = geometryContainer.members[i + 1].get<ProjectedPoint>();
 
