@@ -583,18 +583,18 @@ void Convert::calcSize(ProjectedGeometryContainer &geometryContainer) {
 void Convert::calcBBox(ProjectedFeature &feature) {
 
     ProjectedGeometryContainer *geometry = &(feature.geometry.get<ProjectedGeometryContainer>());
-    ProjectedPoint minPoint = feature.minPoint;
-    ProjectedPoint maxPoint = feature.maxPoint;
+    ProjectedPoint *minPoint = &(feature.minPoint);
+    ProjectedPoint *maxPoint = &(feature.maxPoint);
 
     if (feature.type == ProjectedFeatureType::Point) {
-        calcRingBBox(minPoint, maxPoint, *geometry);
+        calcRingBBox(*minPoint, *maxPoint, *geometry);
     } else {
         for (uint32_t i = 0; i < geometry->members.size(); ++i) {
             printf("calcBBox: there are %lu members in the geometry\n", geometry->members.size());
             ProjectedGeometryContainer *featureGeometry = &(geometry->members[i].get<ProjectedGeometryContainer>());
-            calcRingBBox(minPoint, maxPoint, *featureGeometry);
-            printf("minPoint: %f, %f, %f\n", minPoint.x, minPoint.y, minPoint.z);
-            printf("maxPoint: %f, %f, %f\n", maxPoint.x, maxPoint.y, maxPoint.z);
+            calcRingBBox(*minPoint, *maxPoint, *featureGeometry);
+            printf("minPoint: %f, %f, %f\n", minPoint->x, minPoint->y, minPoint->z);
+            printf("maxPoint: %f, %f, %f\n", maxPoint->x, maxPoint->y, maxPoint->z);
         }
     }
 }
