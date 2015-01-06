@@ -142,7 +142,7 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
 
             tile = Tile::createTile(features, z2, x, y, tileTolerance, extent, (z == this->baseZoom));
 
-            this->tiles[id] = std::move(tile);
+            this->tiles[id] = tile;
 
             if (this->debug) {
 //                NSLog("tile z%i-%i-%i (features: %i, points: %i, simplified: %i", z, x, y,
