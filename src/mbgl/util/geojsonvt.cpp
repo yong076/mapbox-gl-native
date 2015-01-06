@@ -11,7 +11,7 @@ namespace geojsonvt {
 
 #pragma mark - Tile
 
-Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify) {
+Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify) {
 
     Tile tile = Tile();
 
@@ -23,7 +23,7 @@ Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_
     return tile;
 }
 
-void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify) {
+void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify) {
 
     ProjectedGeometryContainer *geom = (ProjectedGeometryContainer *)&feature.geometry;
     ProjectedFeatureType type = feature.type;
@@ -78,7 +78,7 @@ TilePoint Tile::transformPoint(const ProjectedPoint &p, uint8_t z2, uint8_t tx, 
 
 #pragma mark - GeoJSONVT
 
-GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom_, uint32_t maxPoints_, float tolerance_, bool debug_)
+GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom_, uint32_t maxPoints_, double tolerance_, bool debug_)
     : baseZoom(baseZoom_),
       maxZoom(maxZoom_),
       maxPoints(maxPoints_),
@@ -335,7 +335,7 @@ ProjectedPoint GeoJSONVT::intersectY(const ProjectedPoint &a, const ProjectedPoi
 
 #pragma mark - Convert
 
-std::vector<ProjectedFeature> Convert::convert(const JSDocument &data, float tolerance) {
+std::vector<ProjectedFeature> Convert::convert(const JSDocument &data, double tolerance) {
 
     std::vector<ProjectedFeature> features;
     const JSValue &rawType = data["type"];
@@ -371,7 +371,7 @@ std::vector<ProjectedFeature> Convert::convert(const JSDocument &data, float tol
     return features;
 }
 
-void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSValue &feature, float tolerance) {
+void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSValue &feature, double tolerance) {
 
     const JSValue &geom = feature["geometry"];
     const JSValue &rawType = geom["type"];
@@ -540,7 +540,7 @@ ProjectedFeature Convert::create(Tags tags, ProjectedFeatureType type, Projected
     return feature;
 }
 
-ProjectedGeometryContainer Convert::project(const std::vector<LonLat> &lonlats, float tolerance) {
+ProjectedGeometryContainer Convert::project(const std::vector<LonLat> &lonlats, double tolerance) {
 
     ProjectedGeometryContainer projected;
     for (uint32_t i = 0; i < lonlats.size(); ++i) {
@@ -565,7 +565,7 @@ ProjectedPoint Convert::projectPoint(const LonLat &p_) {
 
 void Convert::calcSize(ProjectedGeometryContainer &geometryContainer) {
 
-    float area = 0, dist = 0;
+    double area = 0, dist = 0;
     ProjectedPoint *a, *b = nullptr;
 
     for (uint32_t i = 0; i < geometryContainer.members.size(); ++i) {
@@ -614,7 +614,7 @@ void Convert::calcRingBBox(ProjectedPoint &minPoint, ProjectedPoint &maxPoint, c
 
 #pragma mark - Simplify
 
-void Simplify::simplify(ProjectedGeometryContainer &points, float tolerance) {
+void Simplify::simplify(ProjectedGeometryContainer &points, double tolerance) {
 
     const float sqTolerance = tolerance * tolerance;
     const size_t len = points.members.size();
@@ -844,7 +844,7 @@ ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometr
     return slices;
 }
 
-ProjectedGeometryContainer Clip::newSlice(ProjectedGeometryContainer &slices, ProjectedGeometryContainer &slice, float area, float dist) {
+ProjectedGeometryContainer Clip::newSlice(ProjectedGeometryContainer &slices, ProjectedGeometryContainer &slice, double area, double dist) {
 
     if (slice.members.size()) {
         slice.area = area;

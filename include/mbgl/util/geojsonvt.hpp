@@ -56,8 +56,8 @@ public:
 
 public:
     std::vector<ProjectedGeometry> members;
-    float area = 0;
-    float dist = 0;
+    double area = 0;
+    double dist = 0;
 };
 
 using Tags = std::map<std::string, std::string>;
@@ -116,9 +116,9 @@ public:
 
 class Tile {
 public:
-    static Tile createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify);
+    static Tile createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify);
 
-    static void addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify);
+    static void addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify);
 
     inline operator bool() const { return this->numPoints > 0; }
 
@@ -135,7 +135,7 @@ public:
 
 class GeoJSONVT {
 public:
-    GeoJSONVT(const std::string &data, uint8_t baseZoom = 14, uint8_t maxZoom = 4, uint32_t maxPoints = 100, float tolerance = 3, bool debug = false);
+    GeoJSONVT(const std::string &data, uint8_t baseZoom = 14, uint8_t maxZoom = 4, uint32_t maxPoints = 100, double tolerance = 3, bool debug = false);
 
     Tile& getTile(uint8_t z, uint8_t x, uint8_t y);
 
@@ -164,7 +164,7 @@ private:
     uint8_t baseZoom;
     uint8_t maxZoom;
     uint32_t maxPoints;
-    float tolerance;
+    double tolerance;
     bool debug;
     uint16_t extent = 4096;
     uint8_t buffer = 64;
@@ -175,14 +175,14 @@ private:
 
 class Convert {
 public:
-    static std::vector<ProjectedFeature> convert(const JSDocument &data, float tolerance);
+    static std::vector<ProjectedFeature> convert(const JSDocument &data, double tolerance);
 
 private:
-    static void convertFeature(std::vector<ProjectedFeature> &features, const JSValue &feature, float tolerance);
+    static void convertFeature(std::vector<ProjectedFeature> &features, const JSValue &feature, double tolerance);
 
     static ProjectedFeature create(Tags tags, ProjectedFeatureType type, ProjectedGeometry geometry);
 
-    static ProjectedGeometryContainer project(const std::vector<LonLat> &lonlats, float tolerance = 0);
+    static ProjectedGeometryContainer project(const std::vector<LonLat> &lonlats, double tolerance = 0);
 
     static ProjectedPoint projectPoint(const LonLat &p);
 
@@ -195,7 +195,7 @@ private:
 
 class Simplify {
 public:
-    static void simplify(ProjectedGeometryContainer &points, float tolerance);
+    static void simplify(ProjectedGeometryContainer &points, double tolerance);
 
 private:
     static float getSqSegDist(const ProjectedPoint &p, const ProjectedPoint &a, const ProjectedPoint &b);
@@ -210,7 +210,7 @@ private:
 
     static ProjectedGeometryContainer clipGeometry(ProjectedGeometryContainer geometry, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, float), bool closed);
 
-    static ProjectedGeometryContainer newSlice(ProjectedGeometryContainer &slices, ProjectedGeometryContainer &slice, float area, float dist);
+    static ProjectedGeometryContainer newSlice(ProjectedGeometryContainer &slices, ProjectedGeometryContainer &slice, double area, double dist);
 };
 
 } // namespace geojsonvt
