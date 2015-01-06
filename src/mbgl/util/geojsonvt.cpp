@@ -11,7 +11,7 @@ namespace geojsonvt {
 
 #pragma mark - Tile
 
-Tile Tile::createTile(const std::vector<ProjectedFeature> &features, const uint8_t z2, const uint8_t tx, const uint8_t ty, const float tolerance, const float extent, const bool noSimplify) {
+Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify) {
 
     Tile tile = Tile();
 
@@ -23,18 +23,17 @@ Tile Tile::createTile(const std::vector<ProjectedFeature> &features, const uint8
     return tile;
 }
 
-void Tile::addFeature(Tile &tile, const ProjectedFeature &feature, const uint8_t z2, const uint8_t tx, const uint8_t ty, const float tolerance, const float extent, const bool noSimplify) {
+void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, float tolerance, float extent, bool noSimplify) {
 
     ProjectedGeometryContainer *geom = (ProjectedGeometryContainer *)&feature.geometry;
     ProjectedFeatureType type = feature.type;
-    std::vector<TileGeometry *> transformed;
+    std::vector<TileGeometry> transformed;
     float sqTolerance = tolerance * tolerance;
 
     if (type == ProjectedFeatureType::Point) {
         for (uint32_t i = 0; i < geom->members.size(); ++i) {
             ProjectedPoint *p = (ProjectedPoint *)&geom->members[i];
-            TilePoint tp = transformPoint(*p, z2, tx, ty, extent);
-            transformed.push_back(&tp);
+            transformed.push_back(transformPoint(*p, z2, tx, ty, extent));
             tile.numPoints++;
             tile.numSimplified++;
         }
@@ -48,29 +47,28 @@ void Tile::addFeature(Tile &tile, const ProjectedFeature &feature, const uint8_t
                 continue;
             }
 
-            TileRing transformedRing;
+            TileRing transformedRing = TileRing();
 
             for (uint32_t j = 0; j < ring->members.size(); ++j) {
                 ProjectedPoint *p = (ProjectedPoint *)&ring->members[i];
                 if (noSimplify || p->z > sqTolerance) {
-                    TilePoint tp = transformPoint(*p, z2, tx, ty, extent);
-                    transformedRing.points.push_back(tp);
+                    transformedRing.points.push_back(transformPoint(*p, z2, tx, ty, extent));
                     tile.numSimplified++;
                 }
                 tile.numPoints++;
             }
 
-            transformed.push_back(&transformedRing);
+            transformed.push_back(transformedRing);
         }
     }
 
-    if ((std::vector<TileGeometry> *)transformed.size() > 0) {
+    if (transformed.size() > 0) {
         tile.features.push_back(TileFeature(transformed, type, feature.tags));
     }
 
 }
 
-TilePoint Tile::transformPoint(const ProjectedPoint &p, const uint8_t z2, const uint8_t tx, const uint8_t ty, const float extent) {
+TilePoint Tile::transformPoint(const ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, float extent) {
 
     uint16_t x = extent * (p.x * z2 - tx);
     uint16_t y = extent * (p.y * z2 - ty);
@@ -111,13 +109,13 @@ GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom
     splitTile(features, 0, 0, 0);
 
     if (this->debug) {
-        // log "features: %i, points: %i", self.tiles[0]!.numFeatures, self.tiles[0]!.numPoints)
+        printf("features: %i, points: %i\n", this->tiles[0].numFeatures, this->tiles[0].numPoints);
         // time end 'generate tiles up to z\(maxZoom)")
-        // log "tiles generated: %i %@", self.total, self.stats)
+        printf("tiles generated: %i\n", this->total); //, this->stats);
     }
 }
 
-void GeoJSONVT::splitTile(std::vector<ProjectedFeature> &features_, uint8_t z_, uint8_t x_, uint8_t y_, int8_t cz, int8_t cx, int8_t cy) {
+void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, uint8_t x_, uint8_t y_, int8_t cz, int8_t cx, int8_t cy) {
 
     std::queue<FeatureStackItem> stack;
     stack.emplace(features_, z_, x_, y_);
@@ -144,7 +142,7 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> &features_, uint8_t z_, 
 
             tile = Tile::createTile(features, z2, x, y, tileTolerance, extent, (z == this->baseZoom));
 
-            this->tiles[id] = tile;
+            this->tiles[id] = std::move(tile);
 
             if (this->debug) {
 //                NSLog("tile z%i-%i-%i (features: %i, points: %i, simplified: %i", z, x, y,
@@ -238,7 +236,7 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> &features_, uint8_t z_, 
     }
 }
 
-Tile GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
+Tile& GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
 
     uint64_t id = toID(z, x, y);
     if (this->tiles.count(id)) {
@@ -252,7 +250,7 @@ Tile GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
     uint8_t z0 = z;
     uint8_t x0 = x;
     uint8_t y0 = y;
-    Tile parent;
+    Tile *parent = nullptr;
 
     while (!parent && z0) {
         z0--;
@@ -260,7 +258,7 @@ Tile GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
         y0 = y0 / 2;
         uint64_t checkID = toID(z0, x0, y0);
         if (this->tiles.count(checkID)) {
-            parent = this->tiles[checkID];
+            parent = &this->tiles[checkID];
         }
     }
 
@@ -268,47 +266,43 @@ Tile GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
 //        NSLog("found parent tile z%i-%i-%i", z0, x0, y0)
     }
 
-    if (parent.source.size()) {
-        if (isClippedSquare(parent.features, this->extent, this->buffer)) {
-            return parent;
+    if (parent->source.size()) {
+        if (isClippedSquare(parent->features, this->extent, this->buffer)) {
+            return *parent;
         }
 
         if (this->debug) {
 //            Util.time("drilling down")
         }
 
-        splitTile(parent.source, z0, x0, y0, z, x, y);
+        splitTile(parent->source, z0, x0, y0, z, x, y);
 
         if (this->debug) {
 //            Util.timeEnd("drilling down")
         }
     }
 
-    if (this->tiles.count(id)) {
-        return this->tiles[id];
-    }
-
-    return Tile();
+    return this->tiles[id];
 }
 
-bool GeoJSONVT::isClippedSquare(const std::vector<TileFeature> &features, float extent_, float buffer_) const {
+bool GeoJSONVT::isClippedSquare(const std::vector<TileFeature> features, float extent_, float buffer_) const {
 
     if (features.size() != 1) {
         return false;
     }
 
-    TileFeature feature = features.front();
+    const TileFeature *feature = &features.front();
 
-    if (feature.type != TileFeatureType::Polygon || feature.geometry.size() > 1) {
+    if (feature->type != TileFeatureType::Polygon || feature->geometry.size() > 1) {
         return false;
     }
 
-    TileRing *ring = (TileRing *)&feature.geometry.front();
+    const TileRing *ring = (TileRing *)&feature->geometry.front();
 
     for (uint32_t i = 0; i < ring->points.size(); ++i) {
-        TilePoint p = ring->points[i];
-        if ((p.x != -buffer_ && p.x != extent_ + buffer_) ||
-            (p.y != -buffer_ && p.y != extent_ + buffer_)) {
+        const TilePoint *p = &ring->points[i];
+        if ((p->x != -buffer_ && p->x != extent_ + buffer_) ||
+            (p->y != -buffer_ && p->y != extent_ + buffer_)) {
             return false;
         }
     }
@@ -321,7 +315,7 @@ uint64_t GeoJSONVT::toID(uint32_t z, uint32_t x, uint32_t y) {
     return (((1 << z) * y + x) * 32) + z;
 }
 
-ProjectedPoint GeoJSONVT::intersectX(ProjectedPoint a, ProjectedPoint b, float x) {
+ProjectedPoint GeoJSONVT::intersectX(const ProjectedPoint &a, const ProjectedPoint &b, float x) {
 
     float r1 = x;
     float r2 = (x - a.x) * (b.y - a.y) / (b.x - a.x) + a.y;
@@ -330,7 +324,7 @@ ProjectedPoint GeoJSONVT::intersectX(ProjectedPoint a, ProjectedPoint b, float x
     return ProjectedPoint(r1, r2, r3);
 }
 
-ProjectedPoint GeoJSONVT::intersectY(ProjectedPoint a, ProjectedPoint b, float y) {
+ProjectedPoint GeoJSONVT::intersectY(const ProjectedPoint &a, const ProjectedPoint &b, float y) {
 
     float r1 = (y - a.y) * (b.x - a.x) / (b.y - a.y) + a.x;
     float r2 = y;
@@ -406,7 +400,7 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
         }
         ProjectedPoint point = projectPoint(LonLat(coordinates));
 
-        std::vector<ProjectedGeometry *> members = { &point };
+        std::vector<ProjectedGeometry> members = { point };
         ProjectedGeometryContainer geometry(members);
 
         features.push_back(create(tags, ProjectedFeatureType::Point, geometry));
@@ -477,7 +471,7 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
                             points.push_back(LonLat(coordinates));
                         }
                         ProjectedGeometryContainer ring = project(points, tolerance);
-                        rings.members.push_back(&ring);
+                        rings.members.push_back(ring);
                     }
                 }
             }
@@ -490,7 +484,6 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
         ProjectedGeometryContainer *geometry = &rings;
 
         features.push_back(create(tags, projectedType, *geometry));
-
     }
 
     else if (type == "MultiPolygon") {
@@ -512,7 +505,7 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
                         points.push_back(LonLat(coordinates));
                     }
                     ProjectedGeometryContainer ring = project(points, tolerance);
-                    rings.members.push_back(&ring);
+                    rings.members.push_back(ring);
                 }
             }
         }
@@ -539,7 +532,7 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
     }
 }
 
-ProjectedFeature Convert::create(const Tags &tags, ProjectedFeatureType type, const ProjectedGeometry &geometry) {
+ProjectedFeature Convert::create(Tags tags, ProjectedFeatureType type, ProjectedGeometry geometry) {
 
     ProjectedFeature feature(geometry, type, tags);
     calcBBox(feature);
@@ -551,8 +544,7 @@ ProjectedGeometryContainer Convert::project(const std::vector<LonLat> &lonlats, 
 
     ProjectedGeometryContainer projected;
     for (uint32_t i = 0; i < lonlats.size(); ++i) {
-        ProjectedGeometry p = projectPoint(lonlats[i]);
-        projected.members.push_back(&p);
+        projected.members.push_back(projectPoint(lonlats[i]));
     }
     if (tolerance) {
         Simplify::simplify(projected, tolerance);
@@ -590,7 +582,7 @@ void Convert::calcSize(ProjectedGeometryContainer &geometryContainer) {
 
 void Convert::calcBBox(ProjectedFeature &feature) {
 
-    ProjectedGeometryContainer *geometry = (ProjectedGeometryContainer *)&feature.geometry;
+    ProjectedGeometryContainer *geometry = &(feature.geometry.get<ProjectedGeometryContainer>());
     ProjectedPoint minPoint = feature.minPoint;
     ProjectedPoint maxPoint = feature.maxPoint;
 
@@ -598,16 +590,21 @@ void Convert::calcBBox(ProjectedFeature &feature) {
         calcRingBBox(minPoint, maxPoint, *geometry);
     } else {
         for (uint32_t i = 0; i < geometry->members.size(); ++i) {
-            ProjectedGeometryContainer *featureGeometry = (ProjectedGeometryContainer *)&geometry->members[i];
+            printf("calcBBox: there are %lu members in the geometry\n", geometry->members.size());
+            ProjectedGeometryContainer *featureGeometry = &(geometry->members[i].get<ProjectedGeometryContainer>());
             calcRingBBox(minPoint, maxPoint, *featureGeometry);
+            printf("minPoint: %f, %f, %f\n", minPoint.x, minPoint.y, minPoint.z);
+            printf("maxPoint: %f, %f, %f\n", maxPoint.x, maxPoint.y, maxPoint.z);
         }
     }
 }
 
 void Convert::calcRingBBox(ProjectedPoint &minPoint, ProjectedPoint &maxPoint, const ProjectedGeometryContainer &geometry) {
 
+    printf("calcRingBBox: there are %lu members in the ring geometry\n", geometry.members.size());
+
     for (uint32_t i = 0; i < geometry.members.size(); ++i) {
-        ProjectedPoint *p = (ProjectedPoint *)&geometry.members[i];
+        const ProjectedPoint *p = &(geometry.members[i].get<ProjectedPoint>());
         minPoint.x = std::min(p->x, minPoint.x);
         maxPoint.x = std::max(p->x, maxPoint.x);
         minPoint.y = std::min(p->y, minPoint.y);
@@ -628,17 +625,17 @@ void Simplify::simplify(ProjectedGeometryContainer &points, float tolerance) {
     float sqDist = 0;
     size_t index = 0;
 
-    ((ProjectedPoint *)&points.members[first])->z = 1;
-    ((ProjectedPoint *)&points.members[last])->z  = 1;
+    points.members[first].get<ProjectedPoint>().z = 1;
+    points.members[last].get<ProjectedPoint>().z  = 1;
 
     while (last) {
 
         maxSqDist = 0;
 
         for (size_t i = (first + 1); i < last; ++i) {
-            sqDist = getSqSegDist(*(ProjectedPoint *)&points.members[i],
-                *(ProjectedPoint *)&points.members[first],
-                *(ProjectedPoint *)&points.members[last]);
+            sqDist = getSqSegDist(points.members[i].get<ProjectedPoint>(),
+                points.members[first].get<ProjectedPoint>(),
+                points.members[last].get<ProjectedPoint>());
 
             if (sqDist > maxSqDist) {
                 index = i;
@@ -647,7 +644,7 @@ void Simplify::simplify(ProjectedGeometryContainer &points, float tolerance) {
         }
 
         if (maxSqDist > sqTolerance) {
-            ((ProjectedPoint *)&points.members[index])->z = maxSqDist;
+            points.members[index].get<ProjectedPoint>().z = maxSqDist;
             stack.push(first);
             stack.push(index);
             stack.push(index);
@@ -670,7 +667,7 @@ void Simplify::simplify(ProjectedGeometryContainer &points, float tolerance) {
     }
 }
 
-float Simplify::getSqSegDist(ProjectedPoint p, ProjectedPoint a, ProjectedPoint b) {
+float Simplify::getSqSegDist(const ProjectedPoint &p, const ProjectedPoint &a, const ProjectedPoint &b) {
 
     float x = a.x;
     float y = a.y;
@@ -698,7 +695,7 @@ float Simplify::getSqSegDist(ProjectedPoint p, ProjectedPoint a, ProjectedPoint 
 
 #pragma mark - Clip
 
-std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> &features, uint32_t scale, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float)) {
+std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> features, uint32_t scale, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, float)) {
 
     k1 /= scale;
     k2 /= scale;
@@ -741,7 +738,7 @@ std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> &fe
     return clipped;
 }
 
-ProjectedGeometryContainer Clip::clipPoints(const ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis) {
+ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer geometry, float k1, float k2, uint8_t axis) {
 
     ProjectedGeometryContainer slice;
 
@@ -750,14 +747,14 @@ ProjectedGeometryContainer Clip::clipPoints(const ProjectedGeometryContainer &ge
         float ak = (axis == 0 ? a->x: a->y);
 
         if (ak >= k1 && ak <= k2) {
-            slice.members.push_back(a);
+            slice.members.push_back(*a);
         }
     }
 
     return slice;
 }
 
-ProjectedGeometryContainer Clip::clipGeometry(const ProjectedGeometryContainer &geometry, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(ProjectedPoint, ProjectedPoint, float), bool closed) {
+ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometry, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, float), bool closed) {
 
     ProjectedGeometryContainer slices;
 
@@ -783,41 +780,41 @@ ProjectedGeometryContainer Clip::clipGeometry(const ProjectedGeometryContainer &
             if (ak < k1) {
                 if (bk > k2) {
                     ProjectedPoint i1 = intersect(*a, *b, k1);
-                    slice.members.push_back(&i1);
+                    slice.members.push_back(i1);
                     ProjectedPoint i2 = intersect(*a, *b, k2);
-                    slice.members.push_back(&i2);
+                    slice.members.push_back(i2);
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
                 } else if (bk >= k1) {
                     ProjectedPoint i1 = intersect(*a, *b, k1);
-                    slice.members.push_back(&i1);
+                    slice.members.push_back(i1);
                 }
             } else if (ak > k2) {
                 if (bk < k1) {
                     ProjectedPoint i1 = intersect(*a, *b, k2);
-                    slice.members.push_back(&i1);
+                    slice.members.push_back(i1);
                     ProjectedPoint i2 = intersect(*a, *b, k1);
-                    slice.members.push_back(&i2);
+                    slice.members.push_back(i2);
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
                 } else if (bk <= k2) {
                     ProjectedPoint i1 = intersect(*a, *b, k2);
-                    slice.members.push_back(&i1);
+                    slice.members.push_back(i1);
                 }
             } else {
-                slice.members.push_back((ProjectedPoint *)&a);
+                slice.members.push_back(*a);
 
                 if (bk < k1) {
                     ProjectedPoint i1 = intersect(*a, *b, k1);
-                    slice.members.push_back(&i1);
+                    slice.members.push_back(i1);
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
                 } else if (bk > k2) {
                     ProjectedPoint i1 = intersect(*a, *b, k2);
-                    slice.members.push_back(&i1);
+                    slice.members.push_back(i1);
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
@@ -829,7 +826,7 @@ ProjectedGeometryContainer Clip::clipGeometry(const ProjectedGeometryContainer &
         ak = (axis == 0 ? a->x : a->y);
 
         if (ak >= k1 && ak <= k2) {
-            slice.members.push_back(a);
+            slice.members.push_back(*a);
         }
 
         if (closed && slice.members.size()) {
@@ -837,7 +834,7 @@ ProjectedGeometryContainer Clip::clipGeometry(const ProjectedGeometryContainer &
             const ProjectedPoint *last  = (ProjectedPoint *)&slice.members[slice.members.size() - 1];
             if (first != last) {
                 ProjectedPoint p = ProjectedPoint(first->x, first->y, first->z);
-                slice.members.push_back(&p);
+                slice.members.push_back(p);
             }
         }
 
@@ -852,7 +849,7 @@ ProjectedGeometryContainer Clip::newSlice(ProjectedGeometryContainer &slices, Pr
     if (slice.members.size()) {
         slice.area = area;
         slice.dist = dist;
-        slices.members.push_back((ProjectedGeometry *)&slice);
+        slices.members.push_back(slice);
     }
 
     return ProjectedGeometryContainer();
