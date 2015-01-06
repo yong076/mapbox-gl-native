@@ -167,13 +167,13 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
             }
         }
 
-        if ((cz < 0 && (z == this->maxZoom || tile.numPoints <= this->maxPoints ||
+        if ((cz <= 0 && (z == this->maxZoom || tile.numPoints <= this->maxPoints ||
             isClippedSquare(tile.features, this->extent, this->buffer))) || z == this->baseZoom || z == cz) {
             tile.source = *features;
             continue;
         }
 
-        if (cz >= 0) {
+        if (cz > 0) {
             tile.source = *features;
         } else {
             tile.source = {};
@@ -198,36 +198,36 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
         bool goLeft = false;
         bool goTop = false;
 
-        if (cz >= 0) {
+        if (cz > 0) {
             m = 1 << (cz - z);
             goLeft = cx / m - x < 0.5;
             goTop  = cy / m - y < 0.5;
         }
 
-        if (cz < 0 || goLeft) {
+        if (cz <= 0 || goLeft) {
             left = Clip::clip(*features, z2, x - k1, x + k3, 0, intersectX);
         }
 
-        if (cz < 0 || !goLeft) {
+        if (cz <= 0 || !goLeft) {
             right = Clip::clip(*features, z2, x + k2, x + k4, 0, intersectX);
         }
 
         if (left.size()) {
-            if (cz < 0 || goTop) {
+            if (cz <= 0 || goTop) {
                 tl = Clip::clip(left, z2, y - k1, y + k3, 1, intersectY);
             }
 
-            if (cz < 0 || !goTop) {
+            if (cz <= 0 || !goTop) {
                 bl = Clip::clip(left, z2, y + k2, y + k4, 1, intersectY);
             }
         }
 
         if (right.size()) {
-            if (cz < 0 || goTop) {
+            if (cz <= 0 || goTop) {
                 tr = Clip::clip(right, z2, y - k1, y + k3, 1, intersectY);
             }
 
-            if (cz < 0 || !goTop) {
+            if (cz <= 0 || !goTop) {
                 br = Clip::clip(right, z2, y + k2, y + k4, 1, intersectY);
             }
         }
