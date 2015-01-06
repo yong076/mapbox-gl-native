@@ -784,42 +784,34 @@ ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometr
 
             if (ak < k1) {
                 if (bk > k2) {
-                    ProjectedPoint i1 = intersect(a, b, k1);
-                    slice.members.push_back(i1);
-                    ProjectedPoint i2 = intersect(a, b, k2);
-                    slice.members.push_back(i2);
+                    slice.members.push_back(intersect(a, b, k1));
+                    slice.members.push_back(intersect(a, b, k2));
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
                 } else if (bk >= k1) {
-                    ProjectedPoint i1 = intersect(a, b, k1);
-                    slice.members.push_back(i1);
+                    slice.members.push_back(intersect(a, b, k1));
                 }
             } else if (ak > k2) {
                 if (bk < k1) {
-                    ProjectedPoint i1 = intersect(a, b, k2);
-                    slice.members.push_back(i1);
-                    ProjectedPoint i2 = intersect(a, b, k1);
-                    slice.members.push_back(i2);
+                    slice.members.push_back(intersect(a, b, k2));
+                    slice.members.push_back(intersect(a, b, k1));
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
                 } else if (bk <= k2) {
-                    ProjectedPoint i1 = intersect(a, b, k2);
-                    slice.members.push_back(i1);
+                    slice.members.push_back(intersect(a, b, k2));
                 }
             } else {
                 slice.members.push_back(a);
 
                 if (bk < k1) {
-                    ProjectedPoint i1 = intersect(a, b, k1);
-                    slice.members.push_back(i1);
+                    slice.members.push_back(intersect(a, b, k1));
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
                 } else if (bk > k2) {
-                    ProjectedPoint i1 = intersect(a, b, k2);
-                    slice.members.push_back(i1);
+                    slice.members.push_back(intersect(a, b, k2));
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
@@ -838,8 +830,7 @@ ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometr
             const ProjectedPoint *first = &(slice.members[0].get<ProjectedPoint>());
             const ProjectedPoint *last  = &(slice.members[slice.members.size() - 1].get<ProjectedPoint>());
             if (first != last) {
-                ProjectedPoint p = ProjectedPoint(first->x, first->y, first->z);
-                slice.members.push_back(p);
+                slice.members.push_back(ProjectedPoint(first->x, first->y, first->z));
             }
         }
 
