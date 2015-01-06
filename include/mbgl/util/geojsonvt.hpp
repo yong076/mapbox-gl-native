@@ -43,7 +43,7 @@ using ProjectedGeometry = mapbox::util::variant<geojsonvt::ProjectedPoint, geojs
 
 class ProjectedPoint {
 public:
-    ProjectedPoint(float x_, float y_, float z_)
+    ProjectedPoint(double x_, double y_, double z_)
         : x(x_), y(y_), z(z_) {}
     ProjectedPoint()
         : x(-1), y(-1), z(-1) {}
@@ -54,9 +54,9 @@ public:
     }
 
 public:
-    float x = -1;
-    float y = -1;
-    float z = -1;
+    double x = -1;
+    double y = -1;
+    double z = -1;
 };
 
 using JSDocument = rapidjson::Document;
@@ -130,14 +130,14 @@ public:
 
 class Tile {
 public:
-    static Tile createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify);
+    static Tile createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify);
 
-    static void addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify);
+    static void addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify);
 
     inline operator bool() const { return this->numPoints > 0; }
 
 private:
-    static TilePoint transformPoint(const ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, float extent);
+    static TilePoint transformPoint(const ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, uint16_t extent);
 
 public:
     std::vector<TileFeature> features;
@@ -156,13 +156,13 @@ public:
 private:
     void splitTile(std::vector<ProjectedFeature> features, uint8_t z, uint8_t x, uint8_t y, int8_t cz = -1, int8_t cx = -1, int8_t cy = -1);
 
-    bool isClippedSquare(const std::vector<TileFeature> features, float extent, float buffer) const;
+    bool isClippedSquare(const std::vector<TileFeature> features, uint16_t extent, uint8_t buffer) const;
 
     static uint64_t toID(uint32_t z, uint32_t x, uint32_t y);
 
-    static ProjectedPoint intersectX(const ProjectedPoint &a, const ProjectedPoint &b, float x);
+    static ProjectedPoint intersectX(const ProjectedPoint &a, const ProjectedPoint &b, double x);
 
-    static ProjectedPoint intersectY(const ProjectedPoint &a, const ProjectedPoint &b, float y);
+    static ProjectedPoint intersectY(const ProjectedPoint &a, const ProjectedPoint &b, double y);
 
     struct FeatureStackItem {
         std::vector<ProjectedFeature> &features;
@@ -212,17 +212,17 @@ public:
     static void simplify(ProjectedGeometryContainer &points, double tolerance);
 
 private:
-    static float getSqSegDist(const ProjectedPoint &p, const ProjectedPoint &a, const ProjectedPoint &b);
+    static double getSqSegDist(const ProjectedPoint &p, const ProjectedPoint &a, const ProjectedPoint &b);
 };
 
 class Clip {
 public:
-    static std::vector<ProjectedFeature> clip(std::vector<ProjectedFeature> features, uint32_t scale, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, float));
+    static std::vector<ProjectedFeature> clip(std::vector<ProjectedFeature> features, uint32_t scale, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double));
 
 private:
-    static ProjectedGeometryContainer clipPoints(ProjectedGeometryContainer geometry, float k1, float k2, uint8_t axis);
+    static ProjectedGeometryContainer clipPoints(ProjectedGeometryContainer geometry, double k1, double k2, uint8_t axis);
 
-    static ProjectedGeometryContainer clipGeometry(ProjectedGeometryContainer geometry, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, float), bool closed);
+    static ProjectedGeometryContainer clipGeometry(ProjectedGeometryContainer geometry, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double), bool closed);
 
     static ProjectedGeometryContainer newSlice(ProjectedGeometryContainer &slices, ProjectedGeometryContainer &slice, double area, double dist);
 };

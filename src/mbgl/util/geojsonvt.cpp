@@ -13,7 +13,7 @@ std::map<std::string, timestamp> Time::activities;
 
 #pragma mark - Tile
 
-Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify) {
+Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify) {
 
     Tile tile;
 
@@ -25,12 +25,12 @@ Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_
     return tile;
 }
 
-void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify) {
+void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify) {
 
     ProjectedGeometryContainer *geom = &(feature.geometry.get<ProjectedGeometryContainer>());
     ProjectedFeatureType type = feature.type;
     std::vector<TileGeometry> transformed;
-    float sqTolerance = tolerance * tolerance;
+    double sqTolerance = tolerance * tolerance;
     ProjectedGeometryContainer ring;
 
     if (type == ProjectedFeatureType::Point) {
@@ -72,7 +72,7 @@ void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t 
 
 }
 
-TilePoint Tile::transformPoint(const ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, float extent) {
+TilePoint Tile::transformPoint(const ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, uint16_t extent) {
 
     uint16_t x = extent * (p.x * z2 - tx);
     uint16_t y = extent * (p.y * z2 - ty);
@@ -139,7 +139,7 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
         uint32_t z2 = 1 << z;
         uint64_t id = toID(z, x, y);
         Tile tile;
-        float tileTolerance = (z == this->baseZoom ? 0 : this->tolerance / (z2 * this->extent));
+        double tileTolerance = (z == this->baseZoom ? 0 : this->tolerance / (z2 * this->extent));
 
         if (this->tiles.count(id)) {
             tile = this->tiles[id];
@@ -183,10 +183,10 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
             Time::time("clipping");
         }
 
-        float k1 = 0.5 * this->buffer / this->extent;
-        float k2 = 0.5 - k1;
-        float k3 = 0.5 + k1;
-        float k4 = 1 + k1;
+        double k1 = 0.5 * this->buffer / this->extent;
+        double k2 = 0.5 - k1;
+        double k3 = 0.5 + k1;
+        double k4 = 1 + k1;
 
         std::vector<ProjectedFeature> tl;
         std::vector<ProjectedFeature> bl;
@@ -292,7 +292,7 @@ Tile& GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
     return this->tiles[id];
 }
 
-bool GeoJSONVT::isClippedSquare(const std::vector<TileFeature> features, float extent_, float buffer_) const {
+bool GeoJSONVT::isClippedSquare(const std::vector<TileFeature> features, uint16_t extent_, uint8_t buffer_) const {
 
     if (features.size() != 1) {
         return false;
@@ -322,20 +322,20 @@ uint64_t GeoJSONVT::toID(uint32_t z, uint32_t x, uint32_t y) {
     return (((1 << z) * y + x) * 32) + z;
 }
 
-ProjectedPoint GeoJSONVT::intersectX(const ProjectedPoint &a, const ProjectedPoint &b, float x) {
+ProjectedPoint GeoJSONVT::intersectX(const ProjectedPoint &a, const ProjectedPoint &b, double x) {
 
-    float r1 = x;
-    float r2 = (x - a.x) * (b.y - a.y) / (b.x - a.x) + a.y;
-    float r3 = 1;
+    double r1 = x;
+    double r2 = (x - a.x) * (b.y - a.y) / (b.x - a.x) + a.y;
+    double r3 = 1;
 
     return ProjectedPoint(r1, r2, r3);
 }
 
-ProjectedPoint GeoJSONVT::intersectY(const ProjectedPoint &a, const ProjectedPoint &b, float y) {
+ProjectedPoint GeoJSONVT::intersectY(const ProjectedPoint &a, const ProjectedPoint &b, double y) {
 
-    float r1 = (y - a.y) * (b.x - a.x) / (b.y - a.y) + a.x;
-    float r2 = y;
-    float r3 = 1;
+    double r1 = (y - a.y) * (b.x - a.x) / (b.y - a.y) + a.x;
+    double r2 = y;
+    double r3 = 1;
 
     return ProjectedPoint(r1, r2, r3);
 }
@@ -566,9 +566,9 @@ ProjectedGeometryContainer Convert::project(const std::vector<LonLat> &lonlats, 
 
 ProjectedPoint Convert::projectPoint(const LonLat &p_) {
 
-    float sine = std::sin(p_.lat * M_PI / 180);
-    float x = p_.lon / 360 + 0.5;
-    float y = 0.5 - 0.25 * std::log((1 + sine) / (1 - sine)) / M_PI;
+    double sine = std::sin(p_.lat * M_PI / 180);
+    double x = p_.lon / 360 + 0.5;
+    double y = 0.5 - 0.25 * std::log((1 + sine) / (1 - sine)) / M_PI;
 
     return ProjectedPoint(x, y, 0);
 }
@@ -621,13 +621,13 @@ void Convert::calcRingBBox(ProjectedPoint &minPoint, ProjectedPoint &maxPoint, c
 
 void Simplify::simplify(ProjectedGeometryContainer &points, double tolerance) {
 
-    const float sqTolerance = tolerance * tolerance;
+    const double sqTolerance = tolerance * tolerance;
     const size_t len = points.members.size();
     size_t first = 0;
     size_t last = len - 1;
     std::stack<size_t> stack;
-    float maxSqDist = 0;
-    float sqDist = 0;
+    double maxSqDist = 0;
+    double sqDist = 0;
     size_t index = 0;
 
     points.members[first].get<ProjectedPoint>().z = 1;
@@ -672,16 +672,16 @@ void Simplify::simplify(ProjectedGeometryContainer &points, double tolerance) {
     }
 }
 
-float Simplify::getSqSegDist(const ProjectedPoint &p, const ProjectedPoint &a, const ProjectedPoint &b) {
+double Simplify::getSqSegDist(const ProjectedPoint &p, const ProjectedPoint &a, const ProjectedPoint &b) {
 
-    float x = a.x;
-    float y = a.y;
-    float dx = b.x - a.x;
-    float dy = b.y - a.y;
+    double x = a.x;
+    double y = a.y;
+    double dx = b.x - a.x;
+    double dy = b.y - a.y;
 
     if (dx || dy) {
 
-        const float t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy);
+        const double t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy);
 
         if (t > 1) {
             x = b.x;
@@ -700,7 +700,7 @@ float Simplify::getSqSegDist(const ProjectedPoint &p, const ProjectedPoint &a, c
 
 #pragma mark - Clip
 
-std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> features, uint32_t scale, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, float)) {
+std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> features, uint32_t scale, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double)) {
 
     k1 /= scale;
     k2 /= scale;
@@ -712,8 +712,8 @@ std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> fea
         const ProjectedFeature feature = features[i];
         const ProjectedGeometry geometry = feature.geometry;
         const ProjectedFeatureType type = feature.type;
-        float min;
-        float max;
+        double min;
+        double max;
 
         if (feature.minPoint.isValid()) {
             min = (axis == 0 ? feature.minPoint.x : feature.minPoint.y);
@@ -743,13 +743,13 @@ std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> fea
     return clipped;
 }
 
-ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer geometry, float k1, float k2, uint8_t axis) {
+ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer geometry, double k1, double k2, uint8_t axis) {
 
     ProjectedGeometryContainer slice;
 
     for (size_t i = 0; i < geometry.members.size(); ++i) {
         ProjectedPoint *a = &(geometry.members[i].get<ProjectedPoint>());
-        float ak = (axis == 0 ? a->x: a->y);
+        double ak = (axis == 0 ? a->x: a->y);
 
         if (ak >= k1 && ak <= k2) {
             slice.members.push_back(*a);
@@ -759,18 +759,18 @@ ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer geometry,
     return slice;
 }
 
-ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometry, float k1, float k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, float), bool closed) {
+ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometry, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double), bool closed) {
 
     ProjectedGeometryContainer slices;
 
     for (size_t i = 0; i < geometry.members.size(); ++i) {
 
-        float ak = 0;
-        float bk = 0;
+        double ak = 0;
+        double bk = 0;
         ProjectedPoint b;
         const ProjectedGeometryContainer *points = &(geometry.members[i].get<ProjectedGeometryContainer>());
-        const float area = points->area;
-        const float dist = points->dist;
+        const double area = points->area;
+        const double dist = points->dist;
         const size_t len = points->members.size();
         ProjectedPoint a;
 
