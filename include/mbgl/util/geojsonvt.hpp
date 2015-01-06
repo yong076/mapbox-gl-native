@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 
+#include <mbgl/util/time.hpp>
 #include <mbgl/util/variant.hpp>
 
 #include <rapidjson/document.h>
@@ -13,6 +14,19 @@
 namespace mbgl {
 namespace util {
 namespace geojsonvt {
+
+class Time {
+public:
+    inline static void time(std::string activity) {
+        Time::activities[activity] = now();
+    }
+    inline static void timeEnd(std::string activity) {
+        printf("%s: %fms\n", activity.c_str(), (now() - Time::activities[activity]) / 1e6);
+    }
+
+private:
+    static std::map<std::string, timestamp> activities;
+};
 
 struct LonLat {
     LonLat(std::array<double, 2> coordinates)
@@ -135,7 +149,7 @@ public:
 
 class GeoJSONVT {
 public:
-    GeoJSONVT(const std::string &data, uint8_t baseZoom = 14, uint8_t maxZoom = 4, uint32_t maxPoints = 100, double tolerance = 3, bool debug = false);
+    GeoJSONVT(const std::string &data, uint8_t baseZoom = 14, uint8_t maxZoom = 4, uint32_t maxPoints = 100, double tolerance = 3, bool debug = true);
 
     Tile& getTile(uint8_t z, uint8_t x, uint8_t y);
 

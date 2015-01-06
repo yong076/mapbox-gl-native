@@ -9,6 +9,8 @@ namespace mbgl {
 namespace util {
 namespace geojsonvt {
 
+std::map<std::string, timestamp> Time::activities;
+
 #pragma mark - Tile
 
 Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify) {
@@ -88,7 +90,7 @@ GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom
       debug(debug_) {
 
     if (this->debug) {
-        // time 'preprocess data'
+        Time::time("preprocess data");
     }
 
     uint32_t z2 = 1 << this->baseZoom;
@@ -104,16 +106,20 @@ GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom
     std::vector<ProjectedFeature> features = Convert::convert(deserializedData, this->tolerance / (z2 * this->extent));
 
     if (this->debug) {
-        // time end 'preprocess data'
-        // time 'generate tiles up to z' + maxZoom
+        Time::timeEnd("preprocess data");
+        Time::time("generate tiles up to z" + std::to_string(maxZoom));
     }
 
     splitTile(features, 0, 0, 0);
 
     if (this->debug) {
         printf("features: %i, points: %i\n", this->tiles[0].numFeatures, this->tiles[0].numPoints);
-        // time end 'generate tiles up to z\(maxZoom)")
-        printf("tiles generated: %i\n", this->total); //, this->stats);
+        Time::timeEnd("generate tiles up to z" + std::to_string(maxZoom));
+        printf("tiles generated: %i {\n", this->total);
+        for (const auto &pair : this->stats) {
+            printf("    %s: %s\n", pair.first.c_str(), std::to_string(pair.second).c_str());
+        }
+        printf("}\n");
     }
 }
 
@@ -139,7 +145,7 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
             tile = this->tiles[id];
         } else {
             if (this->debug) {
-                // time 'creation'
+                Time::time("creation");
             }
 
             tile = Tile::createTile(*features, z2, x, y, tileTolerance, extent, (z == this->baseZoom));
@@ -147,18 +153,17 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
             this->tiles[id] = tile;
 
             if (this->debug) {
-//                NSLog("tile z%i-%i-%i (features: %i, points: %i, simplified: %i", z, x, y,
-//                     tile.numFeatures, tile.numPoints, tile.numSimplified)
-//                Util.timeEnd("creation")
-//
-//                let key = "z\(z):"
-//                if (self.stats.count - 1 >= z) {
-//                    var value = self.stats[key]! + 1
-//                    self.stats[key] = value
-//                } else {
-//                    self.stats[key] = 1
-//                }
-//                self.total++
+                printf("tile z%i-%i-%i (features: %i, points: %i, simplified: %i\n", z, x, y,
+                       tile.numFeatures, tile.numPoints, tile.numSimplified);
+                Time::timeEnd("creation");
+
+                std::string key = "z" + std::to_string(z) + ":";
+                if (this->stats.size() - 1 >= z) {
+                    this->stats[key] += 1;
+                } else {
+                    this->stats[key] = 1;
+                }
+                this->total++;
             }
         }
 
@@ -175,7 +180,7 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
         }
 
         if (this->debug) {
-//                Util.time("clipping")
+            Time::time("clipping");
         }
 
         float k1 = 0.5 * this->buffer / this->extent;
@@ -228,7 +233,7 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
         }
 
         if (this->debug) {
-//                Util.timeEnd("clipping")
+            Time::timeEnd("clipping");
         }
 
         if (tl.size()) stack.emplace(tl, z + 1, x * 2,     y * 2);
@@ -246,7 +251,7 @@ Tile& GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
     }
 
     if (this->debug) {
-//        NSLog("drilling down to z%i-%i-%i", z, x, y)
+        printf("drilling down to z%i-%i-%i\n", z, x, y);
     }
 
     uint8_t z0 = z;
@@ -265,7 +270,7 @@ Tile& GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
     }
 
     if (this->debug) {
-//        NSLog("found parent tile z%i-%i-%i", z0, x0, y0)
+        printf("found parent tile z%i-%i-%i\n", z0, x0, y0);
     }
 
     if (parent->source.size()) {
@@ -274,13 +279,13 @@ Tile& GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
         }
 
         if (this->debug) {
-//            Util.time("drilling down")
+            Time::time("drilling down");
         }
 
         splitTile(parent->source, z0, x0, y0, z, x, y);
 
         if (this->debug) {
-//            Util.timeEnd("drilling down")
+            Time::timeEnd("drilling down");
         }
     }
 
@@ -346,6 +351,7 @@ std::vector<ProjectedFeature> Convert::convert(const JSDocument &data, double to
         if (data.HasMember("features")) {
             const JSValue &rawFeatures = data["features"];
             if (rawFeatures.IsArray()) {
+                printf("there are %i total features to convert\n", rawFeatures.Size());
                 for (rapidjson::SizeType i = 0; i < rawFeatures.Size(); ++i) {
                     convertFeature(features, rawFeatures[i], tolerance);
                 }
@@ -486,6 +492,8 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
         ProjectedGeometryContainer *geometry = &rings;
 
         features.push_back(create(tags, projectedType, *geometry));
+
+        printf("features now has %lu items\n", features.size());
     }
 
     else if (type == "MultiPolygon") {
@@ -592,18 +600,13 @@ void Convert::calcBBox(ProjectedFeature &feature) {
         calcRingBBox(*minPoint, *maxPoint, *geometry);
     } else {
         for (uint32_t i = 0; i < geometry->members.size(); ++i) {
-            printf("calcBBox: there are %lu members in the geometry\n", geometry->members.size());
             ProjectedGeometryContainer *featureGeometry = &(geometry->members[i].get<ProjectedGeometryContainer>());
             calcRingBBox(*minPoint, *maxPoint, *featureGeometry);
-            printf("minPoint: %f, %f, %f\n", minPoint->x, minPoint->y, minPoint->z);
-            printf("maxPoint: %f, %f, %f\n", maxPoint->x, maxPoint->y, maxPoint->z);
         }
     }
 }
 
 void Convert::calcRingBBox(ProjectedPoint &minPoint, ProjectedPoint &maxPoint, const ProjectedGeometryContainer &geometry) {
-
-    printf("calcRingBBox: there are %lu members in the ring geometry\n", geometry.members.size());
 
     for (uint32_t i = 0; i < geometry.members.size(); ++i) {
         const ProjectedPoint *p = &(geometry.members[i].get<ProjectedPoint>());
