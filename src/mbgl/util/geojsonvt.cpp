@@ -13,7 +13,7 @@ namespace geojsonvt {
 
 Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify) {
 
-    Tile tile = Tile();
+    Tile tile;
 
     for (uint32_t i = 0; i < features.size(); ++i) {
         tile.numFeatures++;
@@ -25,34 +25,36 @@ Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_
 
 void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, float extent, bool noSimplify) {
 
-    ProjectedGeometryContainer *geom = (ProjectedGeometryContainer *)&feature.geometry;
+    ProjectedGeometryContainer *geom = &(feature.geometry.get<ProjectedGeometryContainer>());
     ProjectedFeatureType type = feature.type;
     std::vector<TileGeometry> transformed;
     float sqTolerance = tolerance * tolerance;
+    ProjectedGeometryContainer ring;
 
     if (type == ProjectedFeatureType::Point) {
         for (uint32_t i = 0; i < geom->members.size(); ++i) {
-            ProjectedPoint *p = (ProjectedPoint *)&geom->members[i];
+            ProjectedPoint *p = &(geom->members[i].get<ProjectedPoint>());
             transformed.push_back(transformPoint(*p, z2, tx, ty, extent));
             tile.numPoints++;
             tile.numSimplified++;
         }
     } else {
         for (uint32_t i = 0; i < geom->members.size(); ++i) {
-            ProjectedGeometryContainer *ring = (ProjectedGeometryContainer *)&geom->members[i];
+            ring = geom->members[i].get<ProjectedGeometryContainer>();
 
-            if (!noSimplify && ((type == ProjectedFeatureType::LineString && ring->dist < tolerance) ||
-                (type == ProjectedFeatureType::Polygon && ring->area < sqTolerance))) {
-                tile.numPoints += ring->members.size();
+            if (!noSimplify && ((type == ProjectedFeatureType::LineString && ring.dist < tolerance) ||
+                (type == ProjectedFeatureType::Polygon && ring.area < sqTolerance))) {
+                tile.numPoints += ring.members.size();
                 continue;
             }
 
-            TileRing transformedRing = TileRing();
+            TileRing transformedRing;
 
-            for (uint32_t j = 0; j < ring->members.size(); ++j) {
-                ProjectedPoint *p = (ProjectedPoint *)&ring->members[i];
+            for (uint32_t j = 0; j < ring.members.size(); ++j) {
+                ProjectedPoint *p = &(ring.members[i].get<ProjectedPoint>());
                 if (noSimplify || p->z > sqTolerance) {
-                    transformedRing.points.push_back(transformPoint(*p, z2, tx, ty, extent));
+                    TilePoint transformedPoint = transformPoint(*p, z2, tx, ty, extent);
+                    transformedRing.points.push_back(transformedPoint);
                     tile.numSimplified++;
                 }
                 tile.numPoints++;
@@ -62,7 +64,7 @@ void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t 
         }
     }
 
-    if (transformed.size() > 0) {
+    if (transformed.size()) {
         tile.features.push_back(TileFeature(transformed, type, feature.tags));
     }
 
@@ -297,7 +299,7 @@ bool GeoJSONVT::isClippedSquare(const std::vector<TileFeature> features, float e
         return false;
     }
 
-    const TileRing *ring = (TileRing *)&feature->geometry.front();
+    const TileRing *ring = &(feature->geometry.front().get<TileRing>());
 
     for (uint32_t i = 0; i < ring->points.size(); ++i) {
         const TilePoint *p = &ring->points[i];
@@ -566,14 +568,14 @@ ProjectedPoint Convert::projectPoint(const LonLat &p_) {
 void Convert::calcSize(ProjectedGeometryContainer &geometryContainer) {
 
     double area = 0, dist = 0;
-    ProjectedPoint *a, *b = nullptr;
+    ProjectedPoint a, b;
 
     for (uint32_t i = 0; i < geometryContainer.members.size(); ++i) {
-        a = (b != nullptr && b->isValid() ? b : (ProjectedPoint *)&geometryContainer.members[i]);
-        b = (ProjectedPoint *)&geometryContainer.members[i + 1];
+        a = (b.isValid() ? b : geometryContainer.members[i].get<ProjectedPoint>());
+        b = geometryContainer.members[i + 1].get<ProjectedPoint>();
 
-        area += a->x * b->y - b->x * a->y;
-        dist += std::abs(b->x - a->x) + std::abs(b->y - a->y);
+        area += a.x * b.y - b.x * a.y;
+        dist += std::abs(b.x - a.x) + std::abs(b.y - a.y);
     }
 
     geometryContainer.area = std::abs(area / 2);
@@ -725,9 +727,9 @@ std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> fea
         ProjectedGeometryContainer slices;
 
         if (type == ProjectedFeatureType::Point) {
-            slices = clipPoints(*(ProjectedGeometryContainer *)&geometry, k1, k2, axis);
+            slices = clipPoints(geometry.get<ProjectedGeometryContainer>(), k1, k2, axis);
         } else {
-            slices = clipGeometry(*(ProjectedGeometryContainer *)&geometry, k1, k2, axis, intersect, (type == ProjectedFeatureType::Polygon));
+            slices = clipGeometry(geometry.get<ProjectedGeometryContainer>(), k1, k2, axis, intersect, (type == ProjectedFeatureType::Polygon));
         }
 
         if (slices.members.size()) {
@@ -743,7 +745,7 @@ ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer geometry,
     ProjectedGeometryContainer slice;
 
     for (size_t i = 0; i < geometry.members.size(); ++i) {
-        ProjectedPoint *a = (ProjectedPoint *)&geometry.members[i];
+        ProjectedPoint *a = &(geometry.members[i].get<ProjectedPoint>());
         float ak = (axis == 0 ? a->x: a->y);
 
         if (ak >= k1 && ak <= k2) {
@@ -762,58 +764,58 @@ ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometr
 
         float ak = 0;
         float bk = 0;
-        ProjectedPoint *b = nullptr;
-        const ProjectedGeometryContainer *points = (ProjectedGeometryContainer *)&geometry.members[i];
+        ProjectedPoint b;
+        const ProjectedGeometryContainer *points = &(geometry.members[i].get<ProjectedGeometryContainer>());
         const float area = points->area;
         const float dist = points->dist;
         const size_t len = points->members.size();
-        ProjectedPoint *a = nullptr;
+        ProjectedPoint a;
 
         ProjectedGeometryContainer slice;
 
         for (size_t j = 0; j < (len - 1); ++j) {
-            a = (b != nullptr && b->isValid() ? b : (ProjectedPoint *)&points->members[j]);
-            b = (ProjectedPoint *)&points->members[j + 1];
-            ak = (bk ? bk : (axis == 0 ? a->x : a->y));
-            bk = (axis == 0 ? b->x : b->y);
+            a = (b.isValid() ? b : points->members[j].get<ProjectedPoint>());
+            b = points->members[j + 1].get<ProjectedPoint>();
+            ak = (bk ? bk : (axis == 0 ? a.x : a.y));
+            bk = (axis == 0 ? b.x : b.y);
 
             if (ak < k1) {
                 if (bk > k2) {
-                    ProjectedPoint i1 = intersect(*a, *b, k1);
+                    ProjectedPoint i1 = intersect(a, b, k1);
                     slice.members.push_back(i1);
-                    ProjectedPoint i2 = intersect(*a, *b, k2);
+                    ProjectedPoint i2 = intersect(a, b, k2);
                     slice.members.push_back(i2);
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
                 } else if (bk >= k1) {
-                    ProjectedPoint i1 = intersect(*a, *b, k1);
+                    ProjectedPoint i1 = intersect(a, b, k1);
                     slice.members.push_back(i1);
                 }
             } else if (ak > k2) {
                 if (bk < k1) {
-                    ProjectedPoint i1 = intersect(*a, *b, k2);
+                    ProjectedPoint i1 = intersect(a, b, k2);
                     slice.members.push_back(i1);
-                    ProjectedPoint i2 = intersect(*a, *b, k1);
+                    ProjectedPoint i2 = intersect(a, b, k1);
                     slice.members.push_back(i2);
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
                 } else if (bk <= k2) {
-                    ProjectedPoint i1 = intersect(*a, *b, k2);
+                    ProjectedPoint i1 = intersect(a, b, k2);
                     slice.members.push_back(i1);
                 }
             } else {
-                slice.members.push_back(*a);
+                slice.members.push_back(a);
 
                 if (bk < k1) {
-                    ProjectedPoint i1 = intersect(*a, *b, k1);
+                    ProjectedPoint i1 = intersect(a, b, k1);
                     slice.members.push_back(i1);
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
                     }
                 } else if (bk > k2) {
-                    ProjectedPoint i1 = intersect(*a, *b, k2);
+                    ProjectedPoint i1 = intersect(a, b, k2);
                     slice.members.push_back(i1);
                     if (!closed) {
                         slice = newSlice(slices, slice, area, dist);
@@ -822,16 +824,16 @@ ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometr
             }
         }
 
-        a = (ProjectedPoint *)&points->members[len - 1];
-        ak = (axis == 0 ? a->x : a->y);
+        a = points->members[len - 1].get<ProjectedPoint>();
+        ak = (axis == 0 ? a.x : a.y);
 
         if (ak >= k1 && ak <= k2) {
-            slice.members.push_back(*a);
+            slice.members.push_back(a);
         }
 
         if (closed && slice.members.size()) {
-            const ProjectedPoint *first = (ProjectedPoint *)&slice.members[0];
-            const ProjectedPoint *last  = (ProjectedPoint *)&slice.members[slice.members.size() - 1];
+            const ProjectedPoint *first = &(slice.members[0].get<ProjectedPoint>());
+            const ProjectedPoint *last  = &(slice.members[slice.members.size() - 1].get<ProjectedPoint>());
             if (first != last) {
                 ProjectedPoint p = ProjectedPoint(first->x, first->y, first->z);
                 slice.members.push_back(p);
