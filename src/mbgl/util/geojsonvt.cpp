@@ -53,7 +53,7 @@ void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t 
             TileRing transformedRing;
 
             for (uint32_t j = 0; j < ring.members.size(); ++j) {
-                ProjectedPoint *p = &(ring.members[i].get<ProjectedPoint>());
+                ProjectedPoint *p = &(ring.members[j].get<ProjectedPoint>());
                 if (noSimplify || p->z > sqTolerance) {
                     TilePoint transformedPoint = transformPoint(*p, z2, tx, ty, extent);
                     transformedRing.points.push_back(transformedPoint);
