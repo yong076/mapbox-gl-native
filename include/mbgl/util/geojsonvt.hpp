@@ -49,9 +49,7 @@ public:
         : x(-1), y(-1), z(-1) {}
 
     inline bool isValid() const { return (x >= 0 && y >= 0 && z >= 0); }
-    inline bool operator==(const ProjectedPoint rhs) const {
-        return (x == rhs.x && y == rhs.y && z == rhs.z);
-    }
+    inline bool isEqualToPoint(const ProjectedPoint *p2) const { return (x == p2->x && y == p2->y && z == p2->z); }
 
 public:
     double x = -1;

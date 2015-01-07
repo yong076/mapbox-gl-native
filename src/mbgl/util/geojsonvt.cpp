@@ -829,7 +829,7 @@ ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometr
         if (closed && slice.members.size()) {
             const ProjectedPoint *first = &(slice.members[0].get<ProjectedPoint>());
             const ProjectedPoint *last  = &(slice.members[slice.members.size() - 1].get<ProjectedPoint>());
-            if (first != last) {
+            if (!first->isEqualToPoint(last)) {
                 slice.members.push_back(ProjectedPoint(first->x, first->y, first->z));
             }
         }
