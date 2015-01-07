@@ -834,7 +834,7 @@ ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometr
             }
         }
 
-        newSlice(slices, slices, area, dist);
+        newSlice(slices, slice, area, dist);
     }
 
     return slices;
