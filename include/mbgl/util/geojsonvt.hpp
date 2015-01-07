@@ -215,7 +215,7 @@ private:
 
 class Clip {
 public:
-    static std::vector<ProjectedFeature> clip(std::vector<ProjectedFeature> features, uint32_t scale, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double));
+    static std::vector<ProjectedFeature> clip(std::vector<ProjectedFeature> features, uint8_t scale, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double));
 
 private:
     static ProjectedGeometryContainer clipPoints(ProjectedGeometryContainer geometry, double k1, double k2, uint8_t axis);

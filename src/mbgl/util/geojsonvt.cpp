@@ -700,7 +700,7 @@ double Simplify::getSqSegDist(const ProjectedPoint &p, const ProjectedPoint &a, 
 
 #pragma mark - Clip
 
-std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> features, uint32_t scale, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double)) {
+std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> features, uint8_t scale, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double)) {
 
     k1 /= scale;
     k2 /= scale;
@@ -712,8 +712,8 @@ std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> fea
         const ProjectedFeature feature = features[i];
         const ProjectedGeometry geometry = feature.geometry;
         const ProjectedFeatureType type = feature.type;
-        double min;
-        double max;
+        double min = 0;
+        double max = 0;
 
         if (feature.minPoint.isValid()) {
             min = (axis == 0 ? feature.minPoint.x : feature.minPoint.y);
@@ -749,7 +749,7 @@ ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer geometry,
 
     for (size_t i = 0; i < geometry.members.size(); ++i) {
         ProjectedPoint *a = &(geometry.members[i].get<ProjectedPoint>());
-        double ak = (axis == 0 ? a->x: a->y);
+        double ak = (axis == 0 ? a->x : a->y);
 
         if (ak >= k1 && ak <= k2) {
             slice.members.push_back(*a);
