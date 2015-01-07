@@ -1,15 +1,12 @@
 #include <mbgl/util/geojsonvt.hpp>
-#include <mbgl/platform/log.hpp>
 
 #include <queue>
 #include <stack>
 #include <cmath>
 
-namespace mbgl {
-namespace util {
-namespace geojsonvt {
+namespace mapbox { namespace util { namespace geojsonvt {
 
-std::map<std::string, timestamp> Time::activities;
+std::map<std::string, clock_t> Time::activities;
 
 #pragma mark - Tile
 
@@ -99,7 +96,7 @@ GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom
     deserializedData.Parse<0>(data.c_str());
 
     if (deserializedData.HasParseError()) {
-        Log::Warning(Event::General, "invalid GeoJSON");
+        printf("invalid GeoJSON\n");
         return;
     }
 
@@ -537,7 +534,7 @@ void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSVa
 
     } else {
 
-        Log::Warning(Event::General, "unsupported GeoJSON type: " + std::string { geom["type"].GetString(), geom["type"].GetStringLength() });
+        printf("unsupported GeoJSON type: %s\n", geom["type"].GetString());
 
     }
 }
@@ -851,6 +848,4 @@ ProjectedGeometryContainer Clip::newSlice(ProjectedGeometryContainer &slices, Pr
     return ProjectedGeometryContainer();
 }
 
-} // namespace geojsonvt
-} // namespace util
-} // namespace mbgl
+} /* namespace geojsonvt */ } /* namespace util */ } /* namespace mapbox */

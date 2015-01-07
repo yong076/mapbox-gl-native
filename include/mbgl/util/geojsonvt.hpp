@@ -1,32 +1,35 @@
-#ifndef MBGL_UTIL_GEOJSONVT
-#define MBGL_UTIL_GEOJSONVT
+#ifndef MAPBOX_UTIL_GEOJSONVT
+#define MAPBOX_UTIL_GEOJSONVT
 
 #include <array>
 #include <vector>
 #include <map>
 #include <string>
-
-#include <mbgl/util/time.hpp>
-#include <mbgl/util/variant.hpp>
+#include <ctime>
 
 #include <rapidjson/document.h>
 
-namespace mbgl {
-namespace util {
-namespace geojsonvt {
+#include <mbgl/util/variant.hpp>
+
+namespace mapbox { namespace util { namespace geojsonvt {
+
+#pragma mark -
 
 class Time {
 public:
     inline static void time(std::string activity) {
-        Time::activities[activity] = now();
+        Time::activities[activity] = clock();
     }
+
     inline static void timeEnd(std::string activity) {
-        printf("%s: %fms\n", activity.c_str(), (now() - Time::activities[activity]) / 1e6);
+        printf("%s: %fms\n", activity.c_str(), double(clock() - Time::activities[activity]) / (CLOCKS_PER_SEC / 1000));
     }
 
 private:
-    static std::map<std::string, timestamp> activities;
+    static std::map<std::string, clock_t> activities;
 };
+
+#pragma mark -
 
 struct LonLat {
     LonLat(std::array<double, 2> coordinates)
@@ -36,10 +39,14 @@ struct LonLat {
     double lat;
 };
 
+#pragma mark -
+
 class ProjectedPoint;
 class ProjectedGeometryContainer;
 
 using ProjectedGeometry = mapbox::util::variant<geojsonvt::ProjectedPoint, geojsonvt::ProjectedGeometryContainer>;
+
+#pragma mark -
 
 class ProjectedPoint {
 public:
@@ -57,8 +64,12 @@ public:
     double z = -1;
 };
 
+#pragma mark -
+
 using JSDocument = rapidjson::Document;
 using JSValue = rapidjson::Value;
+
+#pragma mark -
 
 class ProjectedGeometryContainer {
 public:
@@ -72,13 +83,19 @@ public:
     double dist = 0;
 };
 
+#pragma mark -
+
 using Tags = std::map<std::string, std::string>;
+
+#pragma mark -
 
 enum class ProjectedFeatureType: uint8_t {
     Point,
     LineString,
     Polygon
 };
+
+#pragma mark -
 
 class ProjectedFeature {
 public:
@@ -93,10 +110,14 @@ public:
     ProjectedPoint maxPoint = ProjectedPoint(0, 0, 0);
 };
 
+#pragma mark -
+
 class TilePoint;
 class TileRing;
 
 using TileGeometry = mapbox::util::variant<geojsonvt::TilePoint, geojsonvt::TileRing>;
+
+#pragma mark -
 
 class TilePoint {
 public:
@@ -108,12 +129,18 @@ public:
     const uint16_t y = 0;
 };
 
+#pragma mark -
+
 class TileRing {
 public:
     std::vector<TilePoint> points;
 };
 
+#pragma mark -
+
 typedef ProjectedFeatureType TileFeatureType;
+
+#pragma mark -
 
 class TileFeature {
 public:
@@ -125,6 +152,8 @@ public:
     TileFeatureType type;
     Tags tags;
 };
+
+#pragma mark -
 
 class Tile {
 public:
@@ -144,6 +173,8 @@ public:
     uint32_t numFeatures = 0;
     std::vector<ProjectedFeature> source;
 };
+
+#pragma mark -
 
 class GeoJSONVT {
 public:
@@ -185,6 +216,8 @@ private:
     uint16_t total = 0;
 };
 
+#pragma mark -
+
 class Convert {
 public:
     static std::vector<ProjectedFeature> convert(const JSDocument &data, double tolerance);
@@ -205,6 +238,8 @@ private:
     static void calcRingBBox(ProjectedPoint &minPoint, ProjectedPoint &maxPoint, const ProjectedGeometryContainer &geometry);
 };
 
+#pragma mark -
+
 class Simplify {
 public:
     static void simplify(ProjectedGeometryContainer &points, double tolerance);
@@ -212,6 +247,8 @@ public:
 private:
     static double getSqSegDist(const ProjectedPoint &p, const ProjectedPoint &a, const ProjectedPoint &b);
 };
+
+#pragma mark -
 
 class Clip {
 public:
@@ -225,8 +262,6 @@ private:
     static ProjectedGeometryContainer newSlice(ProjectedGeometryContainer &slices, ProjectedGeometryContainer &slice, double area, double dist);
 };
 
-} // namespace geojsonvt
-} // namespace util
-} // namespace mbgl
+} /* namespace geojsonvt */ } /* namespace util */ } /* namespace mapbox */
 
-#endif
+#endif // MAPBOX_UTIL_GEOJSONVT
