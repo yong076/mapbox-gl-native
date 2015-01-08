@@ -14,6 +14,7 @@ import subprocess
 import sys
 import gyp
 import gyp.common
+from gyp.common import OrderedSet
 import gyp.msvs_emulation
 import gyp.MSVSUtil as MSVSUtil
 import gyp.xcode_emulation
@@ -107,7 +108,7 @@ def AddArch(output, arch):
   return '%s.%s%s' % (output, arch, extension)
 
 
-class Target:
+class Target(object):
   """Target represents the paths used within a single gyp target.
 
   Conceptually, building a single target A is a series of steps:
@@ -211,8 +212,8 @@ class Target:
 #   an output file; the result can be namespaced such that it is unique
 #   to the input file name as well as the output target name.
 
-class NinjaWriter:
-  def __init__(self, qualified_target, target_outputs, base_dir, build_dir,
+class NinjaWriter(object):
+  def __init__(self, hash_for_rules, target_outputs, base_dir, build_dir,
                output_file, toplevel_build, output_file_name, flavor,
                toplevel_dir=None):
     """
@@ -222,7 +223,7 @@ class NinjaWriter:
     toplevel_dir: path to the toplevel directory
     """
 
-    self.qualified_target = qualified_target
+    self.hash_for_rules = hash_for_rules
     self.target_outputs = target_outputs
     self.base_dir = base_dir
     self.build_dir = build_dir
@@ -393,6 +394,8 @@ class NinjaWriter:
       self.ninja.variable('arch', self.win_env[arch])
       self.ninja.variable('cc', '$cl_' + arch)
       self.ninja.variable('cxx', '$cl_' + arch)
+      self.ninja.variable('cc_host', '$cl_' + arch)
+      self.ninja.variable('cxx_host', '$cl_' + arch)
 
     if self.flavor == 'mac':
       self.archs = self.xcode_settings.GetActiveArchs(config_name)
@@ -527,7 +530,7 @@ class NinjaWriter:
   def WriteWinIdlFiles(self, spec, prebuild):
     """Writes rules to match MSVS's implicit idl handling."""
     assert self.flavor == 'win'
-    if self.msvs_settings.HasExplicitIdlRules(spec):
+    if self.msvs_settings.HasExplicitIdlRulesOrActions(spec):
       return []
     outputs = []
     for source in filter(lambda x: x.endswith('.idl'), spec['sources']):
@@ -561,9 +564,10 @@ class NinjaWriter:
     stamp = self.WriteCollapsedDependencies('actions_rules_copies', outputs)
 
     if self.is_mac_bundle:
-      self.WriteMacBundleResources(
+      xcassets = self.WriteMacBundleResources(
           extra_mac_bundle_resources + mac_bundle_resources, mac_bundle_depends)
-      self.WriteMacInfoPlist(mac_bundle_depends)
+      partial_info_plist = self.WriteMacXCassets(xcassets, mac_bundle_depends)
+      self.WriteMacInfoPlist(partial_info_plist, mac_bundle_depends)
 
     return stamp
 
@@ -588,16 +592,16 @@ class NinjaWriter:
     all_outputs = []
     for action in actions:
       # First write out a rule for the action.
-      name = '%s_%s' % (action['action_name'],
-                        hashlib.md5(self.qualified_target).hexdigest())
+      name = '%s_%s' % (action['action_name'], self.hash_for_rules)
       description = self.GenerateDescription('ACTION',
                                              action.get('message', None),
                                              name)
       is_cygwin = (self.msvs_settings.IsRuleRunUnderCygwin(action)
                    if self.flavor == 'win' else False)
       args = action['action']
+      pool = 'console' if int(action.get('ninja_use_console', 0)) else None
       rule_name, _ = self.WriteNewNinjaRule(name, args, description,
-                                            is_cygwin, env=env)
+                                            is_cygwin, env, pool)
 
       inputs = [self.GypPathToNinja(i, env) for i in action['inputs']]
       if int(action.get('process_outputs_as_sources', False)):
@@ -625,8 +629,7 @@ class NinjaWriter:
         continue
 
       # First write out a rule for the rule action.
-      name = '%s_%s' % (rule['rule_name'],
-                        hashlib.md5(self.qualified_target).hexdigest())
+      name = '%s_%s' % (rule['rule_name'], self.hash_for_rules)
 
       args = rule['action']
       description = self.GenerateDescription(
@@ -635,8 +638,9 @@ class NinjaWriter:
           ('%s ' + generator_default_variables['RULE_INPUT_PATH']) % name)
       is_cygwin = (self.msvs_settings.IsRuleRunUnderCygwin(rule)
                    if self.flavor == 'win' else False)
+      pool = 'console' if int(rule.get('ninja_use_console', 0)) else None
       rule_name, args = self.WriteNewNinjaRule(
-          name, args, description, is_cygwin, env=env)
+          name, args, description, is_cygwin, env, pool)
 
       # TODO: if the command references the outputs directly, we should
       # simplify it to just use $out.
@@ -648,10 +652,11 @@ class NinjaWriter:
       needed_variables = set(['source'])
       for argument in args:
         for var in special_locals:
-          if ('${%s}' % var) in argument:
+          if '${%s}' % var in argument:
             needed_variables.add(var)
 
       def cygwin_munge(path):
+        # pylint: disable=cell-var-from-loop
         if is_cygwin:
           return path.replace('\\', '/')
         return path
@@ -757,15 +762,66 @@ class NinjaWriter:
 
   def WriteMacBundleResources(self, resources, bundle_depends):
     """Writes ninja edges for 'mac_bundle_resources'."""
+    xcassets = []
     for output, res in gyp.xcode_emulation.GetMacBundleResources(
         generator_default_variables['PRODUCT_DIR'],
         self.xcode_settings, map(self.GypPathToNinja, resources)):
       output = self.ExpandSpecial(output)
-      self.ninja.build(output, 'mac_tool', res,
-                       variables=[('mactool_cmd', 'copy-bundle-resource')])
-      bundle_depends.append(output)
+      if os.path.splitext(output)[-1] != '.xcassets':
+        self.ninja.build(output, 'mac_tool', res,
+                         variables=[('mactool_cmd', 'copy-bundle-resource')])
+        bundle_depends.append(output)
+      else:
+        xcassets.append(res)
+    return xcassets
 
-  def WriteMacInfoPlist(self, bundle_depends):
+  def WriteMacXCassets(self, xcassets, bundle_depends):
+    """Writes ninja edges for 'mac_bundle_resources' .xcassets files.
+
+    This add an invocation of 'actool' via the 'mac_tool.py' helper script.
+    It assumes that the assets catalogs define at least one imageset and
+    thus an Assets.car file will be generated in the application resources
+    directory. If this is not the case, then the build will probably be done
+    at each invocation of ninja."""
+    if not xcassets:
+      return
+
+    extra_arguments = {}
+    settings_to_arg = {
+        'XCASSETS_APP_ICON': 'app-icon',
+        'XCASSETS_LAUNCH_IMAGE': 'launch-image',
+    }
+    settings = self.xcode_settings.xcode_settings[self.config_name]
+    for settings_key, arg_name in settings_to_arg.iteritems():
+      value = settings.get(settings_key)
+      if value:
+        extra_arguments[arg_name] = value
+
+    partial_info_plist = None
+    if extra_arguments:
+      partial_info_plist = self.GypPathToUniqueOutput(
+          'assetcatalog_generated_info.plist')
+      extra_arguments['output-partial-info-plist'] = partial_info_plist
+
+    outputs = []
+    outputs.append(
+        os.path.join(
+            self.xcode_settings.GetBundleResourceFolder(),
+            'Assets.car'))
+    if partial_info_plist:
+      outputs.append(partial_info_plist)
+
+    keys = QuoteShellArgument(json.dumps(extra_arguments), self.flavor)
+    extra_env = self.xcode_settings.GetPerTargetSettings()
+    env = self.GetSortedXcodeEnv(additional_settings=extra_env)
+    env = self.ComputeExportEnvString(env)
+
+    bundle_depends.extend(self.ninja.build(
+        outputs, 'compile_xcassets', xcassets,
+        variables=[('env', env), ('keys', keys)]))
+    return partial_info_plist
+
+  def WriteMacInfoPlist(self, partial_info_plist, bundle_depends):
     """Write build rules for bundle Info.plist files."""
     info_plist, out, defines, extra_env = gyp.xcode_emulation.GetMacInfoPlist(
         generator_default_variables['PRODUCT_DIR'],
@@ -785,6 +841,12 @@ class NinjaWriter:
     env = self.GetSortedXcodeEnv(additional_settings=extra_env)
     env = self.ComputeExportEnvString(env)
 
+    if partial_info_plist:
+      intermediate_plist = self.GypPathToUniqueOutput('merged_info.plist')
+      info_plist = self.ninja.build(
+          intermediate_plist, 'merge_infoplist',
+          [partial_info_plist, info_plist])
+
     keys = self.xcode_settings.GetExtraPlistItems(self.config_name)
     keys = QuoteShellArgument(json.dumps(keys), self.flavor)
     self.ninja.build(out, 'copy_infoplist', info_plist,
@@ -800,6 +862,8 @@ class NinjaWriter:
       self.ninja.variable('cxx', '$cxx_host')
       self.ninja.variable('ld', '$ld_host')
       self.ninja.variable('ldxx', '$ldxx_host')
+      self.ninja.variable('nm', '$nm_host')
+      self.ninja.variable('readelf', '$readelf_host')
 
     if self.flavor != 'mac' or len(self.archs) == 1:
       return self.WriteSourcesForArch(
@@ -876,6 +940,14 @@ class NinjaWriter:
     self.WriteVariableList(ninja_file, 'includes',
         [QuoteShellArgument('-I' + self.GypPathToNinja(i, env), self.flavor)
          for i in include_dirs])
+
+    if self.flavor == 'win':
+      midl_include_dirs = config.get('midl_include_dirs', [])
+      midl_include_dirs = self.msvs_settings.AdjustMidlIncludeDirs(
+          midl_include_dirs, config_name)
+      self.WriteVariableList(ninja_file, 'midl_includes',
+          [QuoteShellArgument('-I' + self.GypPathToNinja(i, env), self.flavor)
+           for i in midl_include_dirs])
 
     pch_commands = precompiled_header.GetPchBuildCommands(arch)
     if self.flavor == 'mac':
@@ -985,9 +1057,19 @@ class NinjaWriter:
                                       arch=arch)
                 for arch in self.archs]
       extra_bindings = []
+      build_output = output
       if not self.is_mac_bundle:
         self.AppendPostbuildVariable(extra_bindings, spec, output, output)
-      self.ninja.build(output, 'lipo', inputs, variables=extra_bindings)
+
+      # TODO(yyanagisawa): more work needed to fix:
+      # https://code.google.com/p/gyp/issues/detail?id=411
+      if (spec['type'] in ('shared_library', 'loadable_module') and
+          not self.is_mac_bundle):
+        extra_bindings.append(('lib', output))
+        self.ninja.build([output, output + '.TOC'], 'solipo', inputs,
+            variables=extra_bindings)
+      else:
+        self.ninja.build(build_output, 'lipo', inputs, variables=extra_bindings)
       return output
 
   def WriteLinkForArch(self, ninja_file, spec, config_name, config,
@@ -1080,7 +1162,7 @@ class NinjaWriter:
         rpath = 'lib/'
         if self.toolset != 'target':
           rpath += self.toolset
-        ldflags.append('-Wl,-rpath=\$$ORIGIN/%s' % rpath)
+        ldflags.append(r'-Wl,-rpath=\$$ORIGIN/%s' % rpath)
         ldflags.append('-Wl,-rpath-link=%s' % rpath)
     self.WriteVariableList(ninja_file, 'ldflags',
                            gyp.common.uniquer(map(self.ExpandSpecial, ldflags)))
@@ -1424,7 +1506,7 @@ class NinjaWriter:
       values = []
     ninja_file.variable(var, ' '.join(values))
 
-  def WriteNewNinjaRule(self, name, args, description, is_cygwin, env):
+  def WriteNewNinjaRule(self, name, args, description, is_cygwin, env, pool):
     """Write out a new ninja "rule" statement for a given command.
 
     Returns the name of the new rule, and a copy of |args| with variables
@@ -1482,7 +1564,7 @@ class NinjaWriter:
     # GYP rules/actions express being no-ops by not touching their outputs.
     # Avoid executing downstream dependencies in this case by specifying
     # restat=1 to ninja.
-    self.ninja.rule(rule_name, command, description, restat=True,
+    self.ninja.rule(rule_name, command, description, restat=True, pool=pool,
                     rspfile=rspfile, rspfile_content=rspfile_content)
     self.ninja.newline()
 
@@ -1513,12 +1595,13 @@ def CalculateVariables(default_variables, params):
     generator_extra_sources_for_rules = getattr(xcode_generator,
         'generator_extra_sources_for_rules', [])
   elif flavor == 'win':
+    exts = gyp.MSVSUtil.TARGET_TYPE_EXT
     default_variables.setdefault('OS', 'win')
-    default_variables['EXECUTABLE_SUFFIX'] = '.exe'
+    default_variables['EXECUTABLE_SUFFIX'] = '.' + exts['executable']
     default_variables['STATIC_LIB_PREFIX'] = ''
-    default_variables['STATIC_LIB_SUFFIX'] = '.lib'
+    default_variables['STATIC_LIB_SUFFIX'] = '.' + exts['static_library']
     default_variables['SHARED_LIB_PREFIX'] = ''
-    default_variables['SHARED_LIB_SUFFIX'] = '.dll'
+    default_variables['SHARED_LIB_SUFFIX'] = '.' + exts['shared_library']
 
     # Copy additional generator configuration data from VS, which is shared
     # by the Windows Ninja generator.
@@ -1582,6 +1665,10 @@ def CommandWithWrapper(cmd, wrappers, prog):
 
 def GetDefaultConcurrentLinks():
   """Returns a best-guess for a number of concurrent links."""
+  pool_size = int(os.getenv('GYP_LINK_CONCURRENCY', 0))
+  if pool_size:
+    return pool_size
+
   if sys.platform in ('win32', 'cygwin'):
     import ctypes
 
@@ -1711,14 +1798,15 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
   #   'CC_host'/'CXX_host' enviroment variable, cc_host/cxx_host should be set
   #   to cc/cxx.
   if flavor == 'win':
-    # Overridden by local arch choice in the use_deps case.
-    # Chromium's ffmpeg c99conv.py currently looks for a 'cc =' line in
-    # build.ninja so needs something valid here. http://crbug.com/233985
-    cc = 'cl.exe'
-    cxx = 'cl.exe'
+    ar = 'lib.exe'
+    # cc and cxx must be set to the correct architecture by overriding with one
+    # of cl_x86 or cl_x64 below.
+    cc = 'UNSET'
+    cxx = 'UNSET'
     ld = 'link.exe'
     ld_host = '$ld'
   else:
+    ar = 'ar'
     cc = 'cc'
     cxx = 'c++'
     ld = '$cc'
@@ -1726,11 +1814,16 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
     ld_host = '$cc_host'
     ldxx_host = '$cxx_host'
 
+  ar_host = 'ar'
   cc_host = None
   cxx_host = None
   cc_host_global_setting = None
   cxx_host_global_setting = None
   clang_cl = None
+  nm = 'nm'
+  nm_host = 'nm'
+  readelf = 'readelf'
+  readelf_host = 'readelf'
 
   build_file, _, _ = gyp.common.ParseQualifiedTarget(target_list[0])
   make_global_settings = data[build_file].get('make_global_settings', [])
@@ -1738,6 +1831,10 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
                                                 options.toplevel_dir)
   wrappers = {}
   for key, value in make_global_settings:
+    if key == 'AR':
+      ar = os.path.join(build_to_root, value)
+    if key == 'AR.host':
+      ar_host = os.path.join(build_to_root, value)
     if key == 'CC':
       cc = os.path.join(build_to_root, value)
       if cc.endswith('clang-cl'):
@@ -1750,6 +1847,18 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
     if key == 'CXX.host':
       cxx_host = os.path.join(build_to_root, value)
       cxx_host_global_setting = value
+    if key == 'LD':
+      ld = os.path.join(build_to_root, value)
+    if key == 'LD.host':
+      ld_host = os.path.join(build_to_root, value)
+    if key == 'NM':
+      nm = os.path.join(build_to_root, value)
+    if key == 'NM.host':
+      nm_host = os.path.join(build_to_root, value)
+    if key == 'READELF':
+      readelf = os.path.join(build_to_root, value)
+    if key == 'READELF.host':
+      readelf_host = os.path.join(build_to_root, value)
     if key.endswith('_wrapper'):
       wrappers[key[:-len('_wrapper')]] = os.path.join(build_to_root, value)
 
@@ -1761,8 +1870,15 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
       wrappers[key_prefix] = os.path.join(build_to_root, value)
 
   if flavor == 'win':
+    configs = [target_dicts[qualified_target]['configurations'][config_name]
+               for qualified_target in target_list]
+    shared_system_includes = None
+    if not generator_flags.get('ninja_use_custom_environment_files', 0):
+      shared_system_includes = \
+          gyp.msvs_emulation.ExtractSharedMSVSSystemIncludes(
+              configs, generator_flags)
     cl_paths = gyp.msvs_emulation.GenerateEnvironmentFiles(
-        toplevel_build, generator_flags, OpenOutput)
+        toplevel_build, generator_flags, shared_system_includes, OpenOutput)
     for arch, path in cl_paths.iteritems():
       if clang_cl:
         # If we have selected clang-cl, use that instead.
@@ -1782,14 +1898,21 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
   if flavor == 'win':
     master_ninja.variable('ld', ld)
     master_ninja.variable('idl', 'midl.exe')
-    master_ninja.variable('ar', 'lib.exe')
+    master_ninja.variable('ar', ar)
     master_ninja.variable('rc', 'rc.exe')
     master_ninja.variable('asm', 'ml.exe')
     master_ninja.variable('mt', 'mt.exe')
   else:
     master_ninja.variable('ld', CommandWithWrapper('LINK', wrappers, ld))
     master_ninja.variable('ldxx', CommandWithWrapper('LINK', wrappers, ldxx))
-    master_ninja.variable('ar', GetEnvironFallback(['AR_target', 'AR'], 'ar'))
+    master_ninja.variable('ar', GetEnvironFallback(['AR_target', 'AR'], ar))
+    if flavor != 'mac':
+      # Mac does not use readelf/nm for .TOC generation, so avoiding polluting
+      # the master ninja with extra unused variables.
+      master_ninja.variable(
+          'nm', GetEnvironFallback(['NM_target', 'NM'], nm))
+      master_ninja.variable(
+          'readelf', GetEnvironFallback(['READELF_target', 'READELF'], readelf))
 
   if generator_supports_multiple_toolsets:
     if not cc_host:
@@ -1797,7 +1920,10 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
     if not cxx_host:
       cxx_host = cxx
 
-    master_ninja.variable('ar_host', GetEnvironFallback(['AR_host'], 'ar'))
+    master_ninja.variable('ar_host', GetEnvironFallback(['AR_host'], ar_host))
+    master_ninja.variable('nm_host', GetEnvironFallback(['NM_host'], nm_host))
+    master_ninja.variable('readelf_host',
+                          GetEnvironFallback(['READELF_host'], readelf_host))
     cc_host = GetEnvironFallback(['CC_host'], cc_host)
     cxx_host = GetEnvironFallback(['CXX_host'], cxx_host)
 
@@ -1880,7 +2006,7 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
       description='IDL $in',
       command=('%s gyp-win-tool midl-wrapper $arch $outdir '
                '$tlb $h $dlldata $iid $proxy $in '
-               '$idlflags' % sys.executable))
+               '$midl_includes $idlflags' % sys.executable))
     master_ninja.rule(
       'rc',
       description='RC $in',
@@ -1919,8 +2045,8 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
         % { 'solink':
               '$ld -shared $ldflags -o $lib -Wl,-soname=$soname %(suffix)s',
             'extract_toc':
-              ('{ readelf -d $lib | grep SONAME ; '
-               'nm -gD -f p $lib | cut -f1-2 -d\' \'; }')})
+              ('{ $readelf -d $lib | grep SONAME ; '
+               '$nm -gD -f p $lib | cut -f1-2 -d\' \'; }')})
 
     master_ninja.rule(
       'solink',
@@ -1937,13 +2063,13 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
       restat=True,
       command=mtime_preserving_solink_base % {'suffix': '@$link_file_list'},
       rspfile='$link_file_list',
-      rspfile_content='-Wl,--start-group $in $solibs -Wl,--end-group $libs',
+      rspfile_content='-Wl,--start-group $in -Wl,--end-group $solibs $libs',
       pool='link_pool')
     master_ninja.rule(
       'link',
       description='LINK $out',
       command=('$ld $ldflags -o $out '
-               '-Wl,--start-group $in $solibs -Wl,--end-group $libs'),
+               '-Wl,--start-group $in -Wl,--end-group $solibs $libs'),
       pool='link_pool')
   elif flavor == 'win':
     master_ninja.rule(
@@ -1982,6 +2108,16 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
       'lipo',
       description='LIPO $out, POSTBUILDS',
       command='rm -f $out && lipo -create $in -output $out$postbuilds')
+    master_ninja.rule(
+      'solipo',
+      description='SOLIPO $out, POSTBUILDS',
+      command=(
+          'rm -f $lib $lib.TOC && lipo -create $in -output $lib$postbuilds &&'
+          '%(extract_toc)s > $lib.TOC'
+          % { 'extract_toc':
+                '{ otool -l $lib | grep LC_ID_DYLIB -A 5; '
+                'nm -gP $lib | cut -f1-2 -d\' \' | grep -v U$$; true; }'}))
+
 
     # Record the public interface of $lib in $lib.TOC. See the corresponding
     # comment in the posix section above for details.
@@ -2058,6 +2194,14 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
       description='COPY INFOPLIST $in',
       command='$env ./gyp-mac-tool copy-info-plist $in $out $keys')
     master_ninja.rule(
+      'merge_infoplist',
+      description='MERGE INFOPLISTS $in',
+      command='$env ./gyp-mac-tool merge-info-plist $out $in')
+    master_ninja.rule(
+      'compile_xcassets',
+      description='COMPILE XCASSETS $in',
+      command='$env ./gyp-mac-tool compile-xcassets $keys $in')
+    master_ninja.rule(
       'mac_tool',
       description='MACTOOL $mactool_cmd $in',
       command='$env ./gyp-mac-tool $mactool_cmd $in $out')
@@ -2100,6 +2244,15 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
   # objects.
   target_short_names = {}
 
+  # short name of targets that were skipped because they didn't contain anything
+  # interesting.
+  # NOTE: there may be overlap between this an non_empty_target_names.
+  empty_target_names = set()
+
+  # Set of non-empty short target names.
+  # NOTE: there may be overlap between this an empty_target_names.
+  non_empty_target_names = set()
+
   for qualified_target in target_list:
     # qualified_target is like: third_party/icu/icu.gyp:icui18n#target
     build_file, name, toolset = \
@@ -2116,6 +2269,10 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
 
     build_file = gyp.common.RelativePath(build_file, options.toplevel_dir)
 
+    qualified_target_for_hash = gyp.common.QualifiedTarget(build_file, name,
+                                                           toolset)
+    hash_for_rules = hashlib.md5(qualified_target_for_hash).hexdigest()
+
     base_path = os.path.dirname(build_file)
     obj = 'obj'
     if toolset != 'target':
@@ -2123,7 +2280,7 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
     output_file = os.path.join(obj, base_path, name + '.ninja')
 
     ninja_output = StringIO()
-    writer = NinjaWriter(qualified_target, target_outputs, base_path, build_dir,
+    writer = NinjaWriter(hash_for_rules, target_outputs, base_path, build_dir,
                          ninja_output,
                          toplevel_build, output_file,
                          flavor, toplevel_dir=options.toplevel_dir)
@@ -2143,6 +2300,9 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
       target_outputs[qualified_target] = target
       if qualified_target in all_targets:
         all_outputs.add(target.FinalOutput())
+      non_empty_target_names.add(name)
+    else:
+      empty_target_names.add(name)
 
   if target_short_names:
     # Write a short name to build this target.  This benefits both the
@@ -2153,6 +2313,16 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
     for short_name in target_short_names:
       master_ninja.build(short_name, 'phony', [x.FinalOutput() for x in
                                                target_short_names[short_name]])
+
+  # Write phony targets for any empty targets that weren't written yet. As
+  # short names are  not necessarily unique only do this for short names that
+  # haven't already been output for another target.
+  empty_target_names = empty_target_names - non_empty_target_names
+  if empty_target_names:
+    master_ninja.newline()
+    master_ninja.comment('Empty targets (output for completeness).')
+    for name in sorted(empty_target_names):
+      master_ninja.build(name, 'phony')
 
   if all_outputs:
     master_ninja.newline()

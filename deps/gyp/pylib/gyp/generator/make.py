@@ -29,6 +29,7 @@ import gyp
 import gyp.common
 import gyp.xcode_emulation
 from gyp.common import GetEnvironFallback
+from gyp.common import GypError
 
 generator_default_variables = {
   'EXECUTABLE_PREFIX': '',
@@ -141,7 +142,7 @@ cmd_alink_thin = rm -f $@ && $(AR.$(TOOLSET)) crsT $@ $(filter %.o,$^)
 # special "figure out circular dependencies" flags around the entire
 # input list during linking.
 quiet_cmd_link = LINK($(TOOLSET)) $@
-cmd_link = $(LINK.$(TOOLSET)) -Wl,--start-group $(GYP_LDFLAGS) $(LDFLAGS.$(TOOLSET)) -o $@ $(LD_INPUTS) -Wl,--end-group $(LIBS)
+cmd_link = $(LINK.$(TOOLSET)) $(GYP_LDFLAGS) $(LDFLAGS.$(TOOLSET)) -o $@ -Wl,--start-group $(LD_INPUTS) -Wl,--end-group $(LIBS)
 
 # We support two kinds of shared objects (.so):
 # 1) shared_library, which is just bundling together many dependent libraries
@@ -631,6 +632,38 @@ def QuoteSpaces(s, quote=r'\ '):
   return s.replace(' ', quote)
 
 
+# TODO: Avoid code duplication with _ValidateSourcesForMSVSProject in msvs.py.
+def _ValidateSourcesForOSX(spec, all_sources):
+  """Makes sure if duplicate basenames are not specified in the source list.
+
+  Arguments:
+    spec: The target dictionary containing the properties of the target.
+  """
+  if spec.get('type', None) != 'static_library':
+    return
+
+  basenames = {}
+  for source in all_sources:
+    name, ext = os.path.splitext(source)
+    is_compiled_file = ext in [
+        '.c', '.cc', '.cpp', '.cxx', '.m', '.mm', '.s', '.S']
+    if not is_compiled_file:
+      continue
+    basename = os.path.basename(name)  # Don't include extension.
+    basenames.setdefault(basename, []).append(source)
+
+  error = ''
+  for basename, files in basenames.iteritems():
+    if len(files) > 1:
+      error += '  %s: %s\n' % (basename, ' '.join(files))
+
+  if error:
+    print('static library %s has several files with the same basename:\n' %
+          spec['target_name'] + error + 'libtool on OS X will generate' +
+          ' warnings for them.')
+    raise GypError('Duplicate basenames in sources section, see list above')
+
+
 # Map from qualified target to path to output.
 target_outputs = {}
 # Map from qualified target to any linkable output.  A subset
@@ -640,7 +673,7 @@ target_outputs = {}
 target_link_deps = {}
 
 
-class MakefileWriter:
+class MakefileWriter(object):
   """MakefileWriter packages up the writing of one target-specific foobar.mk.
 
   Its only real entry point is Write(), and is mostly used for namespacing.
@@ -758,6 +791,10 @@ $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(obj)/%%%s FORCE_DO_CMD
     # Sources.
     all_sources = spec.get('sources', []) + extra_sources
     if all_sources:
+      if self.flavor == 'mac':
+        # libtool on OS X generates warnings for duplicate basenames in the same
+        # target.
+        _ValidateSourcesForOSX(spec, all_sources)
       self.WriteSources(
           configs, deps, all_sources, extra_outputs,
           extra_link_deps, part_of_all,
@@ -1101,9 +1138,12 @@ $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(obj)/%%%s FORCE_DO_CMD
     for output, res in gyp.xcode_emulation.GetMacBundleResources(
         generator_default_variables['PRODUCT_DIR'], self.xcode_settings,
         map(Sourceify, map(self.Absolutify, resources))):
-      self.WriteDoCmd([output], [res], 'mac_tool,,,copy-bundle-resource',
-                      part_of_all=True)
-      bundle_deps.append(output)
+      _, ext = os.path.splitext(output)
+      if ext != '.xcassets':
+        # Make does not supports '.xcassets' emulation.
+        self.WriteDoCmd([output], [res], 'mac_tool,,,copy-bundle-resource',
+                        part_of_all=True)
+        bundle_deps.append(output)
 
 
   def WriteMacInfoPlist(self, bundle_deps):
@@ -1447,8 +1487,7 @@ $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(obj)/%%%s FORCE_DO_CMD
       libraries = spec.get('libraries')
       if libraries:
         # Remove duplicate entries
-        # Commented out due to https://code.google.com/p/gyp/issues/detail?id=419
-        # libraries = gyp.common.uniquer(libraries)
+        libraries = gyp.common.uniquer(libraries)
         if self.flavor == 'mac':
           libraries = self.xcode_settings.AdjustLibraries(libraries)
       self.WriteList(libraries, 'LIBS')

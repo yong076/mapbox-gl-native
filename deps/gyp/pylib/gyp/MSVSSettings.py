@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Code to validate and convert settings of the Microsoft build tools.
+r"""Code to validate and convert settings of the Microsoft build tools.
 
 This file contains code to validate and convert settings of the Microsoft
 build tools.  The function ConvertToMSBuildSettings(), ValidateMSVSSettings(),
@@ -417,11 +417,11 @@ def ConvertVCMacrosToMSBuild(s):
   if '$' in s:
     replace_map = {
         '$(ConfigurationName)': '$(Configuration)',
-        '$(InputDir)': '%(RootDir)%(Directory)',
+        '$(InputDir)': '%(RelativeDir)',
         '$(InputExt)': '%(Extension)',
         '$(InputFileName)': '%(Filename)%(Extension)',
         '$(InputName)': '%(Filename)',
-        '$(InputPath)': '%(FullPath)',
+        '$(InputPath)': '%(Identity)',
         '$(ParentName)': '$(ProjectFileName)',
         '$(PlatformName)': '$(Platform)',
         '$(SafeInputName)': '%(Filename)',
@@ -602,7 +602,8 @@ _Same(_compile, 'BrowseInformation',
 _Same(_compile, 'CallingConvention',
       _Enumeration(['Cdecl',  # /Gd
                     'FastCall',  # /Gr
-                    'StdCall']))  # /Gz
+                    'StdCall',  # /Gz
+                    'VectorCall']))  # /Gv
 _Same(_compile, 'CompileAs',
       _Enumeration(['Default',
                     'CompileAsC',  # /TC
