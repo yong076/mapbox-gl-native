@@ -1161,7 +1161,7 @@ public class MapView extends SurfaceView {
     //
 
     public interface OnMapChangedListener {
-        void onMapChanged();
+        void onMapChanged(int change);
     }
 
     private OnMapChangedListener mOnMapChangedListener;
@@ -1174,12 +1174,14 @@ public class MapView extends SurfaceView {
     // Called when the map view transformation has changed
     // Called via JNI from NativeMapView
     // Need to update anything that relies on map state
-    protected void onMapChanged() {
+    protected void onMapChanged(final int change) {
+        Log.v(TAG, "onMapChanged: " + change);
+
         if (mOnMapChangedListener != null) {
             post(new Runnable() {
                 @Override
                 public void run() {
-                    mOnMapChangedListener.onMapChanged();
+                    mOnMapChangedListener.onMapChanged(change);
                 }
             });
         }

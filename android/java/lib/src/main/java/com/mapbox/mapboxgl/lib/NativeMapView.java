@@ -394,8 +394,8 @@ class NativeMapView {
     // Callbacks
     //
 
-    protected void onMapChanged() {
-        mMapView.onMapChanged();
+    protected void onMapChanged(int change) {
+        mMapView.onMapChanged(change);
     }
 
     protected void onFpsChanged(double fps) {

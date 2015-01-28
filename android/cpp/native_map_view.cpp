@@ -718,7 +718,7 @@ void NativeMapView::resume() {
     }
 }
 
-void NativeMapView::notifyMapChange(mbgl::MapChange, mbgl::timestamp) {
+void NativeMapView::notifyMapChange(mbgl::MapChange change, mbgl::timestamp) {
     mbgl::Log::Debug(mbgl::Event::Android, "NativeMapView::notifyMapChange()");
 
     assert(vm != nullptr);
@@ -744,7 +744,7 @@ void NativeMapView::notifyMapChange(mbgl::MapChange, mbgl::timestamp) {
         }
     }
 
-    env->CallVoidMethod(obj, onMapChangedId);
+    env->CallVoidMethod(obj, onMapChangedId, static_cast<jint>(change));
     if (env->ExceptionCheck()) {
         env->ExceptionDescribe();
     }

@@ -7,6 +7,8 @@ namespace mbgl {
 
 class Map;
 
+// NOTE: If you change this you will need to update
+// Android Java com.mapbox.mapboxgl.lib.MapChange
 enum MapChange : uint8_t {
     MapChangeRegionWillChange = 0,
     MapChangeRegionWillChangeAnimated = 1,

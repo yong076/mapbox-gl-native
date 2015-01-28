@@ -254,7 +254,7 @@ public class MainActivity extends ActionBarActivity {
     public class MyOnMapChangedListener implements MapView.OnMapChangedListener {
 
         @Override
-        public void onMapChanged() {
+        public void onMapChanged(int change) {
             mCompassView.setRotation((float)mMapFragment.getMap().getDirection());
         }
     }
