@@ -12,7 +12,11 @@ export MASON_PLATFORM=android
 mkdir ./android/java/MapboxGLAndroidSDKTestApp/src/main/res/raw/
 echo "${MAPBOX_ACCESS_TOKEN}" >> ./android/java/MapboxGLAndroidSDKTestApp/src/main/res/raw/token.txt
 
-make android -j$JOBS BUILDTYPE=$BUILDTYPE JOBS=$JOBS
+if [ $BUILDTYPE = "Release" ]; then
+	make android-deploy -j$JOBS BUILDTYPE=$BUILDTYPE JOBS=$JOBS
+else
+	make android -j$JOBS BUILDTYPE=$BUILDTYPE JOBS=$JOBS
+fi
 
 aws s3 cp ./android/java/MapboxGLAndroidSDKTestApp/build/outputs/apk/MapboxGLAndroidSDKTestApp-debug.apk s3://mapbox-gl-testing/android/${NAME}/MapboxGLAndroidSDKTestApp-debug.apk
 aws s3 cp ./android/java/MapboxGLAndroidSDKTestApp/build/outputs/apk/MapboxGLAndroidSDKTestApp-release-unsigned.apk s3://mapbox-gl-testing/android/${NAME}/MapboxGLAndroidSDKTestApp-release-unsigned.apk
