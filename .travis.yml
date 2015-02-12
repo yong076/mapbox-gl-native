@@ -56,7 +56,9 @@ env:
    # end iOS code signing
    # begin Android publishing
    - secure: "llM/mEsd6egU/Piq2tmeXbifoF5JAKh3qm5wdX0JqA1sa6/ZClFWPjtv/oBjVju3WHumUBi4lv+95Kf88/IjFDScI0QLEWu9ATRLSuL+gD5mW4VFkGpM4RrHUgdePyFuEZmlH4gZRWqNaJw4krprJoGK8CsRh80k6eEBCVg/+Jg="
-   - secure: "OQ+xCKwlaBnIbfby+6voSXS8D++FWCmevVstwI70izd/nhG+al3A5w8U6TmWvDWXcMDjgenozT3qmL4UucreWi6VsAVwgbBw0J39840MVRRuxhCt5SLGJiwQG4XLFeIAOmTc+NvXBJtpnp+WIYD3U8sfdUR3RGOAqkmGQnAave0="   
+   - secure: "OQ+xCKwlaBnIbfby+6voSXS8D++FWCmevVstwI70izd/nhG+al3A5w8U6TmWvDWXcMDjgenozT3qmL4UucreWi6VsAVwgbBw0J39840MVRRuxhCt5SLGJiwQG4XLFeIAOmTc+NvXBJtpnp+WIYD3U8sfdUR3RGOAqkmGQnAave0="
+   - secure: "WAAo3GBKfNxj5v1Y5GyU5xcnO9kd8k4litX1Bdb+e43IR5M4QdvL+cN+72iTjlDdu6oWCxXm++ZS/lIZCXTlS8nlshHqUWSoPTutWRlyLS52xVIjwZJXjs99q+V2gXiuLzQy+P7s3zWXL1GZiy06qR0SjHZBBAX1iktV8uaK/LI="   
+   - secure: "RjxLQWKLp7MgSJQl0erwLP6+xRQK35PZCPEpDkScvZv/NfW6FLNBxA0bKcfvFyYMtJoxvPAxjPOgVBtDEejxUVFJqrb6+YswNVi9hUWVHyJcigzHf4HY24D1AfY7eOIC4gOE6gkB8gcUngP6fa5ZE/nxne4pA0qE6m5qv0MkNio="
    # end Android publishing
 
 before_install:

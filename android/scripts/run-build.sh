@@ -35,6 +35,10 @@ user_data="#!/bin/bash
     export TESTMUNK=$TESTMUNK
     export MASON_ANDROID_ABI=$MASON_ANDROID_ABI
     export ANDROID_ABI=$MASON_ANDROID_ABI
+    export NEXUS_USERNAME=$SONATYPE_USERNAME
+    export NEXUS_PASSWORD=$SONATYPE_PASSWORD
+    export signing.keyId=$SIGNING_KEYID
+    export signing.password=$SIGNING_PASSWORD
 
     if ./android/scripts/build-$CONFIG.sh $NAME &>../build.log; then
         echo 'ANDROID BUILD PASSED'
