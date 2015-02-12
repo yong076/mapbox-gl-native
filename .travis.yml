@@ -54,6 +54,10 @@ env:
    - IOS_PROFILE_NAME="ios-in-house"
    - secure: "nQqSM8rd7OHtV4MqmNqVnkrVHqxKqQsaWRYk4/nPdhbeVWtTtkk0df711LrF1TUtbEPEewHxYUvTZ/UXmwJNeoKdzTHavI8hnatRkgjyxGERPn1il1Otelht9I+LQQHf+plrpRjVWBrNIW0Zox1B3cqn6d3NglpbXrEQ2EjYGNA="
    # end iOS code signing
+   # begin Android publishing
+   - secure: "llM/mEsd6egU/Piq2tmeXbifoF5JAKh3qm5wdX0JqA1sa6/ZClFWPjtv/oBjVju3WHumUBi4lv+95Kf88/IjFDScI0QLEWu9ATRLSuL+gD5mW4VFkGpM4RrHUgdePyFuEZmlH4gZRWqNaJw4krprJoGK8CsRh80k6eEBCVg/+Jg="
+   - secure: "OQ+xCKwlaBnIbfby+6voSXS8D++FWCmevVstwI70izd/nhG+al3A5w8U6TmWvDWXcMDjgenozT3qmL4UucreWi6VsAVwgbBw0J39840MVRRuxhCt5SLGJiwQG4XLFeIAOmTc+NvXBJtpnp+WIYD3U8sfdUR3RGOAqkmGQnAave0="   
+   # end Android publishing
 
 before_install:
 - if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then sudo service mysql stop; fi
