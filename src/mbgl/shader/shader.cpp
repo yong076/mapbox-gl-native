@@ -8,6 +8,7 @@
 #include <cassert>
 #include <iostream>
 #include <fstream>
+#include <cstdio>
 
 using namespace mbgl;
 
@@ -19,85 +20,50 @@ Shader::Shader(const char *name_, const GLchar *vertSource, const GLchar *fragSo
 
     program = MBGL_CHECK_ERROR(glCreateProgram());
 
-    if (!mbgl::platform::defaultShaderCache().empty()) {
-        binaryFileName = mbgl::platform::defaultShaderCache() + name + ".bin";
-    }
-
-    // Load binary shader if it exists
-    bool skipCompile = false;
-    if (!binaryFileName.empty() && (gl::ProgramBinary != nullptr)) {
-        std::ifstream binaryFile(binaryFileName, std::ios::in | std::ios::binary);
-
-        GLsizei binaryLength;
-        GLenum binaryFormat;
-        binaryFile.read(reinterpret_cast<char *>(&binaryLength), sizeof(binaryLength));
-        binaryFile.read(reinterpret_cast<char *>(&binaryFormat), sizeof(binaryFormat));
-
-        std::unique_ptr<char[]> binary = mbgl::util::make_unique<char[]>(binaryLength);
-        binaryFile.read(binary.get(), binaryLength);
-
-        MBGL_CHECK_ERROR(gl::ProgramBinary(program, binaryFormat, binary.get(), binaryLength));
-
-        // Check if the binary was valid
-        GLint status;
-        MBGL_CHECK_ERROR(glGetProgramiv(program, GL_LINK_STATUS, &status));
-        if (status == GL_TRUE) {
-            skipCompile = true;
-        }
-
-        binaryFile.close();
-    }
-
     GLuint vertShader = 0;
     GLuint fragShader = 0;
-    if (!skipCompile) {
-        if (!compileShader(&vertShader, GL_VERTEX_SHADER, vertSource)) {
-            Log::Error(Event::Shader, "Vertex shader %s failed to compile: %s", name, vertSource);
-            MBGL_CHECK_ERROR(glDeleteProgram(program));
-            program = 0;
-            return;
-        }
+    if (!compileShader(&vertShader, GL_VERTEX_SHADER, vertSource)) {
+        Log::Error(Event::Shader, "Vertex shader %s failed to compile: %s", name, vertSource);
+        MBGL_CHECK_ERROR(glDeleteProgram(program));
+        program = 0;
+        return;
+    }
 
-        if (!compileShader(&fragShader, GL_FRAGMENT_SHADER, fragSource)) {
-            Log::Error(Event::Shader, "Fragment shader %s failed to compile: %s", name, fragSource);
+    if (!compileShader(&fragShader, GL_FRAGMENT_SHADER, fragSource)) {
+        Log::Error(Event::Shader, "Fragment shader %s failed to compile: %s", name, fragSource);
+        MBGL_CHECK_ERROR(glDeleteShader(vertShader));
+        vertShader = 0;
+        MBGL_CHECK_ERROR(glDeleteProgram(program));
+        program = 0;
+        return;
+    }
+
+    // Attach shaders
+    MBGL_CHECK_ERROR(glAttachShader(program, vertShader));
+    MBGL_CHECK_ERROR(glAttachShader(program, fragShader));
+
+    {
+        // Link program
+        GLint status;
+        MBGL_CHECK_ERROR(glLinkProgram(program));
+
+        MBGL_CHECK_ERROR(glGetProgramiv(program, GL_LINK_STATUS, &status));
+        if (status == 0) {
+            GLint logLength;
+            MBGL_CHECK_ERROR(glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength));
+            if (logLength > 0) {
+                std::unique_ptr<GLchar[]> log = mbgl::util::make_unique<GLchar[]>(logLength);
+                MBGL_CHECK_ERROR(glGetProgramInfoLog(program, logLength, &logLength, log.get()));
+                Log::Error(Event::Shader, "Program failed to link: %s", log.get());
+            }
+
             MBGL_CHECK_ERROR(glDeleteShader(vertShader));
             vertShader = 0;
+            MBGL_CHECK_ERROR(glDeleteShader(fragShader));
+            fragShader = 0;
             MBGL_CHECK_ERROR(glDeleteProgram(program));
             program = 0;
             return;
-        }
-
-        // Attach shaders
-        MBGL_CHECK_ERROR(glAttachShader(program, vertShader));
-        MBGL_CHECK_ERROR(glAttachShader(program, fragShader));
-
-        {
-            if (!binaryFileName.empty() && (gl::ProgramParameteri != nullptr)) {
-                MBGL_CHECK_ERROR(gl::ProgramParameteri(program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE));
-            }
-
-            // Link program
-            GLint status;
-            MBGL_CHECK_ERROR(glLinkProgram(program));
-
-            MBGL_CHECK_ERROR(glGetProgramiv(program, GL_LINK_STATUS, &status));
-            if (status == 0) {
-                GLint logLength;
-                MBGL_CHECK_ERROR(glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength));
-                if (logLength > 0) {
-                    std::unique_ptr<GLchar[]> log = mbgl::util::make_unique<GLchar[]>(logLength);
-                    MBGL_CHECK_ERROR(glGetProgramInfoLog(program, logLength, &logLength, log.get()));
-                    Log::Error(Event::Shader, "Program failed to link: %s", log.get());
-                }
-
-                MBGL_CHECK_ERROR(glDeleteShader(vertShader));
-                vertShader = 0;
-                MBGL_CHECK_ERROR(glDeleteShader(fragShader));
-                fragShader = 0;
-                MBGL_CHECK_ERROR(glDeleteProgram(program));
-                program = 0;
-                return;
-            }
         }
     }
 
@@ -125,13 +91,11 @@ Shader::Shader(const char *name_, const GLchar *vertSource, const GLchar *fragSo
         }
     }
 
-    if (!skipCompile) {
-        // Remove the compiled shaders; they are now part of the program.
-        MBGL_CHECK_ERROR(glDetachShader(program, vertShader));
-        MBGL_CHECK_ERROR(glDeleteShader(vertShader));
-        MBGL_CHECK_ERROR(glDetachShader(program, fragShader));
-        MBGL_CHECK_ERROR(glDeleteShader(fragShader));
-    }
+    // Remove the compiled shaders; they are now part of the program.
+    MBGL_CHECK_ERROR(glDetachShader(program, vertShader));
+    MBGL_CHECK_ERROR(glDeleteShader(vertShader));
+    MBGL_CHECK_ERROR(glDetachShader(program, fragShader));
+    MBGL_CHECK_ERROR(glDeleteShader(fragShader));
 
     valid = true;
 }
@@ -142,7 +106,7 @@ bool Shader::compileShader(GLuint *shader, GLenum type, const GLchar *source) {
 
     *shader = MBGL_CHECK_ERROR(glCreateShader(type));
     const GLchar *strings[] = { source };
-    const GLsizei lengths[] = { (GLsizei)std::strlen(source) };
+    const GLsizei lengths[] = { static_cast<GLsizei>(std::strlen(source)) };
     MBGL_CHECK_ERROR(glShaderSource(*shader, 1, strings, lengths));
 
     MBGL_CHECK_ERROR(glCompileShader(*shader));
@@ -174,24 +138,6 @@ bool Shader::compileShader(GLuint *shader, GLenum type, const GLchar *source) {
 }
 
 Shader::~Shader() {
-    if (!binaryFileName.empty() && (gl::GetProgramBinary != nullptr)) {
-        // Retrieve the program binary
-        GLsizei binaryLength;
-        GLenum binaryFormat;
-        MBGL_CHECK_ERROR(glGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &binaryLength));
-        if (binaryLength > 0) {
-            std::unique_ptr<char[]> binary = mbgl::util::make_unique<char[]>(binaryLength);
-            MBGL_CHECK_ERROR(gl::GetProgramBinary(program, binaryLength, NULL, &binaryFormat, binary.get()));
-
-            // Write the binary to a file
-            std::ofstream binaryFile(binaryFileName, std::ios::out | std::ios::trunc | std::ios::binary);
-            binaryFile.write(reinterpret_cast<char *>(&binaryLength), sizeof(binaryLength));
-            binaryFile.write(reinterpret_cast<char *>(&binaryFormat), sizeof(binaryFormat));
-            binaryFile.write(binary.get(), binaryLength);
-            binaryFile.close();
-        }
-    }
-
     if (program) {
         MBGL_CHECK_ERROR(glDeleteProgram(program));
         program = 0;

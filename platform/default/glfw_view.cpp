@@ -58,13 +58,11 @@ void GLFWView::initialize(mbgl::Map *map_) {
 
     glfwSetWindowUserPointer(window, this);
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
 
     int width, height;
     glfwGetWindowSize(window, &width, &height);
-    int fbWidth, fbHeight;
-    glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
-
-    resize(window, 0, 0);
+    resize(window, width, height);
 
     glfwSetCursorPosCallback(window, mouseMove);
     glfwSetMouseButtonCallback(window, mouseClick);
@@ -151,18 +149,9 @@ void GLFWView::initialize(mbgl::Map *map_) {
             assert(gl::IsVertexArray != nullptr);
         }
 
-        if (extensions.find("GL_ARB_get_program_binary") != std::string::npos) {
-            GLint numBinaryFormats;
-            MBGL_CHECK_ERROR(glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &numBinaryFormats));
-            if (numBinaryFormats > 0) {
-                gl::GetProgramBinary = reinterpret_cast<gl::PFNGLGETPROGRAMBINARYPROC>(glfwGetProcAddress("glGetProgramBinary"));
-                gl::ProgramBinary = reinterpret_cast<gl::PFNGLPROGRAMBINARYPROC>(glfwGetProcAddress("glProgramBinary"));
-                gl::ProgramParameteri = reinterpret_cast<gl::PFNGLPROGRAMPARAMETERIPROC>(glfwGetProcAddress("glProgramParameteri"));
-                assert(gl::GetProgramBinary != nullptr);
-                assert(gl::ProgramBinary != nullptr);
-                assert(gl::ProgramParameteri != nullptr);
-            }
-        }
+        // Require packed depth stencil
+        gl::isPackedDepthStencilSupported = true;
+        gl::isDepth24Supported = true;
     }
 
     glfwMakeContextCurrent(nullptr);
@@ -185,8 +174,12 @@ void GLFWView::key(GLFWwindow *window, int key, int /*scancode*/, int action, in
             break;
         case GLFW_KEY_R:
             if (!mods) {
-                view->map->setDefaultTransitionDuration(300);
-                view->map->toggleClass("night");
+                view->map->setDefaultTransitionDuration(std::chrono::milliseconds(300));
+                if (view->map->hasClass("night")) {
+                    view->map->removeClass("night");
+                } else {
+                    view->map->addClass("night");
+                }
             }
             break;
         case GLFW_KEY_N:
@@ -246,9 +239,9 @@ void GLFWView::mouseClick(GLFWwindow *window, int button, int action, int modifi
             double now = glfwGetTime();
             if (now - view->lastClick < 0.4 /* ms */) {
                 if (modifiers & GLFW_MOD_SHIFT) {
-                    view->map->scaleBy(0.5, view->lastX, view->lastY, 0.5);
+                    view->map->scaleBy(0.5, view->lastX, view->lastY, std::chrono::milliseconds(500));
                 } else {
-                    view->map->scaleBy(2.0, view->lastX, view->lastY, 0.5);
+                    view->map->scaleBy(2.0, view->lastX, view->lastY, std::chrono::milliseconds(500));
                 }
             }
             view->lastClick = now;
@@ -277,18 +270,15 @@ int GLFWView::run() {
     map->start();
 
     while (!glfwWindowShouldClose(window)) {
-        if (map->needsSwap()) {
-            glfwSwapBuffers(window);
-            map->swapped();
-            fps();
-        }
-
         glfwWaitEvents();
     }
 
     map->stop([]() {
         glfwWaitEvents();
     });
+
+    // Terminate here to save binary shaders
+    map->terminate();
 
     return 0;
 }
@@ -306,10 +296,12 @@ void GLFWView::notify() {
 }
 
 void GLFWView::swap() {
-    glfwPostEmptyEvent();
+    glfwSwapBuffers(window);
+    map->swapped();
+    fps();
 }
 
-void GLFWView::notifyMapChange(mbgl::MapChange /*change*/, mbgl::timestamp /*delay*/) {
+void GLFWView::notifyMapChange(mbgl::MapChange /*change*/, std::chrono::steady_clock::duration /*delay*/) {
     // no-op
 }
 
@@ -387,9 +379,10 @@ void showColorDebugImage(std::string name, const char *data, size_t logicalWidth
     float xScale = static_cast<float>(fbWidth) / static_cast<float>(width);
     float yScale = static_cast<float>(fbHeight) / static_cast<float>(height);
 
+    MBGL_CHECK_ERROR(glClearColor(0.8, 0.8, 0.8, 1));
     MBGL_CHECK_ERROR(glClear(GL_COLOR_BUFFER_BIT));
     MBGL_CHECK_ERROR(glEnable(GL_BLEND));
-    MBGL_CHECK_ERROR(glBlendFunc(GL_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    MBGL_CHECK_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 
     MBGL_CHECK_ERROR(glPixelZoom(xScale, -yScale));
     MBGL_CHECK_ERROR(glRasterPos2f(-1.0f, 1.0f));

@@ -5,7 +5,6 @@
 #include <mbgl/renderer/painter.hpp>
 #include <mbgl/map/sprite.hpp>
 #include <mbgl/util/transition.hpp>
-#include <mbgl/util/time.hpp>
 #include <mbgl/util/math.hpp>
 #include <mbgl/util/clip_ids.hpp>
 #include <mbgl/util/string.hpp>
@@ -20,9 +19,12 @@
 #include <mbgl/style/style_bucket.hpp>
 #include <mbgl/util/texture_pool.hpp>
 #include <mbgl/geometry/sprite_atlas.hpp>
+#include <mbgl/geometry/line_atlas.hpp>
 #include <mbgl/storage/file_source.hpp>
 #include <mbgl/platform/log.hpp>
 #include <mbgl/util/string.hpp>
+#include <mbgl/util/uv.hpp>
+#include <mbgl/util/mapbox.hpp>
 #include <mbgl/util/geojsonvt.hpp>
 
 #include <algorithm>
@@ -53,44 +55,12 @@ const static bool uvVersionCheck = []() {
     return true;
 }();
 
-
-#include <zlib.h>
-// Check zlib library version.
-const static bool zlibVersionCheck = []() {
-    const char *const version = zlibVersion();
-    if (version[0] != ZLIB_VERSION[0]) {
-        throw std::runtime_error(mbgl::util::sprintf<96>(
-            "zlib version mismatch: headers report %s, but library reports %s", ZLIB_VERSION, version));
-    }
-
-    return true;
-}();
-
-
-#include <sqlite3.h>
-// Check sqlite3 library version.
-const static bool sqliteVersionCheck = []() {
-    if (sqlite3_libversion_number() != SQLITE_VERSION_NUMBER) {
-        throw std::runtime_error(mbgl::util::sprintf<96>(
-            "sqlite3 libversion mismatch: headers report %d, but library reports %d",
-            SQLITE_VERSION_NUMBER, sqlite3_libversion_number()));
-    }
-    if (strcmp(sqlite3_sourceid(), SQLITE_SOURCE_ID) != 0) {
-        throw std::runtime_error(mbgl::util::sprintf<256>(
-            "sqlite3 sourceid mismatch: headers report \"%s\", but library reports \"%s\"",
-            SQLITE_SOURCE_ID, sqlite3_sourceid()));
-    }
-
-    return true;
-}();
-
-
 using namespace mbgl;
 
 Map::Map(View& view_, FileSource& fileSource_, std::string featureJSON_)
     : loop(util::make_unique<uv::loop>()),
       view(view_),
-#ifndef NDEBUG
+#ifdef DEBUG
       mainThread(std::this_thread::get_id()),
       mapThread(mainThread),
 #endif
@@ -99,8 +69,9 @@ Map::Map(View& view_, FileSource& fileSource_, std::string featureJSON_)
       glyphAtlas(util::make_unique<GlyphAtlas>(1024, 1024)),
       glyphStore(std::make_shared<GlyphStore>(fileSource)),
       spriteAtlas(util::make_unique<SpriteAtlas>(512, 512)),
+      lineAtlas(util::make_unique<LineAtlas>(512, 512)),
       texturePool(std::make_shared<TexturePool>()),
-      painter(util::make_unique<Painter>(*spriteAtlas, *glyphAtlas))
+      painter(util::make_unique<Painter>(*spriteAtlas, *glyphAtlas, *lineAtlas))
 {
     view.initialize(this);
     // Make sure that we're doing an initial drawing in all cases.
@@ -135,13 +106,11 @@ Map::~Map() {
 }
 
 uv::worker &Map::getWorker() {
-    if (!workers) {
-        workers = util::make_unique<uv::worker>(**loop, 4, "Tile Worker");
-    }
+    assert(workers);
     return *workers;
 }
 
-void Map::start() {
+void Map::start(bool startPaused) {
     assert(std::this_thread::get_id() == mainThread);
     assert(mode == Mode::None);
 
@@ -161,7 +130,7 @@ void Map::start() {
         workers.reset();
         activeSources.clear();
 
-        fileSource.clearLoop();
+        terminating = true;
 
         // Closes all open handles on the loop. This means that the loop will automatically terminate.
         asyncRender.reset();
@@ -187,8 +156,13 @@ void Map::start() {
         }
     });
 
+    // Do we need to pause first?
+    if (startPaused) {
+        pause();
+    }
+
     thread = std::thread([this]() {
-#ifndef NDEBUG
+#ifdef DEBUG
         mapThread = std::this_thread::get_id();
 #endif
 
@@ -198,7 +172,7 @@ void Map::start() {
 
         run();
 
-#ifndef NDEBUG
+#ifdef DEBUG
         mapThread = std::thread::id();
 #endif
 
@@ -214,6 +188,8 @@ void Map::stop(std::function<void ()> callback) {
     assert(mode == Mode::Continuous);
 
     asyncTerminate->send();
+
+    resume();
 
     if (callback) {
         // Wait until the render thread stopped. We are using this construct instead of plainly
@@ -234,18 +210,63 @@ void Map::stop(std::function<void ()> callback) {
     mode = Mode::None;
 }
 
+void Map::pause(bool waitForPause) {
+    assert(std::this_thread::get_id() == mainThread);
+    assert(mode == Mode::Continuous);
+    mutexRun.lock();
+    pausing = true;
+    mutexRun.unlock();
+
+    uv_stop(**loop);
+    rerender(); // Needed to ensure uv_stop is seen and uv_run exits, otherwise we deadlock on wait_for_pause
+
+    if (waitForPause) {
+        std::unique_lock<std::mutex> lockPause (mutexPause);
+        while (!isPaused) {
+            condPause.wait(lockPause);
+        }
+    }
+}
+
+void Map::resume() {
+    assert(std::this_thread::get_id() == mainThread);
+    assert(mode == Mode::Continuous);
+
+    mutexRun.lock();
+    pausing = false;
+    condRun.notify_all();
+    mutexRun.unlock();
+}
+
 void Map::run() {
     if (mode == Mode::None) {
-#ifndef NDEBUG
+#ifdef DEBUG
         mapThread = mainThread;
 #endif
         mode = Mode::Static;
     }
     assert(std::this_thread::get_id() == mapThread);
 
+    if (mode == Mode::Continuous) {
+        checkForPause();
+    }
+
+    view.activate();
+
+    workers = util::make_unique<uv::worker>(**loop, 4, "Tile Worker");
+
     setup();
     prepare();
-    uv_run(**loop, UV_RUN_DEFAULT);
+
+    if (mode == Mode::Continuous) {
+        terminating = false;
+        while(!terminating) {
+            uv_run(**loop, UV_RUN_DEFAULT);
+            checkForPause();
+        }
+    } else {
+        uv_run(**loop, UV_RUN_DEFAULT);
+    }
 
     // Run the event loop once more to make sure our async delete handlers are called.
     uv_run(**loop, UV_RUN_ONCE);
@@ -254,12 +275,33 @@ void Map::run() {
     // *after* all events have been processed.
     if (mode == Mode::Static) {
         render();
-#ifndef NDEBUG
+#ifdef DEBUG
         mapThread = std::thread::id();
 #endif
         mode = Mode::None;
-        fileSource.clearLoop();
     }
+
+    view.deactivate();
+}
+
+void Map::checkForPause() {
+    std::unique_lock<std::mutex> lockRun (mutexRun);
+    while (pausing) {
+        view.deactivate();
+
+        mutexPause.lock();
+        isPaused = true;
+        condPause.notify_all();
+        mutexPause.unlock();
+
+        condRun.wait(lockRun);
+
+        view.activate();
+    }
+
+    mutexPause.lock();
+    isPaused = false;
+    mutexPause.unlock();
 }
 
 void Map::rerender() {
@@ -268,8 +310,9 @@ void Map::rerender() {
     } else if (mode == Mode::Continuous) {
         // We only send render events if we want to continuously update the map
         // (== async rendering).
-        assert(asyncRender);
-        asyncRender->send();
+        if (asyncRender) {
+            asyncRender->send();
+        }
     }
 }
 
@@ -290,6 +333,7 @@ void Map::swapped() {
 void Map::terminate() {
     assert(painter);
     painter->terminate();
+    view.deactivate();
 }
 
 #pragma mark - Setup
@@ -297,14 +341,17 @@ void Map::terminate() {
 void Map::setup() {
     assert(std::this_thread::get_id() == mapThread);
     assert(painter);
-    view.activate();
     painter->setup();
-    view.deactivate();
 }
 
 void Map::setStyleURL(const std::string &url) {
     // TODO: Make threadsafe.
+
     styleURL = url;
+    if (mode == Mode::Continuous) {
+        stop();
+        start();
+    }
 }
 
 
@@ -315,9 +362,15 @@ void Map::setStyleJSON(std::string newStyleJSON, const std::string &base) {
     if (!style) {
         style = std::make_shared<Style>();
     }
+
+    style->base = base;
     style->loadJSON((const uint8_t *)styleJSON.c_str());
-    fileSource.setBase(base);
-    glyphStore->setURL(style->glyph_url);
+    style->cascadeClasses(classes);
+    style->setDefaultTransitionDuration(defaultTransitionDuration);
+
+    const std::string glyphURL = util::mapbox::normalizeGlyphsURL(style->glyph_url, getAccessToken());
+    glyphStore->setURL(glyphURL);
+
     update();
 }
 
@@ -342,8 +395,8 @@ void Map::resize(uint16_t width, uint16_t height, float ratio) {
     resize(width, height, ratio, width * ratio, height * ratio);
 }
 
-void Map::resize(uint16_t width, uint16_t height, float ratio, uint16_t fb_width, uint16_t fb_height) {
-    if (transform.resize(width, height, ratio, fb_width, fb_height)) {
+void Map::resize(uint16_t width, uint16_t height, float ratio, uint16_t fbWidth, uint16_t fbHeight) {
+    if (transform.resize(width, height, ratio, fbWidth, fbHeight)) {
         update();
     }
 }
@@ -359,18 +412,14 @@ void Map::cancelTransitions() {
 
 #pragma mark - Position
 
-void Map::moveBy(double dx, double dy, double duration) {
-    transform.moveBy(dx, dy, duration * 1_second);
+void Map::moveBy(double dx, double dy, std::chrono::steady_clock::duration duration) {
+    transform.moveBy(dx, dy, duration);
     update();
 }
 
-void Map::setLonLat(double lon, double lat, double duration) {
-    transform.setLonLat(lon, lat, duration * 1_second);
+void Map::setLatLng(LatLng latLng, std::chrono::steady_clock::duration duration) {
+    transform.setLatLng(latLng, duration);
     update();
-}
-
-void Map::getLonLat(double& lon, double& lat) const {
-    transform.getLonLat(lon, lat);
 }
 
 void Map::startPanning() {
@@ -385,7 +434,7 @@ void Map::stopPanning() {
 
 void Map::resetPosition() {
     transform.setAngle(0);
-    transform.setLonLat(0, 0);
+    transform.setLatLng(LatLng(0, 0));
     transform.setZoom(0);
     update();
 }
@@ -393,13 +442,13 @@ void Map::resetPosition() {
 
 #pragma mark - Scale
 
-void Map::scaleBy(double ds, double cx, double cy, double duration) {
-    transform.scaleBy(ds, cx, cy, duration * 1_second);
+void Map::scaleBy(double ds, double cx, double cy, std::chrono::steady_clock::duration duration) {
+    transform.scaleBy(ds, cx, cy, duration);
     update();
 }
 
-void Map::setScale(double scale, double cx, double cy, double duration) {
-    transform.setScale(scale, cx, cy, duration * 1_second);
+void Map::setScale(double scale, double cx, double cy, std::chrono::steady_clock::duration duration) {
+    transform.setScale(scale, cx, cy, duration);
     update();
 }
 
@@ -407,8 +456,8 @@ double Map::getScale() const {
     return transform.getScale();
 }
 
-void Map::setZoom(double zoom, double duration) {
-    transform.setZoom(zoom, duration * 1_second);
+void Map::setZoom(double zoom, std::chrono::steady_clock::duration duration) {
+    transform.setZoom(zoom, duration);
     update();
 }
 
@@ -416,13 +465,9 @@ double Map::getZoom() const {
     return transform.getZoom();
 }
 
-void Map::setLonLatZoom(double lon, double lat, double zoom, double duration) {
-    transform.setLonLatZoom(lon, lat, zoom, duration * 1_second);
+void Map::setLatLngZoom(LatLng latLng, double zoom, std::chrono::steady_clock::duration duration) {
+    transform.setLatLngZoom(latLng, zoom, duration);
     update();
-}
-
-void Map::getLonLatZoom(double& lon, double& lat, double& zoom) const {
-    transform.getLonLatZoom(lon, lat, zoom);
 }
 
 void Map::resetZoom() {
@@ -450,13 +495,13 @@ double Map::getMaxZoom() const {
 
 #pragma mark - Rotation
 
-void Map::rotateBy(double sx, double sy, double ex, double ey, double duration) {
-    transform.rotateBy(sx, sy, ex, ey, duration * 1_second);
+void Map::rotateBy(double sx, double sy, double ex, double ey, std::chrono::steady_clock::duration duration) {
+    transform.rotateBy(sx, sy, ex, ey, duration);
     update();
 }
 
-void Map::setBearing(double degrees, double duration) {
-    transform.setAngle(-degrees * M_PI / 180, duration * 1_second);
+void Map::setBearing(double degrees, std::chrono::steady_clock::duration duration) {
+    transform.setAngle(-degrees * M_PI / 180, duration);
     update();
 }
 
@@ -470,7 +515,7 @@ double Map::getBearing() const {
 }
 
 void Map::resetNorth() {
-    transform.setAngle(0, 500_milliseconds);
+    transform.setAngle(0, std::chrono::milliseconds(500));
     update();
 }
 
@@ -484,6 +529,15 @@ void Map::stopRotating() {
     update();
 }
 
+#pragma mark - Access Token
+
+void Map::setAccessToken(const std::string &token) {
+    accessToken = token;
+}
+
+const std::string &Map::getAccessToken() const {
+    return accessToken;
+}
 
 #pragma mark - Toggles
 
@@ -502,27 +556,55 @@ bool Map::getDebug() const {
     return debug;
 }
 
-void Map::setAppliedClasses(const std::vector<std::string> &classes) {
-    style->setAppliedClasses(classes);
-    if (style->hasTransitions()) {
-        update();
+void Map::addClass(const std::string& klass) {
+    if (hasClass(klass)) return;
+    classes.push_back(klass);
+    if (style) {
+        style->cascadeClasses(classes);
+        if (style->hasTransitions()) {
+            update();
+        }
     }
 }
 
-
-void Map::toggleClass(const std::string &name) {
-    style->toggleClass(name);
-    if (style->hasTransitions()) {
-        update();
+void Map::removeClass(const std::string& klass) {
+    if (!hasClass(klass)) return;
+    classes.erase(std::remove(classes.begin(), classes.end(), klass), classes.end());
+    if (style) {
+        style->cascadeClasses(classes);
+        if (style->hasTransitions()) {
+            update();
+        }
     }
 }
 
-const std::vector<std::string> &Map::getAppliedClasses() const {
-   return style->getAppliedClasses();
+void Map::setClasses(const std::vector<std::string>& classes_) {
+    classes = classes_;
+    if (style) {
+        style->cascadeClasses(classes);
+        if (style->hasTransitions()) {
+            update();
+        }
+    }
 }
 
-void Map::setDefaultTransitionDuration(uint64_t milliseconds) {
-    style->setDefaultTransitionDuration(milliseconds);
+bool Map::hasClass(const std::string& klass) const {
+    return std::find(classes.begin(), classes.end(), klass) != classes.end();
+}
+
+std::vector<std::string> Map::getClasses() const {
+   return classes;
+}
+
+void Map::setDefaultTransitionDuration(std::chrono::steady_clock::duration duration) {
+    defaultTransitionDuration = duration;
+    if (style) {
+        style->setDefaultTransitionDuration(duration);
+    }
+}
+
+std::chrono::steady_clock::duration Map::getDefaultTransitionDuration() {
+    return defaultTransitionDuration;
 }
 
 void Map::updateSources() {
@@ -560,12 +642,8 @@ void Map::updateSources(const util::ptr<StyleLayerGroup> &group) {
     }
     for (const util::ptr<StyleLayer> &layer : group->layers) {
         if (!layer) continue;
-        if (layer->bucket) {
-            if (layer->bucket->style_source) {
-                (*activeSources.emplace(layer->bucket->style_source).first)->enabled = true;
-            }
-        } else if (layer->layers) {
-            updateSources(layer->layers);
+        if (layer->bucket && layer->bucket->style_source) {
+            (*activeSources.emplace(layer->bucket->style_source).first)->enabled = true;
         }
     }
 }
@@ -575,20 +653,16 @@ void Map::updateTiles() {
         source->source->update(*this, getWorker(),
                                style, *glyphAtlas, *glyphStore,
                                *spriteAtlas, getSprite(),
-                               *texturePool, fileSource, [this](){ update(); });
+                               *texturePool, fileSource, ***loop, [this](){ update(); });
     }
 }
 
 void Map::prepare() {
-    if (!fileSource.hasLoop()) {
-        fileSource.setLoop(**loop);
-    }
-
     if (!style) {
         style = std::make_shared<Style>();
 
-        fileSource.request(ResourceType::JSON, styleURL)->onload([&](const Response &res) {
-            if (res.code == 200) {
+        fileSource.request({ Resource::Kind::JSON, styleURL}, **loop, [&](const Response &res) {
+            if (res.status == Response::Successful) {
                 // Calculate the base
                 const size_t pos = styleURL.rfind('/');
                 std::string base = "";
@@ -598,20 +672,20 @@ void Map::prepare() {
 
                 setStyleJSON(res.data, base);
             } else {
-                Log::Error(Event::Setup, "loading style failed: %ld (%s)", res.code, res.message.c_str());
+                Log::Error(Event::Setup, "loading style failed: %s", res.message.c_str());
             }
         });
     }
 
     // Update transform transitions.
-    animationTime = util::now();
+    animationTime = std::chrono::steady_clock::now();
     if (transform.needsTransition()) {
         transform.updateTransitions(animationTime);
     }
 
     state = transform.currentState();
 
-    animationTime = util::now();
+    animationTime = std::chrono::steady_clock::now();
     updateSources();
     style->updateProperties(state.getNormalizedZoom(), animationTime);
 
@@ -623,15 +697,11 @@ void Map::prepare() {
 }
 
 void Map::render() {
-    view.activate();
-
     assert(painter);
     painter->render(*style, activeSources,
-                   state, animationTime);
+                    state, animationTime);
     // Schedule another rerender when we definitely need a next frame.
     if (transform.needsTransition() || style->hasTransitions()) {
         update();
     }
-
-    view.deactivate();
 }

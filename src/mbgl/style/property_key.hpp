@@ -9,36 +9,47 @@ enum class PropertyKey {
     FillColor,
     FillOutlineColor,
     FillTranslate, // for transitions only
-    FillTranslateX,
-    FillTranslateY,
     FillTranslateAnchor,
     FillImage,
 
     LineOpacity,
     LineColor,
     LineTranslate, // for transitions only
-    LineTranslateX,
-    LineTranslateY,
     LineTranslateAnchor,
     LineWidth,
     LineGapWidth,
     LineBlur,
     LineDashArray, // for transitions only
-    LineDashLand,
-    LineDashGap,
     LineImage,
 
+    LineCap,
+    LineJoin,
+    LineMiterLimit,
+    LineRoundLimit,
+
+    SymbolPlacement,
+    SymbolMinDistance,
+    SymbolAvoidEdges,
+
     IconOpacity,
-    IconRotate,
     IconSize,
     IconColor,
     IconHaloColor,
     IconHaloWidth,
     IconHaloBlur,
-    IconTranslate, // for transitions only
-    IconTranslateX,
-    IconTranslateY,
+    IconTranslate,
     IconTranslateAnchor,
+
+    IconAllowOverlap,
+    IconIgnorePlacement,
+    IconOptional,
+    IconRotationAlignment,
+    IconMaxSize,
+    IconImage,
+    IconOffset,
+    IconPadding,
+    IconRotate,
+    IconKeepUpright,
 
     TextOpacity,
     TextSize,
@@ -46,10 +57,27 @@ enum class PropertyKey {
     TextHaloColor,
     TextHaloWidth,
     TextHaloBlur,
-    TextTranslate, // for transitions only
-    TextTranslateX,
-    TextTranslateY,
+    TextTranslate,
     TextTranslateAnchor,
+
+    TextRotationAlignment,
+    TextField,
+    TextFont,
+    TextMaxSize,
+    TextMaxWidth,
+    TextLineHeight,
+    TextLetterSpacing,
+    TextMaxAngle,
+    TextRotate,
+    TextPadding,
+    TextIgnorePlacement,
+    TextOptional,
+    TextJustify,
+    TextAnchor,
+    TextKeepUpright,
+    TextTransform,
+    TextOffset,
+    TextAllowOverlap,
 
     RasterOpacity,
     RasterHueRotate,
@@ -62,7 +90,9 @@ enum class PropertyKey {
 
     BackgroundOpacity,
     BackgroundColor,
-    BackgroundImage
+    BackgroundImage,
+
+    Visibilty
 };
 
 }

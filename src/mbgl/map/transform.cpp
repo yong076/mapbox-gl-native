@@ -4,16 +4,12 @@
 #include <mbgl/util/mat4.hpp>
 #include <mbgl/util/std.hpp>
 #include <mbgl/util/math.hpp>
-#include <mbgl/util/time.hpp>
 #include <mbgl/util/transition.hpp>
 #include <mbgl/platform/platform.hpp>
 
 #include <cstdio>
 
 using namespace mbgl;
-
-const double D2R = M_PI / 180.0;
-const double M2PI = 2 * M_PI;
 
 Transform::Transform(View &view_)
     : view(view_)
@@ -48,16 +44,16 @@ bool Transform::resize(const uint16_t w, const uint16_t h, const float ratio,
 
 #pragma mark - Position
 
-void Transform::moveBy(const double dx, const double dy, const timestamp duration) {
+void Transform::moveBy(const double dx, const double dy, const std::chrono::steady_clock::duration duration) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
     _moveBy(dx, dy, duration);
 }
 
-void Transform::_moveBy(const double dx, const double dy, const timestamp duration) {
+void Transform::_moveBy(const double dx, const double dy, const std::chrono::steady_clock::duration duration) {
     // This is only called internally, so we don't need a lock here.
 
-    view.notifyMapChange(duration ?
+    view.notifyMapChange(duration != std::chrono::steady_clock::duration::zero() ?
                            MapChangeRegionWillChangeAnimated :
                            MapChangeRegionWillChange);
 
@@ -66,62 +62,52 @@ void Transform::_moveBy(const double dx, const double dy, const timestamp durati
 
     constrain(final.scale, final.y);
 
-    if (duration == 0) {
+    if (duration == std::chrono::steady_clock::duration::zero()) {
         current.x = final.x;
         current.y = final.y;
     } else {
         // Use a common start time for all of the transitions to avoid divergent transitions.
-        timestamp start = util::now();
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
         transitions.emplace_front(
             std::make_shared<util::ease_transition<double>>(current.x, final.x, current.x, start, duration));
         transitions.emplace_front(
             std::make_shared<util::ease_transition<double>>(current.y, final.y, current.y, start, duration));
     }
 
-    view.notifyMapChange(duration ?
+    view.notifyMapChange(duration != std::chrono::steady_clock::duration::zero() ?
                            MapChangeRegionDidChangeAnimated :
                            MapChangeRegionDidChange,
                            duration);
 }
 
-void Transform::setLonLat(const double lon, const double lat, const timestamp duration) {
+void Transform::setLatLng(const LatLng latLng, const std::chrono::steady_clock::duration duration) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
-    const double f = std::fmin(std::fmax(std::sin(D2R * lat), -0.9999), 0.9999);
-    double xn = -lon * Bc;
-    double yn = 0.5 * Cc * std::log((1 + f) / (1 - f));
+    const double m = 1 - 1e-15;
+    const double f = std::fmin(std::fmax(std::sin(util::DEG2RAD * latLng.latitude), -m), m);
+
+    double xn = -latLng.longitude * current.Bc;
+    double yn = 0.5 * current.Cc * std::log((1 + f) / (1 - f));
 
     _setScaleXY(current.scale, xn, yn, duration);
 }
 
-void Transform::setLonLatZoom(const double lon, const double lat, const double zoom,
-                              const timestamp duration) {
+void Transform::setLatLngZoom(const LatLng latLng, const double zoom, const std::chrono::steady_clock::duration duration) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
     double new_scale = std::pow(2.0, zoom);
 
     const double s = new_scale * util::tileSize;
-    Bc = s / 360;
-    Cc = s / (2 * M_PI);
+    current.Bc = s / 360;
+    current.Cc = s / util::M2PI;
 
-    const double f = std::fmin(std::fmax(std::sin(D2R * lat), -0.9999), 0.9999);
-    double xn = -lon * Bc;
-    double yn = 0.5 * Cc * log((1 + f) / (1 - f));
+    const double m = 1 - 1e-15;
+    const double f = std::fmin(std::fmax(std::sin(util::DEG2RAD * latLng.latitude), -m), m);
+
+    double xn = -latLng.longitude * current.Bc;
+    double yn = 0.5 * current.Cc * std::log((1 + f) / (1 - f));
 
     _setScaleXY(new_scale, xn, yn, duration);
-}
-
-void Transform::getLonLat(double &lon, double &lat) const {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    final.getLonLat(lon, lat);
-}
-
-void Transform::getLonLatZoom(double &lon, double &lat, double &zoom) const {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    getLonLat(lon, lat);
-    zoom = getZoom();
 }
 
 void Transform::startPanning() {
@@ -131,8 +117,8 @@ void Transform::startPanning() {
 
     // Add a 200ms timeout for resetting this to false
     current.panning = true;
-    timestamp start = util::now();
-    pan_timeout = std::make_shared<util::timeout<bool>>(false, current.panning, start, 200_milliseconds);
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    pan_timeout = std::make_shared<util::timeout<bool>>(false, current.panning, start, std::chrono::steady_clock::duration(200));
     transitions.emplace_front(pan_timeout);
 }
 
@@ -152,7 +138,7 @@ void Transform::_clearPanning() {
 
 #pragma mark - Zoom
 
-void Transform::scaleBy(const double ds, const double cx, const double cy, const timestamp duration) {
+void Transform::scaleBy(const double ds, const double cx, const double cy, const std::chrono::steady_clock::duration duration) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
     // clamp scale to min/max values
@@ -167,13 +153,13 @@ void Transform::scaleBy(const double ds, const double cx, const double cy, const
 }
 
 void Transform::setScale(const double scale, const double cx, const double cy,
-                         const timestamp duration) {
+                         const std::chrono::steady_clock::duration duration) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
     _setScale(scale, cx, cy, duration);
 }
 
-void Transform::setZoom(const double zoom, const timestamp duration) {
+void Transform::setZoom(const double zoom, const std::chrono::steady_clock::duration duration) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
     _setScale(std::pow(2.0, zoom), -1, -1, duration);
@@ -182,7 +168,7 @@ void Transform::setZoom(const double zoom, const timestamp duration) {
 double Transform::getZoom() const {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
-    return std::log(final.scale) / M_LN2;
+    return final.getZoom();
 }
 
 double Transform::getScale() const {
@@ -198,8 +184,8 @@ void Transform::startScaling() {
 
     // Add a 200ms timeout for resetting this to false
     current.scaling = true;
-    timestamp start = util::now();
-    scale_timeout = std::make_shared<util::timeout<bool>>(false, current.scaling, start, 200_milliseconds);
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    scale_timeout = std::make_shared<util::timeout<bool>>(false, current.scaling, start, std::chrono::milliseconds(200));
     transitions.emplace_front(scale_timeout);
 }
 
@@ -231,7 +217,7 @@ void Transform::_clearScaling() {
     }
 }
 
-void Transform::_setScale(double new_scale, double cx, double cy, const timestamp duration) {
+void Transform::_setScale(double new_scale, double cx, double cy, const std::chrono::steady_clock::duration duration) {
     // This is only called internally, so we don't need a lock here.
 
     // Ensure that we don't zoom in further than the maximum allowed.
@@ -265,10 +251,10 @@ void Transform::_setScale(double new_scale, double cx, double cy, const timestam
 }
 
 void Transform::_setScaleXY(const double new_scale, const double xn, const double yn,
-                            const timestamp duration) {
+                            const std::chrono::steady_clock::duration duration) {
     // This is only called internally, so we don't need a lock here.
 
-    view.notifyMapChange(duration ?
+    view.notifyMapChange(duration != std::chrono::steady_clock::duration::zero() ?
                            MapChangeRegionWillChangeAnimated :
                            MapChangeRegionWillChange);
 
@@ -278,13 +264,13 @@ void Transform::_setScaleXY(const double new_scale, const double xn, const doubl
 
     constrain(final.scale, final.y);
 
-    if (duration == 0) {
+    if (duration == std::chrono::steady_clock::duration::zero()) {
         current.scale = final.scale;
         current.x = final.x;
         current.y = final.y;
     } else {
         // Use a common start time for all of the transitions to avoid divergent transitions.
-        timestamp start = util::now();
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
         transitions.emplace_front(std::make_shared<util::ease_transition<double>>(
             current.scale, final.scale, current.scale, start, duration));
         transitions.emplace_front(
@@ -294,10 +280,10 @@ void Transform::_setScaleXY(const double new_scale, const double xn, const doubl
     }
 
     const double s = final.scale * util::tileSize;
-    Bc = s / 360;
-    Cc = s / (2 * M_PI);
+    current.Bc = s / 360;
+    current.Cc = s / util::M2PI;
 
-    view.notifyMapChange(duration ?
+    view.notifyMapChange(duration != std::chrono::steady_clock::duration::zero() ?
                            MapChangeRegionDidChangeAnimated :
                            MapChangeRegionDidChange,
                            duration);
@@ -319,7 +305,7 @@ void Transform::constrain(double& scale, double& y) const {
 #pragma mark - Angle
 
 void Transform::rotateBy(const double start_x, const double start_y, const double end_x,
-                         const double end_y, const timestamp duration) {
+                         const double end_y, const std::chrono::steady_clock::duration duration) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
     double center_x = current.width / 2, center_y = current.height / 2;
@@ -349,7 +335,7 @@ void Transform::rotateBy(const double start_x, const double start_y, const doubl
     _setAngle(ang, duration);
 }
 
-void Transform::setAngle(const double new_angle, const timestamp duration) {
+void Transform::setAngle(const double new_angle, const std::chrono::steady_clock::duration duration) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
     _setAngle(new_angle, duration);
@@ -363,39 +349,39 @@ void Transform::setAngle(const double new_angle, const double cx, const double c
     if (cx >= 0 && cy >= 0) {
         dx = (final.width / 2) - cx;
         dy = (final.height / 2) - cy;
-        _moveBy(dx, dy, 0);
+        _moveBy(dx, dy, std::chrono::steady_clock::duration::zero());
     }
 
-    _setAngle(new_angle, 0);
+    _setAngle(new_angle, std::chrono::steady_clock::duration::zero());
 
     if (cx >= 0 && cy >= 0) {
-        _moveBy(-dx, -dy, 0);
+        _moveBy(-dx, -dy, std::chrono::steady_clock::duration::zero());
     }
 }
 
-void Transform::_setAngle(double new_angle, const timestamp duration) {
+void Transform::_setAngle(double new_angle, const std::chrono::steady_clock::duration duration) {
     // This is only called internally, so we don't need a lock here.
 
-    view.notifyMapChange(duration ?
+    view.notifyMapChange(duration != std::chrono::steady_clock::duration::zero() ?
                            MapChangeRegionWillChangeAnimated :
                            MapChangeRegionWillChange);
 
     while (new_angle > M_PI)
-        new_angle -= M2PI;
+        new_angle -= util::M2PI;
     while (new_angle <= -M_PI)
-        new_angle += M2PI;
+        new_angle += util::M2PI;
 
     final.angle = new_angle;
 
-    if (duration == 0) {
+    if (duration == std::chrono::steady_clock::duration::zero()) {
         current.angle = final.angle;
     } else {
-        timestamp start = util::now();
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
         transitions.emplace_front(std::make_shared<util::ease_transition<double>>(
             current.angle, final.angle, current.angle, start, duration));
     }
 
-    view.notifyMapChange(duration ?
+    view.notifyMapChange(duration != std::chrono::steady_clock::duration::zero() ?
                            MapChangeRegionDidChangeAnimated :
                            MapChangeRegionDidChange,
                            duration);
@@ -414,8 +400,8 @@ void Transform::startRotating() {
 
     // Add a 200ms timeout for resetting this to false
     current.rotating = true;
-    timestamp start = util::now();
-    rotate_timeout = std::make_shared<util::timeout<bool>>(false, current.rotating, start, 200_milliseconds);
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    rotate_timeout = std::make_shared<util::timeout<bool>>(false, current.rotating, start, std::chrono::milliseconds(200));
     transitions.emplace_front(rotate_timeout);
 }
 
@@ -435,6 +421,7 @@ void Transform::_clearRotating() {
     }
 }
 
+
 #pragma mark - Transition
 
 bool Transform::needsTransition() const {
@@ -443,7 +430,7 @@ bool Transform::needsTransition() const {
     return !transitions.empty();
 }
 
-void Transform::updateTransitions(const timestamp now) {
+void Transform::updateTransitions(const std::chrono::steady_clock::time_point now) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
 
     transitions.remove_if([now](const util::ptr<util::transition> &transition) {

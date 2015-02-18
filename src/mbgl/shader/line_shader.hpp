@@ -16,14 +16,12 @@ public:
     UniformMatrix<4>               u_exmatrix  = {"u_exmatrix",  *this};
     Uniform<std::array<float, 4>>  u_color     = {"u_color",     *this};
     Uniform<std::array<float, 2>>  u_linewidth = {"u_linewidth", *this};
-    Uniform<std::array<float, 2>>  u_dasharray = {"u_dasharray", *this};
     Uniform<float>                 u_ratio     = {"u_ratio",     *this};
     Uniform<float>                 u_blur      = {"u_blur",      *this};
 
 private:
     int32_t a_pos = -1;
-    int32_t a_extrude = -1;
-    int32_t a_linesofar = -1;
+    int32_t a_data = -1;
 };
 
 

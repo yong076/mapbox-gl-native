@@ -4,9 +4,11 @@
 
 #include <mbgl/renderer/painter.hpp>
 #include <mbgl/style/style.hpp>
+#include <mbgl/style/style_layout.hpp>
 #include <mbgl/map/vector_tile.hpp>
 
 #include <mbgl/util/math.hpp>
+#include <mbgl/util/std.hpp>
 #include <mbgl/platform/gl.hpp>
 
 #define BUFFER_OFFSET(i) ((char *)nullptr + (i))
@@ -17,19 +19,24 @@ struct geometry_too_long_exception : std::exception {};
 
 using namespace mbgl;
 
-LineBucket::LineBucket(LineVertexBuffer& vertexBuffer_,
-                       TriangleElementsBuffer& triangleElementsBuffer_,
-                       PointElementsBuffer& pointElementsBuffer_,
-                       const StyleBucketLine& properties_)
-    : properties(properties_),
+LineBucket::LineBucket(std::unique_ptr<const StyleLayoutLine> styleLayout_,
+                       LineVertexBuffer &vertexBuffer_,
+                       TriangleElementsBuffer &triangleElementsBuffer_,
+                       PointElementsBuffer &pointElementsBuffer_)
+    : styleLayout(std::move(styleLayout_)),
       vertexBuffer(vertexBuffer_),
       triangleElementsBuffer(triangleElementsBuffer_),
       pointElementsBuffer(pointElementsBuffer_),
       vertex_start(vertexBuffer_.index()),
       triangle_elements_start(triangleElementsBuffer_.index()),
-      point_elements_start(pointElementsBuffer_.index())
-{
+      point_elements_start(pointElementsBuffer_.index()) {
+    assert(styleLayout);
 }
+
+LineBucket::~LineBucket() {
+    // Do not remove. header file only contains forward definitions to unique pointers.
+}
+
 
 void LineBucket::addGeometry(pbf& geom) {
     std::vector<Coordinate> line;
@@ -60,6 +67,7 @@ struct TriangleElement {
 typedef uint16_t PointElement;
 
 void LineBucket::addGeometry(const std::vector<Coordinate>& vertices) {
+    auto &layout = *styleLayout;
     // TODO: use roundLimit
     // const float roundLimit = geometry.round_limit;
 
@@ -77,8 +85,8 @@ void LineBucket::addGeometry(const std::vector<Coordinate>& vertices) {
         return;
     }
 
-    CapType beginCap = properties.cap;
-    CapType endCap = closed ? CapType::Butt : properties.cap;
+    CapType beginCap = layout.cap;
+    CapType endCap = closed ? CapType::Butt : layout.cap;
 
     JoinType currentJoin = JoinType::Miter;
 
@@ -108,7 +116,7 @@ void LineBucket::addGeometry(const std::vector<Coordinate>& vertices) {
         if (currentVertex) prevVertex = currentVertex;
 
         currentVertex = vertices[i];
-        currentJoin = properties.join;
+        currentJoin = layout.join;
 
         if (prevVertex) distance += util::dist<double>(currentVertex, prevVertex);
 
@@ -161,7 +169,7 @@ void LineBucket::addGeometry(const std::vector<Coordinate>& vertices) {
 
         // Switch to miter joins if the angle is very low.
         if (currentJoin != JoinType::Miter) {
-            if (std::fabs(joinAngularity) < 0.5 && roundness < properties.miter_limit) {
+            if (std::fabs(joinAngularity) < 0.5 && roundness < layout.miter_limit) {
                 currentJoin = JoinType::Miter;
             }
         }
@@ -210,14 +218,14 @@ void LineBucket::addGeometry(const std::vector<Coordinate>& vertices) {
                 // The two normals are almost parallel.
                 joinNormal.x = -nextNormal.y;
                 joinNormal.y = nextNormal.x;
-            } else if (roundness > properties.miter_limit) {
+            } else if (roundness > layout.miter_limit) {
                 // If the miter grows too large, flip the direction to make a
                 // bevel join.
                 joinNormal.x = (prevNormal.x - nextNormal.x) / joinAngularity;
                 joinNormal.y = (prevNormal.y - nextNormal.y) / joinAngularity;
             }
 
-            if (roundness > properties.miter_limit) {
+            if (roundness > layout.miter_limit) {
                 flip = -flip;
             }
 
@@ -306,12 +314,13 @@ void LineBucket::addGeometry(const std::vector<Coordinate>& vertices) {
 
     // Store the triangle/line groups.
     {
-        if (!triangleGroups.size() || (triangleGroups.back().vertex_length + vertex_count > 65535)) {
+        if (!triangleGroups.size() || (triangleGroups.back()->vertex_length + vertex_count > 65535)) {
             // Move to a new group because the old one can't hold the geometry.
-            triangleGroups.emplace_back();
+            triangleGroups.emplace_back(util::make_unique<triangle_group_type>());
         }
 
-        triangle_group_type& group = triangleGroups.back();
+        assert(triangleGroups.back());
+        triangle_group_type& group = *triangleGroups.back();
         for (const TriangleElement& triangle : triangle_store) {
             triangleElementsBuffer.add(
                 group.vertex_length + triangle.a,
@@ -326,12 +335,13 @@ void LineBucket::addGeometry(const std::vector<Coordinate>& vertices) {
 
     // Store the line join/cap groups.
     {
-        if (!pointGroups.size() || (pointGroups.back().vertex_length + vertex_count > 65535)) {
+        if (!pointGroups.size() || (pointGroups.back()->vertex_length + vertex_count > 65535)) {
             // Move to a new group because the old one can't hold the geometry.
-            pointGroups.emplace_back();
+            pointGroups.emplace_back(util::make_unique<point_group_type>());
         }
 
-        point_group_type& group = pointGroups.back();
+        assert(pointGroups.back());
+        point_group_type& group = *pointGroups.back();
         for (PointElement point : point_store) {
             pointElementsBuffer.add(group.vertex_length + point);
         }
@@ -351,8 +361,9 @@ bool LineBucket::hasData() const {
 
 bool LineBucket::hasPoints() const {
     if (!pointGroups.empty()) {
-        for (const point_group_type& group : pointGroups) {
-            if (group.elements_length) {
+        for (const auto& group : pointGroups) {
+            assert(group);
+            if (group->elements_length) {
                 return true;
             }
         }
@@ -363,41 +374,59 @@ bool LineBucket::hasPoints() const {
 void LineBucket::drawLines(LineShader& shader) {
     char *vertex_index = BUFFER_OFFSET(vertex_start * vertexBuffer.itemSize);
     char *elements_index = BUFFER_OFFSET(triangle_elements_start * triangleElementsBuffer.itemSize);
-    for (triangle_group_type& group : triangleGroups) {
-        if (!group.elements_length) {
+    for (auto& group : triangleGroups) {
+        assert(group);
+        if (!group->elements_length) {
             continue;
         }
-        group.array[0].bind(shader, vertexBuffer, triangleElementsBuffer, vertex_index);
-        MBGL_CHECK_ERROR(glDrawElements(GL_TRIANGLES, group.elements_length * 3, GL_UNSIGNED_SHORT, elements_index));
-        vertex_index += group.vertex_length * vertexBuffer.itemSize;
-        elements_index += group.elements_length * triangleElementsBuffer.itemSize;
+        group->array[0].bind(shader, vertexBuffer, triangleElementsBuffer, vertex_index);
+        MBGL_CHECK_ERROR(glDrawElements(GL_TRIANGLES, group->elements_length * 3, GL_UNSIGNED_SHORT, elements_index));
+        vertex_index += group->vertex_length * vertexBuffer.itemSize;
+        elements_index += group->elements_length * triangleElementsBuffer.itemSize;
+    }
+}
+
+void LineBucket::drawLineSDF(LineSDFShader& shader) {
+    char *vertex_index = BUFFER_OFFSET(vertex_start * vertexBuffer.itemSize);
+    char *elements_index = BUFFER_OFFSET(triangle_elements_start * triangleElementsBuffer.itemSize);
+    for (auto& group : triangleGroups) {
+        assert(group);
+        if (!group->elements_length) {
+            continue;
+        }
+        group->array[2].bind(shader, vertexBuffer, triangleElementsBuffer, vertex_index);
+        MBGL_CHECK_ERROR(glDrawElements(GL_TRIANGLES, group->elements_length * 3, GL_UNSIGNED_SHORT, elements_index));
+        vertex_index += group->vertex_length * vertexBuffer.itemSize;
+        elements_index += group->elements_length * triangleElementsBuffer.itemSize;
     }
 }
 
 void LineBucket::drawLinePatterns(LinepatternShader& shader) {
     char *vertex_index = BUFFER_OFFSET(vertex_start * vertexBuffer.itemSize);
     char *elements_index = BUFFER_OFFSET(triangle_elements_start * triangleElementsBuffer.itemSize);
-    for (triangle_group_type& group : triangleGroups) {
-        if (!group.elements_length) {
+    for (auto& group : triangleGroups) {
+        assert(group);
+        if (!group->elements_length) {
             continue;
         }
-        group.array[1].bind(shader, vertexBuffer, triangleElementsBuffer, vertex_index);
-        MBGL_CHECK_ERROR(glDrawElements(GL_TRIANGLES, group.elements_length * 3, GL_UNSIGNED_SHORT, elements_index));
-        vertex_index += group.vertex_length * vertexBuffer.itemSize;
-        elements_index += group.elements_length * triangleElementsBuffer.itemSize;
+        group->array[1].bind(shader, vertexBuffer, triangleElementsBuffer, vertex_index);
+        MBGL_CHECK_ERROR(glDrawElements(GL_TRIANGLES, group->elements_length * 3, GL_UNSIGNED_SHORT, elements_index));
+        vertex_index += group->vertex_length * vertexBuffer.itemSize;
+        elements_index += group->elements_length * triangleElementsBuffer.itemSize;
     }
 }
 
 void LineBucket::drawPoints(LinejoinShader& shader) {
     char *vertex_index = BUFFER_OFFSET(vertex_start * vertexBuffer.itemSize);
     char *elements_index = BUFFER_OFFSET(point_elements_start * pointElementsBuffer.itemSize);
-    for (point_group_type& group : pointGroups) {
-        if (!group.elements_length) {
+    for (auto& group : pointGroups) {
+        assert(group);
+        if (!group->elements_length) {
             continue;
         }
-        group.array[0].bind(shader, vertexBuffer, pointElementsBuffer, vertex_index);
-        MBGL_CHECK_ERROR(glDrawElements(GL_POINTS, group.elements_length, GL_UNSIGNED_SHORT, elements_index));
-        vertex_index += group.vertex_length * vertexBuffer.itemSize;
-        elements_index += group.elements_length * pointElementsBuffer.itemSize;
+        group->array[0].bind(shader, vertexBuffer, pointElementsBuffer, vertex_index);
+        MBGL_CHECK_ERROR(glDrawElements(GL_POINTS, group->elements_length, GL_UNSIGNED_SHORT, elements_index));
+        vertex_index += group->vertex_length * vertexBuffer.itemSize;
+        elements_index += group->elements_length * pointElementsBuffer.itemSize;
     }
 }

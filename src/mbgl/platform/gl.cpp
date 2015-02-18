@@ -70,9 +70,9 @@ PFNGLDELETEVERTEXARRAYSPROC DeleteVertexArrays = nullptr;
 PFNGLGENVERTEXARRAYSPROC GenVertexArrays = nullptr;
 PFNGLISVERTEXARRAYPROC IsVertexArray = nullptr;
 
-PFNGLGETPROGRAMBINARYPROC GetProgramBinary = nullptr;
-PFNGLPROGRAMBINARYPROC ProgramBinary = nullptr;
-PFNGLPROGRAMPARAMETERIPROC ProgramParameteri = nullptr;
+bool isPackedDepthStencilSupported = false;
+
+bool isDepth24Supported = false;
 
 void checkError(const char *cmd, const char *file, int line) {
     const GLenum err = glGetError();

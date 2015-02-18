@@ -18,6 +18,7 @@
 namespace mbgl {
 
 class Style;
+class StyleLayoutSymbol;
 class SDFShader;
 class IconShader;
 class DotShader;
@@ -30,7 +31,7 @@ class FontStack;
 
 class SymbolFeature {
 public:
-    pbf geometry;
+    std::vector<std::vector<Coordinate>> geometry;
     std::u32string label;
     std::string sprite;
 };
@@ -54,7 +55,8 @@ class SymbolBucket : public Bucket {
     typedef ElementGroup<2> IconElementGroup;
 
 public:
-    SymbolBucket(const StyleBucketSymbol &properties, Collision &collision);
+    SymbolBucket(std::unique_ptr<const StyleLayoutSymbol> styleLayout, Collision &collision);
+    ~SymbolBucket();
 
     virtual void render(Painter &painter, util::ptr<StyleLayer> layer_desc, const Tile::ID &id, const mat4 &matrix);
     virtual bool hasData() const;
@@ -77,12 +79,11 @@ private:
     std::vector<SymbolFeature> processFeatures(const VectorTileLayer &layer, const FilterExpression &filter, GlyphStore &glyphStore, const Sprite &sprite);
 
 
-    void addFeature(const pbf &geom_pbf, const Shaping &shaping, const GlyphPositions &face, const Rect<uint16_t> &image);
     void addFeature(const std::vector<Coordinate> &line, const Shaping &shaping, const GlyphPositions &face, const Rect<uint16_t> &image);
 
 
     // Adds placed items to the buffer.
-    template <typename Buffer>
+    template <typename Buffer, typename GroupType>
     void addSymbols(Buffer &buffer, const PlacedGlyphs &symbols, float scale, PlacementRange placementRange);
 
     // Adds glyphs to the glyph atlas so that they have a left/top/width/height coordinates associated to them that we can use for writing to a buffer.
@@ -90,22 +91,22 @@ private:
                           const FontStack &fontStack, GlyphAtlas &glyphAtlas, GlyphPositions &face);
 
 public:
-    const StyleBucketSymbol &properties;
+    const std::unique_ptr<const StyleLayoutSymbol> styleLayout;
     bool sdfIcons = false;
 
 private:
     Collision &collision;
 
-    struct {
+    struct TextBuffer {
         TextVertexBuffer vertices;
         TriangleElementsBuffer triangles;
-        std::vector<TextElementGroup> groups;
+        std::vector<std::unique_ptr<TextElementGroup>> groups;
     } text;
 
-    struct {
+    struct IconBuffer {
         IconVertexBuffer vertices;
         TriangleElementsBuffer triangles;
-        std::vector<IconElementGroup> groups;
+        std::vector<std::unique_ptr<IconElementGroup>> groups;
     } icon;
 
 };

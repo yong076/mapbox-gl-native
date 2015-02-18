@@ -28,6 +28,8 @@ CGLProc CGLGetProcAddress(const char *proc) {
     CFRelease(name);
     return symbol;
 }
+#elif MBGL_USE_GLX
+#include <GL/glx.h>
 #endif
 
 namespace mbgl {
@@ -47,10 +49,10 @@ HeadlessView::HeadlessView(std::shared_ptr<HeadlessDisplay> display)
 
 void HeadlessView::loadExtensions() {
     activate();
-    const char *extension_ptr = reinterpret_cast<const char *>(MBGL_CHECK_ERROR(glGetString(GL_EXTENSIONS)));
+    const char *extensionPtr = reinterpret_cast<const char *>(MBGL_CHECK_ERROR(glGetString(GL_EXTENSIONS)));
 
-    if (extension_ptr) {
-        const std::string extensions = extension_ptr;
+    if (extensionPtr) {
+        const std::string extensions = extensionPtr;
 
 #ifdef MBGL_USE_CGL
         if (extensions.find("GL_APPLE_vertex_array_object") != std::string::npos) {
@@ -78,6 +80,10 @@ void HeadlessView::loadExtensions() {
 #endif
     }
 
+    // HeadlessView requires packed depth stencil
+    gl::isPackedDepthStencilSupported = true;
+    gl::isDepth24Supported = true;
+
     deactivate();
 }
 
@@ -100,7 +106,7 @@ void HeadlessView::createContext() {
 
     if (!glContext) {
         // Try to create a legacy context
-        glContext = glXCreateNewContext(xDisplay, fbConfigs[0], GLX_RGBA_TYPE, 0, True);
+        glContext = glXCreateNewContext(xDisplay, fbConfigs[0], GLX_RGBA_TYPE, None, True);
         if (glContext) {
             if (!glXIsDirect(xDisplay, glContext)) {
                 mbgl::Log::Error(mbgl::Event::OpenGL, "Failed to create direct OpenGL Legacy context");
@@ -119,7 +125,7 @@ void HeadlessView::createContext() {
     int pbufferAttributes[] = {
         GLX_PBUFFER_WIDTH, 8,
         GLX_PBUFFER_HEIGHT, 8,
-        0
+        None
     };
     glxPbuffer = glXCreatePbuffer(xDisplay, fbConfigs[0], pbufferAttributes);
 #endif
@@ -240,7 +246,7 @@ void HeadlessView::notify() {
     // no-op
 }
 
-void HeadlessView::notifyMapChange(mbgl::MapChange /*change*/, mbgl::timestamp /*delay*/) {
+void HeadlessView::notifyMapChange(mbgl::MapChange /*change*/, std::chrono::steady_clock::duration /*delay*/) {
     // no-op
 }
 

@@ -3,6 +3,7 @@
 #include <mbgl/style/style_layer_group.hpp>
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/std.hpp>
+#include <mbgl/util/vec.hpp>
 #include <mbgl/platform/log.hpp>
 #include <csscolorparser/csscolorparser.hpp>
 
@@ -209,41 +210,120 @@ Color parseColor(JSVal value) {
                   css_color.a}};
 }
 
+std::tuple<bool,std::vector<float>> StyleParser::parseFloatArray(JSVal value) {
+    if (!value.IsArray()) {
+        Log::Warning(Event::ParseStyle, "dasharray value must be an array of numbers");
+        return std::tuple<bool, std::vector<float>> { false, std::vector<float>() };
+    }
+
+    std::vector<float> vec;
+    for (rapidjson::SizeType i = 0; i < value.Size(); ++i) {
+        JSVal part = replaceConstant(value[i]);
+        if (!part.IsNumber()) {
+            Log::Warning(Event::ParseStyle, "dasharray value must be an array of numbers");
+            return std::tuple<bool, std::vector<float>> { false, std::vector<float>() };
+        }
+        vec.push_back(part.GetDouble());
+    }
+    return std::tuple<bool, std::vector<float>> { true, vec };
+}
+
 template <>
-bool StyleParser::parseFunctionArgument(JSVal value) {
-    JSVal rvalue = replaceConstant(value);
-    if (rvalue.IsBool()) {
-        return rvalue.GetBool();
-    } else if (rvalue.IsNumber()) {
-        return rvalue.GetDouble();
+std::tuple<bool, std::array<float, 2>> StyleParser::parseProperty(JSVal value, const char*) {
+    if (value.IsArray() && value.Size() == 2 &&
+            value[rapidjson::SizeType(0)].IsNumber() &&
+            value[rapidjson::SizeType(1)].IsNumber()) {
+
+        float first = value[rapidjson::SizeType(0)].GetDouble();
+        float second = value[rapidjson::SizeType(1)].GetDouble();
+        return std::tuple<bool, std::array<float, 2>> { false, {{ first, second }} };
     } else {
-        Log::Warning(Event::ParseStyle, "function argument must be a boolean or numeric value");
-        return false;
+        Log::Warning(Event::ParseStyle, "value must be array of two numbers");
+        return std::tuple<bool, std::array<float, 2>> { false, {{ 0.0f, 0.0f }} };
     }
 }
 
 template <>
-float StyleParser::parseFunctionArgument(JSVal value) {
+std::tuple<bool, float> StyleParser::parseProperty(JSVal value, const char* property_name) {
     JSVal rvalue = replaceConstant(value);
     if (rvalue.IsNumber()) {
-        return rvalue.GetDouble();
+        return std::tuple<bool, float> { true, rvalue.GetDouble() };
     } else {
-        Log::Warning(Event::ParseStyle, "function argument must be a numeric value");
-        return 0.0f;
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a number, or a number function", property_name);
+        return std::tuple<bool, float> { false, 0.0f };
     }
 }
 
 template <>
-Color StyleParser::parseFunctionArgument(JSVal value) {
+std::tuple<bool, Color> StyleParser::parseProperty(JSVal value, const char*) {
     JSVal rvalue = replaceConstant(value);
-    return parseColor(rvalue);
+    return std::tuple<bool, Color> { true, parseColor(rvalue) };
+}
+
+template <>
+std::tuple<bool, Faded<std::vector<float>>> StyleParser::parseProperty(JSVal value, const char*) {
+    Faded<std::vector<float>> parsed;
+    JSVal rvalue = replaceConstant(value);
+    parsed.to = std::get<1>(parseFloatArray(rvalue));
+    return std::tuple<bool, Faded<std::vector<float>>> { true, parsed };
+}
+
+template <>
+std::tuple<bool, Faded<std::string>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    JSVal rvalue = replaceConstant(value);
+    Faded<std::string> parsed;
+    if (rvalue.IsString()) {
+        parsed.to = { value.GetString(), value.GetStringLength() };
+        return std::tuple<bool, Faded<std::string>> { true, parsed };
+    } else {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a string, or a string function", property_name);
+        return std::tuple<bool, Faded<std::string>> { false, parsed };
+    }
+}
+
+template <typename T>
+std::tuple<bool, std::vector<std::pair<float, T>>> StyleParser::parseStops(JSVal value_stops, const char *property_name) {
+
+    if (!value_stops.IsArray()) {
+        Log::Warning(Event::ParseStyle, "stops function must specify a stops array");
+        return std::tuple<bool, std::vector<std::pair<float, T>>> { false, {}};
+    }
+
+    std::vector<std::pair<float, T>> stops;
+
+    for (rapidjson::SizeType i = 0; i < value_stops.Size(); ++i) {
+        JSVal stop = value_stops[i];
+        if (stop.IsArray()) {
+            if (stop.Size() != 2) {
+                Log::Warning(Event::ParseStyle, "stop must have zoom level and value specification");
+                return std::tuple<bool, std::vector<std::pair<float, T>>> { false, {}};
+            }
+
+            JSVal z = stop[rapidjson::SizeType(0)];
+            if (!z.IsNumber()) {
+                Log::Warning(Event::ParseStyle, "zoom level in stop must be a number");
+                return std::tuple<bool, std::vector<std::pair<float, T>>> { false, {}};
+            }
+
+            stops.emplace_back(z.GetDouble(), std::get<1>(parseProperty<T>(replaceConstant(stop[rapidjson::SizeType(1)]), property_name)));
+        } else {
+            Log::Warning(Event::ParseStyle, "function argument must be a numeric value");
+            return std::tuple<bool, std::vector<std::pair<float, T>>> { false, {}};
+        }
+    }
+    return std::tuple<bool, std::vector<std::pair<float, T>>>(true, stops);
 }
 
 template <typename T> inline float defaultBaseValue() { return 1.75; }
 template <> inline float defaultBaseValue<Color>() { return 1.0; }
 
 template <typename T>
-std::tuple<bool, Function<T>> StyleParser::parseFunction(JSVal value) {
+std::tuple<bool, Function<T>> StyleParser::parseFunction(JSVal value, const char *property_name) {
+    
+    if (!value.IsObject()) {
+        return std::tuple<bool, Function<T>> { true, ConstantFunction<T>(std::get<1>(parseProperty<T>(value, property_name))) };
+    }
+
     if (!value.HasMember("stops")) {
         Log::Warning(Event::ParseStyle, "function must specify a function type");
         return std::tuple<bool, Function<T>> { false, ConstantFunction<T>(T()) };
@@ -260,71 +340,60 @@ std::tuple<bool, Function<T>> StyleParser::parseFunction(JSVal value) {
         }
     }
 
-    JSVal value_stops = value["stops"];
-    if (!value_stops.IsArray()) {
-        Log::Warning(Event::ParseStyle, "stops function must specify a stops array");
+    auto stops = parseStops<T>(value["stops"], property_name);
+
+    if (!std::get<0>(stops)) {
         return std::tuple<bool, Function<T>> { false, ConstantFunction<T>(T()) };
     }
 
-    std::vector<std::pair<float, T>> stops;
-    for (rapidjson::SizeType i = 0; i < value_stops.Size(); ++i) {
-        JSVal stop = value_stops[i];
-        if (stop.IsArray()) {
-            if (stop.Size() != 2) {
-                Log::Warning(Event::ParseStyle, "stop must have zoom level and value specification");
-                return std::tuple<bool, Function<T>> { false, ConstantFunction<T>(T()) };
-            }
-
-            JSVal z = stop[rapidjson::SizeType(0)];
-            if (!z.IsNumber()) {
-                Log::Warning(Event::ParseStyle, "zoom level in stop must be a number");
-                return std::tuple<bool, Function<T>> { false, ConstantFunction<T>(T()) };
-            }
-
-            stops.emplace_back(z.GetDouble(), parseFunctionArgument<T>(stop[rapidjson::SizeType(1)]));
-        } else {
-            Log::Warning(Event::ParseStyle, "function argument must be a numeric value");
-            return std::tuple<bool, Function<T>> { false, ConstantFunction<T>(T()) };
-        }
-    }
-
-    return std::tuple<bool, Function<T>> { true, StopsFunction<T>(stops, base) };
+    return std::tuple<bool, Function<T>> { true, StopsFunction<T>(std::get<1>(stops), base) };
 }
 
-
 template <typename T>
-bool StyleParser::parseFunction(PropertyKey key, ClassProperties &klass, JSVal value) {
-    bool parsed;
-    Function<T> function;
-    std::tie(parsed, function) = parseFunction<T>(value);
-    if (parsed) {
-        klass.set(key, function);
+std::tuple<bool, PiecewiseConstantFunction<T>> StyleParser::parsePiecewiseConstantFunction(JSVal value, std::chrono::steady_clock::duration duration) {
+    if (!value.HasMember("stops")) {
+        Log::Warning(Event::ParseStyle, "function must specify a function type");
+        return std::tuple<bool, PiecewiseConstantFunction<T>> { false, {} };
     }
-    return parsed;
+
+    auto stops = parseStops<T>(value["stops"], "");
+
+    if (!std::get<0>(stops)) {
+        return std::tuple<bool, PiecewiseConstantFunction<T>> { false, {} };
+    }
+
+    return std::tuple<bool, PiecewiseConstantFunction<T>> { true, { std::get<1>(stops), duration } };
 }
 
 template <typename T>
 bool StyleParser::setProperty(JSVal value, const char *property_name, PropertyKey key, ClassProperties &klass) {
-    bool parsed;
-    T result;
-    std::tie(parsed, result) = parseProperty<T>(value, property_name);
-    if (parsed) {
-        klass.set(key, result);
+    auto res = parseProperty<T>(value, property_name);
+    if (std::get<0>(res)) {
+        klass.set(key, std::get<1>(res));
     }
-    return parsed;
+    return std::get<0>(res);
 }
 
 template <typename T>
-bool StyleParser::setProperty(JSVal value, const char *property_name, T &target) {
-    bool parsed;
-    T result;
-    std::tie(parsed, result) = parseProperty<T>(value, property_name);
-    if (parsed) {
-        target = std::move(result);
+bool StyleParser::setProperty(JSVal value, const char *property_name, PropertyKey key, ClassProperties &klass, JSVal transition) {
+    auto res = parseProperty<T>(value, property_name, transition);
+    if (std::get<0>(res)) {
+        klass.set(key, std::get<1>(res));
     }
-    return parsed;
+    return std::get<0>(res);
 }
 
+template<typename T>
+void StyleParser::parseVisibility(StyleBucket &bucket, JSVal value) {
+    if (!value.HasMember("visibility")) {
+        return;
+    } else if (!value["visibility"].IsString()) {
+        Log::Warning(Event::ParseStyle, "value of 'visibility' must be a string");
+        bucket.visibility = VisibilityType::Visible;
+        return;
+    }
+    bucket.visibility = VisibilityTypeClass({ value["visibility"].GetString(), value["visibility"].GetStringLength() });
+}
 
 template<typename T>
 bool StyleParser::parseOptionalProperty(const char *property_name, PropertyKey key, ClassProperties &klass, JSVal value) {
@@ -335,14 +404,20 @@ bool StyleParser::parseOptionalProperty(const char *property_name, PropertyKey k
     }
 }
 
-template <typename T>
-bool StyleParser::parseOptionalProperty(const char *property_name, T &target, JSVal value) {
+template<typename T>
+bool StyleParser::parseOptionalProperty(const char *property_name, PropertyKey key, ClassProperties &klass, JSVal value, const char *transition_name) {
     if (!value.HasMember(property_name)) {
-         return false;
+        return false;
     } else {
-        return setProperty<T>(replaceConstant(value[property_name]), property_name, target);
+        if (value.HasMember(transition_name)) {
+            return setProperty<T>(replaceConstant(value[property_name]), property_name, key, klass, value[transition_name]);
+        } else {
+            JSVal val = JSVal(rapidjson::kObjectType);
+            return setProperty<T>(replaceConstant(value[property_name]), property_name, key, klass, val);
+        }
     }
 }
+
 
 template<> std::tuple<bool, std::string> StyleParser::parseProperty(JSVal value, const char *property_name) {
     if (!value.IsString()) {
@@ -351,6 +426,15 @@ template<> std::tuple<bool, std::string> StyleParser::parseProperty(JSVal value,
     }
 
     return std::tuple<bool, std::string> { true, { value.GetString(), value.GetStringLength() } };
+}
+
+template<> std::tuple<bool, bool> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    if (!value.IsBool()) {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a boolean", property_name);
+        return std::tuple<bool, bool> { false, true };
+    }
+
+    return std::tuple<bool, bool> { true, value.GetBool() };
 }
 
 template<> std::tuple<bool, TranslateAnchorType> StyleParser::parseProperty(JSVal value, const char *property_name) {
@@ -371,78 +455,180 @@ template<> std::tuple<bool, RotateAnchorType> StyleParser::parseProperty<RotateA
     return std::tuple<bool, RotateAnchorType> { true, RotateAnchorTypeClass({ value.GetString(), value.GetStringLength() }) };
 }
 
+template<> std::tuple<bool, CapType> StyleParser::parseProperty<CapType>(JSVal value, const char *property_name) {
+    if (!value.IsString()) {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a string", property_name);
+        return std::tuple<bool, CapType> { false, CapType::Butt };
+    }
+
+    return std::tuple<bool, CapType> { true, CapTypeClass({ value.GetString(), value.GetStringLength() }) };
+}
+
+template<> std::tuple<bool, JoinType> StyleParser::parseProperty<JoinType>(JSVal value, const char *property_name) {
+    if (!value.IsString()) {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a string", property_name);
+        return std::tuple<bool, JoinType> { false, JoinType::Miter };
+    }
+
+    return std::tuple<bool, JoinType> { true, JoinTypeClass({ value.GetString(), value.GetStringLength() }) };
+}
+
+template<> std::tuple<bool, PlacementType> StyleParser::parseProperty<PlacementType>(JSVal value, const char *property_name) {
+    if (!value.IsString()) {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a string", property_name);
+        return std::tuple<bool, PlacementType> { false, PlacementType::Point };
+    }
+
+    return std::tuple<bool, PlacementType> { true, PlacementTypeClass({ value.GetString(), value.GetStringLength() }) };
+}
+
+template<> std::tuple<bool, TextAnchorType> StyleParser::parseProperty<TextAnchorType>(JSVal value, const char *property_name) {
+    if (!value.IsString()) {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a string", property_name);
+        return std::tuple<bool, TextAnchorType> { false, TextAnchorType::Center };
+    }
+
+    return std::tuple<bool, TextAnchorType> { true, TextAnchorTypeClass({ value.GetString(), value.GetStringLength() }) };
+}
+
+template<> std::tuple<bool, TextJustifyType> StyleParser::parseProperty<TextJustifyType>(JSVal value, const char *property_name) {
+    if (!value.IsString()) {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a string", property_name);
+        return std::tuple<bool, TextJustifyType> { false, TextJustifyType::Center };
+    }
+
+    return std::tuple<bool, TextJustifyType> { true, TextJustifyTypeClass({ value.GetString(), value.GetStringLength() }) };
+}
+
+template<> std::tuple<bool, TextTransformType> StyleParser::parseProperty<TextTransformType>(JSVal value, const char *property_name) {
+    if (!value.IsString()) {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a string", property_name);
+        return std::tuple<bool, TextTransformType> { false, TextTransformType::None };
+    }
+
+    return std::tuple<bool, TextTransformType> { true, TextTransformTypeClass({ value.GetString(), value.GetStringLength() }) };
+}
+
+template<> std::tuple<bool, RotationAlignmentType> StyleParser::parseProperty<RotationAlignmentType>(JSVal value, const char *property_name) {
+    if (!value.IsString()) {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be a string", property_name);
+        return std::tuple<bool, RotationAlignmentType> { false, RotationAlignmentType::Map };
+    }
+
+    return std::tuple<bool, RotationAlignmentType> { true, RotationAlignmentTypeClass({ value.GetString(), value.GetStringLength() }) };
+}
+
 template<> std::tuple<bool, PropertyTransition> StyleParser::parseProperty(JSVal value, const char */*property_name*/) {
     PropertyTransition transition;
     if (value.IsObject()) {
         if (value.HasMember("duration") && value["duration"].IsNumber()) {
-            transition.duration = value["duration"].GetUint();
+            transition.duration = std::chrono::milliseconds(value["duration"].GetUint());
         }
         if (value.HasMember("delay") && value["delay"].IsNumber()) {
-            transition.delay = value["delay"].GetUint();
+            transition.delay = std::chrono::milliseconds(value["delay"].GetUint());
         }
     }
 
-    if (transition.duration == 0 && transition.delay == 0) {
+    if (transition.duration == std::chrono::steady_clock::duration::zero() && transition.delay == std::chrono::steady_clock::duration::zero()) {
         return std::tuple<bool, PropertyTransition> { false, std::move(transition) };
     }
 
     return std::tuple<bool, PropertyTransition> { true, std::move(transition) };
 }
 
+template<> std::tuple<bool, Function<std::array<float, 2>>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<std::array<float, 2>>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<std::string>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<std::string>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<TranslateAnchorType>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<TranslateAnchorType>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<RotateAnchorType>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<RotateAnchorType>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<CapType>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<CapType>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<JoinType>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<JoinType>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<PlacementType>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<PlacementType>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<TextAnchorType>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<TextAnchorType>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<TextJustifyType>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<TextJustifyType>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<TextTransformType>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<TextTransformType>(value, property_name);
+}
+
+template<> std::tuple<bool, Function<RotationAlignmentType>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<RotationAlignmentType>(value, property_name);
+}
+
+
 template<> std::tuple<bool, Function<bool>> StyleParser::parseProperty(JSVal value, const char *property_name) {
-    if (value.IsObject()) {
-        return parseFunction<bool>(value);
-    } else if (value.IsNumber()) {
-        return std::tuple<bool, Function<bool>> { true, ConstantFunction<bool>(value.GetDouble()) };
-    } else if (value.IsBool()) {
-        return std::tuple<bool, Function<bool>> { true, ConstantFunction<bool>(value.GetBool()) };
-    } else {
-        Log::Warning(Event::ParseStyle, "value of '%s' must be convertible to boolean, or a boolean function", property_name);
-        return std::tuple<bool, Function<bool>> { false, ConstantFunction<bool>(false) };
-    }
+    return parseFunction<bool>(value, property_name);
 }
 
 template<> std::tuple<bool, Function<float>> StyleParser::parseProperty(JSVal value, const char *property_name) {
-    if (value.IsObject()) {
-        return parseFunction<float>(value);
-    } else if (value.IsNumber()) {
-        return std::tuple<bool, Function<float>> { true, ConstantFunction<float>(value.GetDouble()) };
-    } else if (value.IsBool()) {
-        return std::tuple<bool, Function<float>> { true, ConstantFunction<float>(value.GetBool()) };
-    } else {
-        Log::Warning(Event::ParseStyle, "value of '%s' must be a number, or a number function", property_name);
-        return std::tuple<bool, Function<float>> { false, ConstantFunction<float>(0) };
-    }
+    return parseFunction<float>(value, property_name);
 }
 
 template<> std::tuple<bool, Function<Color>> StyleParser::parseProperty(JSVal value, const char *property_name) {
+    return parseFunction<Color>(value, property_name);
+}
+
+template<> std::tuple<bool, PiecewiseConstantFunction<Faded<std::vector<float>>>> StyleParser::parseProperty(JSVal value, const char *property_name, JSVal transition) {
+    std::chrono::steady_clock::duration duration = std::chrono::milliseconds(300);
+    if (transition.HasMember("duration")) {
+        duration = std::chrono::milliseconds(transition["duration"].GetUint());
+    }
+
     if (value.IsObject()) {
-        return parseFunction<Color>(value);
-    } else if (value.IsString()) {
-        return std::tuple<bool, Function<Color>> { true, ConstantFunction<Color>(parseColor(value)) };
+        return parsePiecewiseConstantFunction<Faded<std::vector<float>>>(value, duration);
+    } else if (value.IsArray()) {
+        Faded<std::vector<float>> parsed;
+        std::tuple<bool, std::vector<float>> floatarray = parseFloatArray(value);
+        parsed.to = std::get<1>(floatarray);
+        return std::tuple<bool, PiecewiseConstantFunction<Faded<std::vector<float>>>> { std::get<0>(floatarray),  { parsed, duration } };
     } else {
-        Log::Warning(Event::ParseStyle, "value of '%s' must be a color, or a color function", property_name);
-        return std::tuple<bool, Function<Color>> { false, ConstantFunction<Color>(Color {{ 0, 0, 0, 0 }}) };
+        Log::Warning(Event::ParseStyle, "value of '%s' must be an array of numbers, or a number array function", property_name);
+        return std::tuple<bool, PiecewiseConstantFunction<Faded<std::vector<float>>>> { false, {} };
     }
 }
 
-template <typename T>
-bool StyleParser::parseOptionalProperty(const char *property_name, const std::vector<PropertyKey> &keys, ClassProperties &klass, JSVal value) {
-    if (value.HasMember(property_name)) {
-        JSVal rvalue = replaceConstant(value[property_name]);
-        if (!rvalue.IsArray()) {
-            Log::Warning(Event::ParseStyle, "array value must be an array");
-        }
+template<> std::tuple<bool, PiecewiseConstantFunction<Faded<std::string>>> StyleParser::parseProperty(JSVal value, const char *property_name, JSVal transition) {
 
-        if (rvalue.Size() != keys.size()) {
-            Log::Warning(Event::ParseStyle, "array value has unexpected number of elements");
-        }
-
-        for (uint16_t i = 0; i < keys.size(); i++) {
-            setProperty<T>(rvalue[(rapidjson::SizeType)i], property_name, keys[i], klass);
-        }
+    std::chrono::steady_clock::duration duration = std::chrono::milliseconds(300);
+    if (transition.HasMember("duration")) {
+        duration = std::chrono::milliseconds(transition["duration"].GetUint());
     }
-    return true;
+
+    if (value.IsObject()) {
+        return parsePiecewiseConstantFunction<Faded<std::string>>(value, duration);
+    } else if (value.IsString()) {
+        Faded<std::string> parsed;
+        parsed.to = { value.GetString(), value.GetStringLength() };
+        return std::tuple<bool, PiecewiseConstantFunction<Faded<std::string>>> { true,  { parsed, duration } };
+    } else {
+        Log::Warning(Event::ParseStyle, "value of '%s' must be string or a string function", property_name);
+        return std::tuple<bool, PiecewiseConstantFunction<Faded<std::string>>> { false, {} };
+    }
 }
 
 #pragma mark - Parse Layers
@@ -490,10 +676,6 @@ util::ptr<StyleLayer> StyleParser::createLayer(JSVal value) {
         util::ptr<StyleLayer> layer = std::make_shared<StyleLayer>(
             layer_id, std::move(paints));
 
-        if (value.HasMember("layers")) {
-            layer->layers = createLayers(value["layers"]);
-        }
-
         // Store the layer ID so we can reference it later.
         layers.emplace(layer_id, std::pair<JSVal, util::ptr<StyleLayer>> { value, layer });
 
@@ -523,7 +705,7 @@ void StyleParser::parseLayer(std::pair<JSVal, util::ptr<StyleLayer>> &pair) {
         }
     }
 
-    if (layer->bucket || (layer->layers && layer->type != StyleLayerType::Raster)) {
+    if (layer->bucket) {
         // Skip parsing this again. We already have a valid layer definition.
         return;
     }
@@ -570,27 +752,26 @@ void StyleParser::parsePaint(JSVal value, ClassProperties &klass) {
     parseOptionalProperty<PropertyTransition>("fill-color-transition", Key::FillColor, klass, value);
     parseOptionalProperty<Function<Color>>("fill-outline-color", Key::FillOutlineColor, klass, value);
     parseOptionalProperty<PropertyTransition>("fill-outline-color-transition", Key::FillOutlineColor, klass, value);
-    parseOptionalProperty<Function<float>>("fill-translate", { Key::FillTranslateX, Key::FillTranslateY }, klass, value);
+    parseOptionalProperty<Function<std::array<float, 2>>>("fill-translate", Key::FillTranslate, klass, value);
     parseOptionalProperty<PropertyTransition>("fill-translate-transition", Key::FillTranslate, klass, value);
-    parseOptionalProperty<TranslateAnchorType>("fill-translate-anchor", Key::FillTranslateAnchor, klass, value);
-    parseOptionalProperty<std::string>("fill-image", Key::FillImage, klass, value);
+    parseOptionalProperty<Function<TranslateAnchorType>>("fill-translate-anchor", Key::FillTranslateAnchor, klass, value);
+    parseOptionalProperty<PiecewiseConstantFunction<Faded<std::string>>>("fill-image", Key::FillImage, klass, value, "fill-image-transition");
 
     parseOptionalProperty<Function<float>>("line-opacity", Key::LineOpacity, klass, value);
     parseOptionalProperty<PropertyTransition>("line-opacity-transition", Key::LineOpacity, klass, value);
     parseOptionalProperty<Function<Color>>("line-color", Key::LineColor, klass, value);
     parseOptionalProperty<PropertyTransition>("line-color-transition", Key::LineColor, klass, value);
-    parseOptionalProperty<Function<float>>("line-translate", { Key::LineTranslateX, Key::LineTranslateY }, klass, value);
+    parseOptionalProperty<Function<std::array<float,2>>>("line-translate", Key::LineTranslate, klass, value);
     parseOptionalProperty<PropertyTransition>("line-translate-transition", Key::LineTranslate, klass, value);
-    parseOptionalProperty<TranslateAnchorType>("line-translate-anchor", Key::LineTranslateAnchor, klass, value);
+    parseOptionalProperty<Function<TranslateAnchorType>>("line-translate-anchor", Key::LineTranslateAnchor, klass, value);
     parseOptionalProperty<Function<float>>("line-width", Key::LineWidth, klass, value);
     parseOptionalProperty<PropertyTransition>("line-width-transition", Key::LineWidth, klass, value);
     parseOptionalProperty<Function<float>>("line-gap-width", Key::LineGapWidth, klass, value);
     parseOptionalProperty<PropertyTransition>("line-gap-width-transition", Key::LineGapWidth, klass, value);
     parseOptionalProperty<Function<float>>("line-blur", Key::LineBlur, klass, value);
     parseOptionalProperty<PropertyTransition>("line-blur-transition", Key::LineBlur, klass, value);
-    parseOptionalProperty<Function<float>>("line-dasharray", { Key::LineDashLand, Key::LineDashGap }, klass, value);
-    parseOptionalProperty<PropertyTransition>("line-dasharray-transition", Key::LineDashArray, klass, value);
-    parseOptionalProperty<std::string>("line-image", Key::LineImage, klass, value);
+    parseOptionalProperty<PiecewiseConstantFunction<Faded<std::vector<float>>>>("line-dasharray", Key::LineDashArray, klass, value, "line-dasharray-transition");
+    parseOptionalProperty<PiecewiseConstantFunction<Faded<std::string>>>("line-image", Key::LineImage, klass, value, "line-image-transition");
 
     parseOptionalProperty<Function<float>>("icon-opacity", Key::IconOpacity, klass, value);
     parseOptionalProperty<PropertyTransition>("icon-opacity-transition", Key::IconOpacity, klass, value);
@@ -605,9 +786,9 @@ void StyleParser::parsePaint(JSVal value, ClassProperties &klass) {
     parseOptionalProperty<PropertyTransition>("icon-halo-width-transition", Key::IconHaloWidth, klass, value);
     parseOptionalProperty<Function<float>>("icon-halo-blur", Key::IconHaloBlur, klass, value);
     parseOptionalProperty<PropertyTransition>("icon-halo-blur-transition", Key::IconHaloBlur, klass, value);
-    parseOptionalProperty<Function<float>>("icon-translate", { Key::IconTranslateX, Key::IconTranslateY }, klass, value);
+    parseOptionalProperty<Function<std::array<float, 2>>>("icon-translate", Key::IconTranslate, klass, value);
     parseOptionalProperty<PropertyTransition>("icon-translate-transition", Key::IconTranslate, klass, value);
-    parseOptionalProperty<TranslateAnchorType>("icon-translate-anchor", Key::IconTranslateAnchor, klass, value);
+    parseOptionalProperty<Function<TranslateAnchorType>>("icon-translate-anchor", Key::IconTranslateAnchor, klass, value);
 
     parseOptionalProperty<Function<float>>("text-opacity", Key::TextOpacity, klass, value);
     parseOptionalProperty<PropertyTransition>("text-opacity-transition", Key::TextOpacity, klass, value);
@@ -621,15 +802,16 @@ void StyleParser::parsePaint(JSVal value, ClassProperties &klass) {
     parseOptionalProperty<PropertyTransition>("text-halo-width-transition", Key::TextHaloWidth, klass, value);
     parseOptionalProperty<Function<float>>("text-halo-blur", Key::TextHaloBlur, klass, value);
     parseOptionalProperty<PropertyTransition>("text-halo-blur-transition", Key::TextHaloBlur, klass, value);
-    parseOptionalProperty<Function<float>>("text-translate", { Key::TextTranslateX, Key::TextTranslateY }, klass, value);
+    parseOptionalProperty<Function<std::array<float, 2>>>("text-translate", Key::TextTranslate, klass, value);
     parseOptionalProperty<PropertyTransition>("text-translate-transition", Key::TextTranslate, klass, value);
-    parseOptionalProperty<TranslateAnchorType>("text-translate-anchor", Key::TextTranslateAnchor, klass, value);
+    parseOptionalProperty<Function<TranslateAnchorType>>("text-translate-anchor", Key::TextTranslateAnchor, klass, value);
 
     parseOptionalProperty<Function<float>>("raster-opacity", Key::RasterOpacity, klass, value);
     parseOptionalProperty<PropertyTransition>("raster-opacity-transition", Key::RasterOpacity, klass, value);
     parseOptionalProperty<Function<float>>("raster-hue-rotate", Key::RasterHueRotate, klass, value);
     parseOptionalProperty<PropertyTransition>("raster-hue-rotate-transition", Key::RasterHueRotate, klass, value);
-    parseOptionalProperty<Function<float>>("raster-brightness", { Key::RasterBrightnessLow, Key::RasterBrightnessHigh }, klass, value);
+    parseOptionalProperty<Function<float>>("raster-brightness-min", Key::RasterBrightnessLow, klass, value);
+    parseOptionalProperty<Function<float>>("raster-brightness-max", Key::RasterBrightnessHigh, klass, value);
     parseOptionalProperty<PropertyTransition>("raster-brightness-transition", Key::RasterBrightness, klass, value);
     parseOptionalProperty<Function<float>>("raster-saturation", Key::RasterSaturation, klass, value);
     parseOptionalProperty<PropertyTransition>("raster-saturation-transition", Key::RasterSaturation, klass, value);
@@ -640,7 +822,51 @@ void StyleParser::parsePaint(JSVal value, ClassProperties &klass) {
 
     parseOptionalProperty<Function<float>>("background-opacity", Key::BackgroundOpacity, klass, value);
     parseOptionalProperty<Function<Color>>("background-color", Key::BackgroundColor, klass, value);
-    parseOptionalProperty<std::string>("background-image", Key::BackgroundImage, klass, value);
+    parseOptionalProperty<PiecewiseConstantFunction<Faded<std::string>>>("background-image", Key::BackgroundImage, klass, value, "background-image-transition");
+}
+
+void StyleParser::parseLayout(JSVal value, util::ptr<StyleBucket> &bucket) {
+    using Key = PropertyKey;
+
+    parseVisibility<VisibilityType>(*bucket, value);
+
+    parseOptionalProperty<Function<CapType>>("line-cap", Key::LineCap, bucket->layout, value);
+    parseOptionalProperty<Function<JoinType>>("line-join", Key::LineJoin, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("line-miter-limit", Key::LineMiterLimit, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("line-round-limit", Key::LineRoundLimit, bucket->layout, value);
+
+    parseOptionalProperty<Function<PlacementType>>("symbol-placement", Key::SymbolPlacement, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("symbol-min-distance", Key::SymbolMinDistance, bucket->layout, value);
+    parseOptionalProperty<Function<bool>>("symbol-avoid-edges", Key::SymbolAvoidEdges, bucket->layout, value);
+    parseOptionalProperty<Function<bool>>("icon-allow-overlap", Key::IconAllowOverlap, bucket->layout, value);
+    parseOptionalProperty<Function<bool>>("icon-ignore-placement", Key::IconIgnorePlacement, bucket->layout, value);
+    parseOptionalProperty<Function<bool>>("icon-optional", Key::IconOptional, bucket->layout, value);
+    parseOptionalProperty<Function<RotationAlignmentType>>("icon-rotation-alignment", Key::IconRotationAlignment, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("icon-max-size", Key::IconMaxSize, bucket->layout, value);
+    parseOptionalProperty<Function<std::string>>("icon-image", Key::IconImage, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("icon-rotate", Key::IconRotate, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("icon-padding", Key::IconPadding, bucket->layout, value);
+    parseOptionalProperty<Function<bool>>("icon-keep-upright", Key::IconKeepUpright, bucket->layout, value);
+    parseOptionalProperty<Function<std::array<float, 2>>>("icon-offset", Key::IconOffset, bucket->layout, value);
+    parseOptionalProperty<Function<RotationAlignmentType>>("text-rotation-alignment", Key::TextRotationAlignment, bucket->layout, value);
+    parseOptionalProperty<Function<std::string>>("text-field", Key::TextField, bucket->layout, value);
+    parseOptionalProperty<Function<std::string>>("text-font", Key::TextFont, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("text-max-size", Key::TextMaxSize, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("text-max-width", Key::TextMaxWidth, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("text-line-height", Key::TextLineHeight, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("text-letter-spacing", Key::TextLetterSpacing, bucket->layout, value);
+    parseOptionalProperty<Function<TextJustifyType>>("text-justify", Key::TextJustify, bucket->layout, value);
+    parseOptionalProperty<Function<TextAnchorType>>("text-anchor", Key::TextAnchor, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("text-max-angle", Key::TextMaxAngle, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("text-rotate", Key::TextRotate, bucket->layout, value);
+    parseOptionalProperty<Function<float>>("text-padding", Key::TextPadding, bucket->layout, value);
+    parseOptionalProperty<Function<bool>>("text-keep-upright", Key::TextKeepUpright, bucket->layout, value);
+    parseOptionalProperty<Function<TextTransformType>>("text-transform", Key::TextTransform, bucket->layout, value);
+    parseOptionalProperty<Function<std::array<float, 2>>>("text-offset", Key::TextOffset, bucket->layout, value);
+    parseOptionalProperty<Function<bool>>("text-allow-overlap", Key::TextAllowOverlap, bucket->layout, value);
+    parseOptionalProperty<Function<bool>>("text-ignore-placement", Key::TextIgnorePlacement, bucket->layout, value);
+    parseOptionalProperty<Function<bool>>("text-optional", Key::TextOptional, bucket->layout, value);
+
 }
 
 void StyleParser::parseReference(JSVal value, util::ptr<StyleLayer> &layer) {
@@ -661,27 +887,18 @@ void StyleParser::parseReference(JSVal value, util::ptr<StyleLayer> &layer) {
     parseLayer(it->second);
     stack.pop_front();
 
-
     util::ptr<StyleLayer> reference = it->second.second;
-
     layer->type = reference->type;
-
-    if (reference->layers) {
-        Log::Warning(Event::ParseStyle, "layer '%s' references composite layer", layer->id.c_str());
-        // We cannot parse this layer further.
-        return;
-    } else {
-        layer->bucket = reference->bucket;
-    }
+    layer->bucket = reference->bucket;
 }
 
 #pragma mark - Parse Bucket
 
 void StyleParser::parseBucket(JSVal value, util::ptr<StyleLayer> &layer) {
-    layer->bucket = std::make_shared<StyleBucket>(layer->type);
+    util::ptr<StyleBucket> bucket = std::make_shared<StyleBucket>(layer->type);
 
     // We name the buckets according to the layer that defined it.
-    layer->bucket->name = layer->id;
+    bucket->name = layer->id;
 
     if (value.HasMember("source")) {
         JSVal value_source = replaceConstant(value["source"]);
@@ -689,7 +906,7 @@ void StyleParser::parseBucket(JSVal value, util::ptr<StyleLayer> &layer) {
             const std::string source_name = { value_source.GetString(), value_source.GetStringLength() };
             auto source_it = sources.find(source_name);
             if (source_it != sources.end()) {
-                layer->bucket->style_source = source_it->second;
+                bucket->style_source = source_it->second;
             } else {
                 Log::Warning(Event::ParseStyle, "can't find source '%s' required for layer '%s'", source_name.c_str(), layer->id.c_str());
             }
@@ -701,7 +918,7 @@ void StyleParser::parseBucket(JSVal value, util::ptr<StyleLayer> &layer) {
     if (value.HasMember("source-layer")) {
         JSVal value_source_layer = replaceConstant(value["source-layer"]);
         if (value_source_layer.IsString()) {
-            layer->bucket->source_layer = { value_source_layer.GetString(), value_source_layer.GetStringLength() };
+            bucket->source_layer = { value_source_layer.GetString(), value_source_layer.GetStringLength() };
         } else {
             Log::Warning(Event::ParseStyle, "source-layer of layer '%s' must be a string", layer->id.c_str());
         }
@@ -709,18 +926,18 @@ void StyleParser::parseBucket(JSVal value, util::ptr<StyleLayer> &layer) {
 
     if (value.HasMember("filter")) {
         JSVal value_filter = replaceConstant(value["filter"]);
-        layer->bucket->filter = parseFilterExpression(value_filter);
+        bucket->filter = parseFilterExpression(value_filter);
     }
 
     if (value.HasMember("layout")) {
         JSVal value_render = replaceConstant(value["layout"]);
-        parseLayout(value_render, layer);
+        parseLayout(value_render, bucket);
     }
 
     if (value.HasMember("minzoom")) {
         JSVal min_zoom = value["minzoom"];
         if (min_zoom.IsNumber()) {
-            layer->bucket->min_zoom = min_zoom.GetDouble();
+            bucket->min_zoom = min_zoom.GetDouble();
         } else {
             Log::Warning(Event::ParseStyle, "minzoom of layer %s must be numeric", layer->id.c_str());
         }
@@ -729,104 +946,13 @@ void StyleParser::parseBucket(JSVal value, util::ptr<StyleLayer> &layer) {
     if (value.HasMember("maxzoom")) {
         JSVal max_zoom = value["maxzoom"];
         if (max_zoom.IsNumber()) {
-            layer->bucket->min_zoom = max_zoom.GetDouble();
+            bucket->min_zoom = max_zoom.GetDouble();
         } else {
             Log::Warning(Event::ParseStyle, "maxzoom of layer %s must be numeric", layer->id.c_str());
         }
     }
-}
 
-void StyleParser::parseLayout(JSVal value, util::ptr<StyleLayer> &layer) {
-    if (!value.IsObject()) {
-        Log::Warning(Event::ParseStyle, "layout property of layer '%s' must be an object", layer->id.c_str());
-        return;
-    }
-
-    StyleBucket &bucket = *layer->bucket;
-
-    switch (layer->type) {
-    case StyleLayerType::Fill: {
-        StyleBucketFill &render = bucket.render.get<StyleBucketFill>();
-
-        parseRenderProperty<WindingTypeClass>(value, render.winding, "fill-winding");
-    } break;
-
-    case StyleLayerType::Line: {
-        StyleBucketLine &render = bucket.render.get<StyleBucketLine>();
-
-        parseRenderProperty<CapTypeClass>(value, render.cap, "line-cap");
-        parseRenderProperty<JoinTypeClass>(value, render.join, "line-join");
-        parseRenderProperty(value, render.miter_limit, "line-miter-limit");
-        parseRenderProperty(value, render.round_limit, "line-round-limit");
-    } break;
-
-    case StyleLayerType::Symbol: {
-        StyleBucketSymbol &render = bucket.render.get<StyleBucketSymbol>();
-
-        parseRenderProperty<PlacementTypeClass>(value, render.placement, "symbol-placement");
-        if (render.placement == PlacementType::Line) {
-            // Change the default value in case of line placement.
-            render.text.rotation_alignment = RotationAlignmentType::Map;
-            render.icon.rotation_alignment = RotationAlignmentType::Map;
-        }
-
-        parseRenderProperty(value, render.min_distance, "symbol-min-distance");
-        parseRenderProperty(value, render.avoid_edges, "symbol-avoid-edges");
-
-        parseRenderProperty(value, render.icon.allow_overlap, "icon-allow-overlap");
-        parseRenderProperty(value, render.icon.ignore_placement, "icon-ignore-placement");
-        parseRenderProperty(value, render.icon.optional, "icon-optional");
-        parseRenderProperty<RotationAlignmentTypeClass>(value, render.icon.rotation_alignment, "icon-rotation-alignment");
-        parseRenderProperty(value, render.icon.max_size, "icon-max-size");
-        parseRenderProperty(value, render.icon.image, "icon-image");
-        parseRenderProperty(value, render.icon.rotate, "icon-rotate");
-        parseRenderProperty(value, render.icon.padding, "icon-padding");
-        parseRenderProperty(value, render.icon.keep_upright, "icon-keep-upright");
-        parseRenderProperty(value, render.icon.offset, "icon-offset");
-
-
-        parseRenderProperty<RotationAlignmentTypeClass>(value, render.text.rotation_alignment, "text-rotation-alignment");
-        parseRenderProperty(value, render.text.field, "text-field");
-        parseRenderProperty(value, render.text.font, "text-font");
-        parseRenderProperty(value, render.text.max_size, "text-max-size");
-        if (parseRenderProperty(value, render.text.max_width, "text-max-width")) {
-            render.text.max_width *= 24; // em
-        }
-        if (parseRenderProperty(value, render.text.line_height, "text-line-height")) {
-            render.text.line_height *= 24; // em
-        }
-        if (parseRenderProperty(value, render.text.letter_spacing, "text-letter-spacing")) {
-            render.text.letter_spacing *= 24; // em
-        }
-        parseRenderProperty<TextJustifyTypeClass>(value, render.text.justify, "text-justify");
-        parseRenderProperty<TextAnchorTypeClass>(value, render.text.anchor, "text-anchor");
-        parseRenderProperty(value, render.text.max_angle, "text-max-angle");
-        parseRenderProperty(value, render.text.rotate, "text-rotate");
-        parseRenderProperty(value, render.text.slant, "text-slant");
-        parseRenderProperty(value, render.text.padding, "text-padding");
-        parseRenderProperty(value, render.text.keep_upright, "text-keep-upright");
-        parseRenderProperty<TextTransformTypeClass>(value, render.text.transform, "text-transform");
-        parseRenderProperty(value, render.text.offset, "text-offset");
-        parseRenderProperty(value, render.text.allow_overlap, "text-allow-overlap");
-        parseRenderProperty(value, render.text.ignore_placement, "text-ignore-placement");
-        parseRenderProperty(value, render.text.optional, "text-optional");
-    } break;
-
-    case StyleLayerType::Raster: {
-        StyleBucketRaster &render = bucket.render.get<StyleBucketRaster>();
-
-        parseRenderProperty(value, render.size, "raster-size");
-        parseRenderProperty(value, render.blur, "raster-blur");
-        parseRenderProperty(value, render.buffer, "raster-buffer");
-        if (layer->layers) {
-            render.prerendered = true;
-        }
-    } break;
-
-    default:
-        // There are no render properties for these layer types.
-        break;
-    }
+    layer->bucket = bucket;
 }
 
 void StyleParser::parseSprite(JSVal value) {

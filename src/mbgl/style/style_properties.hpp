@@ -3,12 +3,13 @@
 
 #include <mbgl/util/variant.hpp>
 #include <mbgl/style/types.hpp>
-#include <mbgl/style/function_properties.hpp>
+#include <mbgl/style/piecewisefunction_properties.hpp>
 
 #include <array>
 #include <string>
 #include <type_traits>
 #include <memory>
+#include <vector>
 
 namespace mbgl {
 
@@ -20,7 +21,7 @@ struct FillProperties {
     Color stroke_color = {{ 0, 0, 0, -1 }};
     std::array<float, 2> translate = {{ 0, 0 }};
     TranslateAnchorType translateAnchor = TranslateAnchorType::Map;
-    std::string image;
+    Faded<std::string> image;
 
     inline bool isVisible() const {
         return opacity > 0 && (fill_color[3] > 0 || stroke_color[3] > 0);
@@ -36,8 +37,9 @@ struct LineProperties {
     float width = 1;
     float gap_width = 0;
     float blur = 0;
-    std::array<float, 2> dash_array = {{ 1, -1 }};
-    std::string image;
+    Faded<std::vector<float>> dash_array;
+    float dash_line_width = 1;
+    Faded<std::string> image;
 
     inline bool isVisible() const {
         return opacity > 0 && color[3] > 0 && width > 0;
@@ -94,7 +96,7 @@ struct BackgroundProperties {
     inline BackgroundProperties() {}
     float opacity = 1.0f;
     Color color = {{ 0, 0, 0, 1 }};
-    std::string image;
+    Faded<std::string> image;
 };
 
 typedef mapbox::util::variant<

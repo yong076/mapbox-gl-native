@@ -2,10 +2,12 @@
 #define MBGL_MAP_MAP
 
 #include <mbgl/map/transform.hpp>
+#include <mbgl/util/geo.hpp>
+#include <mbgl/util/projection.hpp>
 #include <mbgl/util/noncopyable.hpp>
-#include <mbgl/util/time.hpp>
 #include <mbgl/util/uv.hpp>
 #include <mbgl/util/ptr.hpp>
+#include <mbgl/util/vec.hpp>
 
 #include <cstdint>
 #include <atomic>
@@ -13,7 +15,10 @@
 #include <iosfwd>
 #include <set>
 #include <vector>
+#include <mutex>
+#include <condition_variable>
 #include <functional>
+#include <chrono>
 
 namespace mbgl {
 
@@ -30,6 +35,7 @@ class FileSource;
 class View;
 class GlyphAtlas;
 class SpriteAtlas;
+class LineAtlas;
 
 class Map : private util::noncopyable {
 public:
@@ -37,13 +43,19 @@ public:
     ~Map();
 
     // Start the map render thread. It is asynchronous.
-    void start();
+    void start(bool startPaused = false);
 
     // Stop the map render thread. This call will block until the map rendering thread stopped.
     // The optional callback function will be invoked repeatedly until the map thread is stopped.
     // The callback function should wait until it is woken up again by view.notify(), otherwise
     // this will be a busy waiting loop.
     void stop(std::function<void ()> callback = std::function<void ()>());
+
+    // Pauses the render thread. The render thread will stop running but will not be terminated and will not lose state until resumed.
+    void pause(bool waitForPause = false);
+
+    // Resumes a paused render thread
+    void resume();
 
     // Runs the map event loop. ONLY run this function when you want to get render a single frame
     // with this map object. It will *not* spawn a separate thread and instead block until the
@@ -65,13 +77,17 @@ public:
 
     // Size
     void resize(uint16_t width, uint16_t height, float ratio = 1);
-    void resize(uint16_t width, uint16_t height, float ratio, uint16_t fb_width, uint16_t fb_height);
+    void resize(uint16_t width, uint16_t height, float ratio, uint16_t fbWidth, uint16_t fbHeight);
 
     // Styling
-    void setAppliedClasses(const std::vector<std::string> &classes);
-    void toggleClass(const std::string &name);
-    const std::vector<std::string> &getAppliedClasses() const;
-    void setDefaultTransitionDuration(uint64_t milliseconds = 0);
+    void addClass(const std::string&);
+    void removeClass(const std::string&);
+    bool hasClass(const std::string&) const;
+    void setClasses(const std::vector<std::string>&);
+    std::vector<std::string> getClasses() const;
+
+    void setDefaultTransitionDuration(std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
+    std::chrono::steady_clock::duration getDefaultTransitionDuration();
     void setStyleURL(const std::string &url);
     void setStyleJSON(std::string newStyleJSON, const std::string &base = "");
     std::string getStyleJSON() const;
@@ -80,21 +96,20 @@ public:
     void cancelTransitions();
 
     // Position
-    void moveBy(double dx, double dy, double duration = 0);
-    void setLonLat(double lon, double lat, double duration = 0);
-    void getLonLat(double &lon, double &lat) const;
+    void moveBy(double dx, double dy, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
+    void setLatLng(LatLng latLng, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
+    inline const LatLng getLatLng() const { return state.getLatLng(); }
     void startPanning();
     void stopPanning();
     void resetPosition();
 
     // Scale
-    void scaleBy(double ds, double cx = -1, double cy = -1, double duration = 0);
-    void setScale(double scale, double cx = -1, double cy = -1, double duration = 0);
+    void scaleBy(double ds, double cx = -1, double cy = -1, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
+    void setScale(double scale, double cx = -1, double cy = -1, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
     double getScale() const;
-    void setZoom(double zoom, double duration = 0);
+    void setZoom(double zoom, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
     double getZoom() const;
-    void setLonLatZoom(double lon, double lat, double zoom, double duration = 0);
-    void getLonLatZoom(double &lon, double &lat, double &zoom) const;
+    void setLatLngZoom(LatLng latLng, double zoom, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
     void resetZoom();
     void startScaling();
     void stopScaling();
@@ -102,13 +117,26 @@ public:
     double getMaxZoom() const;
 
     // Rotation
-    void rotateBy(double sx, double sy, double ex, double ey, double duration = 0);
-    void setBearing(double degrees, double duration = 0);
+    void rotateBy(double sx, double sy, double ex, double ey, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
+    void setBearing(double degrees, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
     void setBearing(double degrees, double cx, double cy);
     double getBearing() const;
     void resetNorth();
     void startRotating();
     void stopRotating();
+
+    // API
+    void setAccessToken(const std::string &token);
+    const std::string &getAccessToken() const;
+
+    // Projection
+    inline void getWorldBoundsMeters(ProjectedMeters &sw, ProjectedMeters &ne) const { Projection::getWorldBoundsMeters(sw, ne); }
+    inline void getWorldBoundsLatLng(LatLng &sw, LatLng &ne) const { Projection::getWorldBoundsLatLng(sw, ne); }
+    inline double getMetersPerPixelAtLatitude(const double lat, const double zoom) const { return Projection::getMetersPerPixelAtLatitude(lat, zoom); }
+    inline const ProjectedMeters projectedMetersForLatLng(const LatLng latLng) const { return Projection::projectedMetersForLatLng(latLng); }
+    inline const LatLng latLngForProjectedMeters(const ProjectedMeters projectedMeters) const { return Projection::latLngForProjectedMeters(projectedMeters); }
+    inline const vec2<double> pixelForLatLng(const LatLng latLng) const { return state.pixelForLatLng(latLng); }
+    inline const LatLng latLngForPixel(const vec2<double> pixel) const { return state.latLngForPixel(pixel); }
 
     // Debug
     void setDebug(bool value);
@@ -116,11 +144,14 @@ public:
     bool getDebug() const;
 
     inline const TransformState &getState() const { return state; }
-    inline timestamp getTime() const { return animationTime; }
+    inline std::chrono::steady_clock::time_point getTime() const { return animationTime; }
 
 private:
     util::ptr<Sprite> getSprite();
     uv::worker& getWorker();
+
+    // Checks if render thread needs to pause
+    void checkForPause();
 
     // Setup
     void setup();
@@ -144,11 +175,22 @@ private:
 
     Mode mode = Mode::None;
 
+public: // TODO: make private again
     std::unique_ptr<uv::loop> loop;
+
+private:
     std::unique_ptr<uv::worker> workers;
     std::thread thread;
     std::unique_ptr<uv::async> asyncTerminate;
     std::unique_ptr<uv::async> asyncRender;
+
+    bool terminating = false;
+    bool pausing = false;
+    bool isPaused = false;
+    std::mutex mutexRun;
+    std::condition_variable condRun;
+    std::mutex mutexPause;
+    std::condition_variable condPause;
 
     // If cleared, the next time the render thread attempts to render the map, it will *actually*
     // render the map.
@@ -167,7 +209,7 @@ private:
 
     View &view;
 
-#ifndef NDEBUG
+#ifdef DEBUG
     const std::thread::id mainThread;
     std::thread::id mapThread;
 #endif
@@ -182,15 +224,20 @@ private:
     util::ptr<GlyphStore> glyphStore;
     const std::unique_ptr<SpriteAtlas> spriteAtlas;
     util::ptr<Sprite> sprite;
+    const std::unique_ptr<LineAtlas> lineAtlas;
     util::ptr<TexturePool> texturePool;
 
     const std::unique_ptr<Painter> painter;
 
     std::string styleURL;
     std::string styleJSON = "";
+    std::vector<std::string> classes;
+    std::string accessToken;
+
+    std::chrono::steady_clock::duration defaultTransitionDuration;
 
     bool debug = false;
-    timestamp animationTime = 0;
+    std::chrono::steady_clock::time_point animationTime = std::chrono::steady_clock::time_point::min();
 
     std::set<util::ptr<StyleSource>> activeSources;
 };

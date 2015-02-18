@@ -5,10 +5,10 @@
 #include <mbgl/util/texture_pool.hpp>
 #include <mbgl/util/image.hpp>
 #include <mbgl/util/ptr.hpp>
-#include <mbgl/renderer/prerendered_texture.hpp>
 
 #include <string>
 #include <mutex>
+#include <chrono>
 
 typedef struct uv_loop_s uv_loop_t;
 
@@ -35,7 +35,7 @@ public:
     // transitions
     void beginFadeInTransition();
     bool needsTransition() const;
-    void updateTransitions(timestamp now);
+    void updateTransitions(std::chrono::steady_clock::time_point now);
 
 public:
     // loaded image dimensions

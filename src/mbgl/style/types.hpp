@@ -11,6 +11,16 @@ namespace mbgl {
 // Stores a premultiplied color, with all four channels ranging from 0..1
 typedef std::array<float, 4> Color;
 
+
+template <typename T>
+struct Faded {
+    T from;
+    float fromScale;
+    T to;
+    float toScale;
+    float t;
+};
+
 // -------------------------------------------------------------------------------------------------
 
 enum class StyleLayerType : uint8_t {
@@ -50,14 +60,14 @@ MBGL_DEFINE_ENUM_CLASS(SourceTypeClass, SourceType, {
 
 // -------------------------------------------------------------------------------------------------
 
-enum class WindingType : bool {
-    EvenOdd,
-    NonZero,
+enum class VisibilityType : bool {
+    Visible,
+    None,
 };
 
-MBGL_DEFINE_ENUM_CLASS(WindingTypeClass, WindingType, {
-    { WindingType::EvenOdd, "even-odd" },
-    { WindingType::NonZero, "non-zero" },
+MBGL_DEFINE_ENUM_CLASS(VisibilityTypeClass, VisibilityType, {
+    { VisibilityType::Visible, "visible" },
+    { VisibilityType::None, "none" },
 });
 
 // -------------------------------------------------------------------------------------------------

@@ -4,6 +4,7 @@
 #include <mbgl/text/placement.hpp>
 #include <mbgl/text/glyph_store.hpp>
 #include <mbgl/style/style_bucket.hpp>
+#include <mbgl/style/style_layout.hpp>
 
 #include <mbgl/util/math.hpp>
 
@@ -129,24 +130,22 @@ GlyphBox getMergedBoxes(const GlyphBoxes &glyphs, const Anchor &anchor) {
 }
 
 Placement Placement::getIcon(Anchor &anchor, const Rect<uint16_t> &image, float boxScale,
-                             const std::vector<Coordinate> &line, const StyleBucketSymbol &props) {
-    const float x = image.w / 2.0f; // No need to divide by image.pixelRatio here?
-    const float y = image.h / 2.0f; // image.pixelRatio;
+                             const std::vector<Coordinate> &line, const StyleLayoutSymbol &layout) {
 
-    const float dx = props.icon.offset.x;
-    const float dy = props.icon.offset.y;
-    float x1 = (dx - x);
-    float x2 = (dx + x);
-    float y1 = (dy - y);
-    float y2 = (dy + y);
+    const float dx = layout.icon.offset[0];
+    const float dy = layout.icon.offset[1];
+    float x1 = dx - image.originalW / 2.0f;
+    float x2 = x1 + image.w;
+    float y1 = dy - image.originalH / 2.0f;
+    float y2 = y1 + image.h;
 
     vec2<float> tl{x1, y1};
     vec2<float> tr{x2, y1};
     vec2<float> br{x2, y2};
     vec2<float> bl{x1, y2};
 
-    float angle = props.icon.rotate * M_PI / 180.0f;
-    if (anchor.segment >= 0 && props.icon.rotation_alignment != RotationAlignmentType::Viewport) {
+    float angle = layout.icon.rotate * M_PI / 180.0f;
+    if (anchor.segment >= 0 && layout.icon.rotation_alignment != RotationAlignmentType::Viewport) {
         const Coordinate &next = line[anchor.segment];
         angle += -std::atan2(next.x - anchor.x, next.y - anchor.y) + M_PI / 2;
     }
@@ -180,7 +179,7 @@ Placement Placement::getIcon(Anchor &anchor, const Rect<uint16_t> &image, float 
         /* anchor */ anchor,
         /* minScale */ Placement::globalMinScale,
         /* maxScale */ std::numeric_limits<float>::infinity(),
-        /* padding */ props.icon.padding);
+        /* padding */ layout.icon.padding);
 
     placement.shapes.emplace_back(
         /* tl */ tl,
@@ -201,12 +200,12 @@ Placement Placement::getIcon(Anchor &anchor, const Rect<uint16_t> &image, float 
 Placement Placement::getGlyphs(Anchor &anchor, const vec2<float> &origin, const Shaping &shaping,
                                const GlyphPositions &face, float boxScale, bool horizontal,
                                const std::vector<Coordinate> &line,
-                               const StyleBucketSymbol &props) {
-    const float maxAngle = props.text.max_angle * M_PI / 180;
-    const float rotate = props.text.rotate * M_PI / 180;
-    const float padding = props.text.padding;
-    const bool alongLine = props.text.rotation_alignment != RotationAlignmentType::Viewport;
-    const bool keepUpright = props.text.keep_upright;
+                               const StyleLayoutSymbol &layout) {
+    const float maxAngle = layout.text.max_angle * M_PI / 180;
+    const float rotate = layout.text.rotate * M_PI / 180;
+    const float padding = layout.text.padding;
+    const bool alongLine = layout.text.rotation_alignment != RotationAlignmentType::Viewport;
+    const bool keepUpright = layout.text.keep_upright;
 
     Placement placement;
 

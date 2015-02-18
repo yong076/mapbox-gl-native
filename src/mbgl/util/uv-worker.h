@@ -1,14 +1,14 @@
 #ifndef MBGL_UTIL_UV_WORKER
 #define MBGL_UTIL_UV_WORKER
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <stdlib.h>
 
 #include <mbgl/util/uv-messenger.h>
 #include <mbgl/util/uv-channel.h>
 
-#include <stdlib.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct uv_worker_s uv_worker_t;
 
@@ -17,7 +17,7 @@ typedef void (*uv_worker_after_cb)(void *data);
 typedef void (*uv_worker_close_cb)(uv_worker_t *worker);
 
 struct uv_worker_s {
-#ifndef NDEBUG
+#ifdef DEBUG
     unsigned long thread_id;
 #endif
     uv_loop_t *loop;

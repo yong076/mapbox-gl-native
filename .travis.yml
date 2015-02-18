@@ -5,6 +5,27 @@ matrix:
     - os: linux
   include:
     - os: linux
+      env: CONFIG=release MASON_PLATFORM=android MASON_ANDROID_ABI=arm-v7 TESTMUNK=yes
+      compiler: clang
+    - os: linux
+      env: CONFIG=debug MASON_PLATFORM=android MASON_ANDROID_ABI=arm-v7 TESTMUNK=no
+      compiler: clang
+    - os: linux
+      env: CONFIG=release MASON_PLATFORM=android MASON_ANDROID_ABI=arm-v5 TESTMUNK=no
+      compiler: clang
+    - os: linux
+      env: CONFIG=release MASON_PLATFORM=android MASON_ANDROID_ABI=arm-v8 TESTMUNK=no
+      compiler: clang
+    - os: linux
+      env: CONFIG=release MASON_PLATFORM=android MASON_ANDROID_ABI=x86 TESTMUNK=no
+      compiler: clang
+    - os: linux
+      env: CONFIG=release MASON_PLATFORM=android MASON_ANDROID_ABI=mips TESTMUNK=no
+      compiler: clang
+    - os: linux
+      env: CONFIG=release MASON_PLATFORM=android MASON_ANDROID_ABI=mips-64 TESTMUNK=no
+      compiler: clang
+    - os: linux
       env: BUILDTYPE=Release JOBS=16
       compiler: clang
     - os: linux
@@ -19,37 +40,53 @@ matrix:
 
 env:
   global:
-   - secure: "bG4YYWMfl9API0MSRgmOaJrlGLv06tRg9KJNawBieZvBJbITPpxVGJZT3/l/SEJ+Rl15e2dRex4k+MGQlmT2SqPQxTEYWv1qxNigKPPcla7IWeNmWWqW8uVvFjdglojgBOK2k/xErVQtA4zDfi3mwSXH4DKwquXWsoEKmX2SV7M="
-   - secure: "Cbvap9ubVKgjPe3hUhI6JGeDZzBXHpOG9RaYKh+SdoIPhKnlJiNOYm1egomi+e4uqJInlFKuVHTw7Ng9Cun6Zm0jIxpkSchv1GpsR7hmB3UGnGed19Dw8121FwuUaktN+4YnbVlsyd+u8EHD3+h58t4eELrLrZolM4rS7DL6caA="
+   - secure: "MZHblLZXG/jWf2w0ZFlxCLDwx2qtGgRDODQyg1BR7JIuMz6AtWv8XR/sUczWLbiABCL0a/NzJF1g4v2pI7X69IntcjOdIABBgTh7++6+1TJ0Kp8viEltb55nQG3lHy/R6fOaI7Pj9tuCX0PCRtGA5C/fGnodLGEjy3RVOJ09ln0="
+   - secure: "KaSQbhgjtV7ZCkesHmvrNsbQVjk5SPfGKB1VkWenRGYhLF45HpSRNwSxMQddZ566Pg7qIFgF1iWl/B0QW3B6AWL5WmzQ5AOJgwS876pNIc/UT7ubMPtgAtjpvw1bQvQP3B8MrB+3OE5c6tD+a3LhR9krV//dOsfErR5Yy+3Mbkc="
+   - ANDROID_BUILD_INSTANCE_PROFILE: arn:aws:iam::234858372212:instance-profile/android-gl-build/travis/instance-profile/travis-mapbox-gl-native-AndroidInstanceProfile-13EA815DD8IQ9
    - secure: "RiBIBfVhhaMjU5ksuwJO3shdvG9FpinBjdSv4co9jg9171SR8edNriedHjVKSIeBhSGNmZmX+twS3dJS/By6tl/LKh9sTynA+ZAYYljkE7jn881B/gMrlYvdAA6og5KvkhV1/0iJWlhuZrMTkhpDR200iLgg3EWBhWjltzmDW/I="
+   - secure: "CHBiUM60TolDbQnn+4IRA/tvOKwKs3g9EDvv8YHSJMg3FuHmjKQkprBasvxf3hnTXg4WLZEubmeDcyJ6RRzPP5mMSr/hksYl0pSjj/6TUecE5fHPVVeN7txVqkpOBf9i45Y+iBUQMjBb1NnDK3pHXxpnAs1Q/pe7vReErj4GF1U="
    - LD_LIBRARY_PATH: '/usr/local/lib'
+   - TERM: dumb
+   # begin iOS code signing
+   - secure: "I6Iu75X1E+js5tzijtKi1EGtIuBcA4/25nDYe0svV4HAtujY71ZJZ4eB6355CKhFXpLXrF3i7eKVX3v+zWS0QROPEWacgsqsvNg+Ba9cnznW/faUSOYekCfhzWd/6reYDM7KzKAQwSUHLk9JIWK/kkmi4r+vVJK7h+tjPllK5YA="
+   - IOS_APP_NAME="Mapbox GL"
+   - 'IOS_DEVELOPER_NAME="iPhone Distribution: Mapbox, Inc."'
+   - IOS_PROFILE_NAME="ios-in-house"
+   - secure: "nQqSM8rd7OHtV4MqmNqVnkrVHqxKqQsaWRYk4/nPdhbeVWtTtkk0df711LrF1TUtbEPEewHxYUvTZ/UXmwJNeoKdzTHavI8hnatRkgjyxGERPn1il1Otelht9I+LQQHf+plrpRjVWBrNIW0Zox1B3cqn6d3NglpbXrEQ2EjYGNA="
+   # end iOS code signing
 
 before_install:
+- if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then sudo service mysql stop; fi
+- if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then sudo service postgresql stop; fi
 - source ./scripts/local_mason.sh
 - source ./scripts/travis_helper.sh
+- source ./scripts/install_node.sh
 - source ./scripts/flags.sh
 - ./scripts/travis_before_install.sh
-- if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then export LD_LIBRARY_PATH=`mason prefix mesa 10.3.1`/lib; fi
-- if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then glxinfo; fi
+- if [[ ${TRAVIS_OS_NAME} == "linux" && ${MASON_PLATFORM} != "android" ]]; then export LD_LIBRARY_PATH=`mason prefix mesa 10.4.3`/lib; fi
+- if [[ ${TRAVIS_OS_NAME} == "linux" && ${MASON_PLATFORM} != "android" ]]; then glxinfo; fi
 
 install:
-- make config.gypi
 - ulimit -c
 
 before_script:
  # Set the core file limit to unlimited so a core file is generated upon crash
  - ulimit -c unlimited -S
+ # begin iOS code signing
+ - openssl aes-256-cbc -k "$IOS_ENCRYPTION_SECRET" -in scripts/ios_travis/ios-in-house.mobileprovision.enc -d -a -out scripts/ios_travis/ios-in-house.mobileprovision
+ - openssl aes-256-cbc -k "$IOS_ENCRYPTION_SECRET" -in scripts/ios_travis/ios-dist.cer.enc                 -d -a -out scripts/ios_travis/ios-dist.cer
+ - openssl aes-256-cbc -k "$IOS_ENCRYPTION_SECRET" -in scripts/ios_travis/ios-dist.p12.enc                 -d -a -out scripts/ios_travis/ios-dist.p12
+ - ./scripts/ios_travis/add-key.sh
+ # end iOS code signing
 
 script:
 - ./scripts/travis_script.sh
 
-notifications:
-  hipchat:
-    rooms:
-      secure: "SgMjGDp8MP+UTAY/aWJwSQH2hv1Q0vhEc1BdIde59+lEL3u6gNMSexUTSJoVxRlIQTFXDJBU7v58ISdgJX8cPa+UvIC8hhLsayM+cbm+J3jgy7V9E9wllq3RpmXN33TxY7nwKgWdIms2t9YKZco3y4dKKAUyHXrtMvw8NNPQM+4="
-    template:
-      - 'Build <a href="%{build_url}">#%{build_number}</a>: %{author} tested <a href="%{compare_url}">%{commit}</a> in branch <a href="https://github.com/%{repository_slug}/tree/%{branch}">%{branch}</a> of <a href="https://github.com/%{repository_slug}">%{repository_name}</a>: <b>%{commit_message}</b><br>%{message} (%{duration})'
-    format: html
+after_script:
+- ./scripts/ios_travis/remove-key.sh
 
+notifications:
+  slack:
+    secure: HHQYr7sF8M1SzoWSqgKVYtwAgGdLLCyTMsQjFhEEQNYO92ZwURE5s03qWTGH5k8+4Yqn26yrXt3NztLC4JIOpcGervN2mSZyq4dZgFTcWEd61igw0qwSenlwvFfbE1ASK/KYCzfyn9MIfHN+ovwLoRxXZkPwinKDvl3DXjBaFNg=
 git:
   submodules: false

@@ -2,8 +2,10 @@
 #include <mbgl/renderer/line_bucket.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/style_layer.hpp>
+#include <mbgl/style/style_layout.hpp>
 #include <mbgl/map/sprite.hpp>
 #include <mbgl/geometry/sprite_atlas.hpp>
+#include <mbgl/geometry/line_atlas.hpp>
 #include <mbgl/map/map.hpp>
 
 using namespace mbgl;
@@ -13,24 +15,34 @@ void Painter::renderLine(LineBucket& bucket, util::ptr<StyleLayer> layer_desc, c
     if (pass == RenderPass::Opaque) return;
     if (!bucket.hasData()) return;
 
-    const LineProperties &properties = layer_desc->getProperties<LineProperties>();
+    const auto &properties = layer_desc->getProperties<LineProperties>();
+    const auto &layout = *bucket.styleLayout;
 
+    // the distance over which the line edge fades out.
+    // Retina devices need a smaller distance to avoid aliasing.
     float antialiasing = 1 / state.getPixelRatio();
-    float width = properties.width;
-    float offset = properties.gap_width == 0 ? 0 : (properties.gap_width + width) / 2;
-    float blur = properties.blur + antialiasing;
 
-    float inset = std::fmin((std::fmax(-1, offset - width / 2 - antialiasing / 2) + 1), 16.0f);
-    float outset = std::fmin(offset + width / 2 + antialiasing / 2, 16.0f);
+    float blur = properties.blur + antialiasing;
+    float edgeWidth = properties.width / 2.0;
+    float inset = -1;
+    float offset = 0;
+    float shift = 0;
+
+    if (properties.gap_width != 0) {
+        inset = properties.gap_width / 2.0 + antialiasing * 0.5;
+        edgeWidth = properties.width;
+
+        // shift outer lines half a pixel towards the middle to eliminate the crack
+        offset = inset - antialiasing / 2.0;
+    }
+
+    float outset = offset + edgeWidth + antialiasing / 2.0 + shift;
 
     Color color = properties.color;
     color[0] *= properties.opacity;
     color[1] *= properties.opacity;
     color[2] *= properties.opacity;
     color[3] *= properties.opacity;
-
-    float dash_length = properties.dash_array[0];
-    float dash_gap = properties.dash_array[1];
 
     float ratio = state.getPixelRatio();
     mat4 vtxMatrix = translatedMatrix(matrix, properties.translate, id, properties.translateAnchor);
@@ -60,11 +72,42 @@ void Painter::renderLine(LineBucket& bucket, util::ptr<StyleLayer> layer_desc, c
         bucket.drawPoints(*linejoinShader);
     }
 
-    if (properties.image.size()) {
-        SpriteAtlasPosition imagePos = spriteAtlas.getPosition(properties.image);
+    if (properties.dash_array.from.size()) {
+
+        useProgram(linesdfShader->program);
+
+        linesdfShader->u_matrix = vtxMatrix;
+        linesdfShader->u_exmatrix = extrudeMatrix;
+        linesdfShader->u_linewidth = {{ outset, inset }};
+        linesdfShader->u_ratio = ratio;
+        linesdfShader->u_blur = blur;
+        linesdfShader->u_color = color;
+
+        LinePatternPos posA = lineAtlas.getDashPosition(properties.dash_array.from, layout.cap == CapType::Round);
+        LinePatternPos posB = lineAtlas.getDashPosition(properties.dash_array.to, layout.cap == CapType::Round);
+        lineAtlas.bind();
+
+        float patternratio = std::pow(2.0, std::floor(std::log2(state.getScale())) - id.z) / 8.0;
+        float scaleXA = patternratio / posA.width / properties.dash_line_width / properties.dash_array.fromScale;
+        float scaleYA = -posA.height / 2.0;
+        float scaleXB = patternratio / posB.width / properties.dash_line_width / properties.dash_array.toScale;
+        float scaleYB = -posB.height / 2.0;
+
+        linesdfShader->u_patternscale_a = {{ scaleXA, scaleYA }};
+        linesdfShader->u_tex_y_a = posA.y;
+        linesdfShader->u_patternscale_b = {{ scaleXB, scaleYB }};
+        linesdfShader->u_tex_y_b = posB.y;
+        linesdfShader->u_image = 0;
+        linesdfShader->u_sdfgamma = lineAtlas.width / (properties.dash_line_width * std::min(posA.width, posB.width) * 256.0 * state.getPixelRatio()) / 2;
+        linesdfShader->u_mix = properties.dash_array.t;
+
+        bucket.drawLineSDF(*linesdfShader);
+
+    } else if (properties.image.from.size()) {
+        SpriteAtlasPosition imagePosA = spriteAtlas.getPosition(properties.image.from, true);
+        SpriteAtlasPosition imagePosB = spriteAtlas.getPosition(properties.image.to, true);
 
         float factor = 8.0 / std::pow(2, state.getIntegerZoom() - id.z);
-        float fade = std::fmod(state.getZoom(), 1.0);
 
         useProgram(linepatternShader->program);
 
@@ -74,11 +117,16 @@ void Painter::renderLine(LineBucket& bucket, util::ptr<StyleLayer> layer_desc, c
         linepatternShader->u_ratio = ratio;
         linepatternShader->u_blur = blur;
 
-        linepatternShader->u_pattern_size = {{imagePos.size[0] * factor, imagePos.size[1]}};
-        linepatternShader->u_pattern_tl = imagePos.tl;
-        linepatternShader->u_pattern_br = imagePos.br;
-        linepatternShader->u_fade = fade;
+        linepatternShader->u_pattern_size_a = {{imagePosA.size[0] * factor * properties.image.fromScale, imagePosA.size[1]}};
+        linepatternShader->u_pattern_tl_a = imagePosA.tl;
+        linepatternShader->u_pattern_br_a = imagePosA.br;
+        linepatternShader->u_pattern_size_b = {{imagePosB.size[0] * factor * properties.image.toScale, imagePosB.size[1]}};
+        linepatternShader->u_pattern_tl_b = imagePosB.tl;
+        linepatternShader->u_pattern_br_b = imagePosB.br;
+        linepatternShader->u_fade = properties.image.t;
+        linepatternShader->u_opacity = properties.opacity;
 
+        MBGL_CHECK_ERROR(glActiveTexture(GL_TEXTURE0));
         spriteAtlas.bind(true);
         MBGL_CHECK_ERROR(glDepthRange(strata + strata_epsilon, 1.0f));  // may or may not matter
 
@@ -94,7 +142,6 @@ void Painter::renderLine(LineBucket& bucket, util::ptr<StyleLayer> layer_desc, c
         lineShader->u_blur = blur;
 
         lineShader->u_color = color;
-        lineShader->u_dasharray = {{ dash_length, dash_gap }};
 
         bucket.drawLines(*lineShader);
     }

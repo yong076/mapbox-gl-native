@@ -4,10 +4,10 @@
 #include <mbgl/style/style_parser.hpp>
 #include <mbgl/style/style_bucket.hpp>
 #include <mbgl/util/constants.hpp>
-#include <mbgl/util/time.hpp>
 #include <mbgl/util/error.hpp>
 #include <mbgl/util/std.hpp>
 #include <mbgl/util/uv_detail.hpp>
+#include <mbgl/platform/log.hpp>
 #include <csscolorparser/csscolorparser.hpp>
 
 #include <rapidjson/document.h>
@@ -25,11 +25,13 @@ Style::Style()
 // for deleting the std::unique_ptr<uv::rwlock>.
 Style::~Style() {}
 
-void Style::updateProperties(float z, timestamp now) {
+void Style::updateProperties(float z, std::chrono::steady_clock::time_point now) {
     uv::writelock lock(mtx);
 
+    zoomHistory.update(z, now);
+
     if (layers) {
-        layers->updateProperties(z, now);
+        layers->updateProperties(z, now, zoomHistory);
     }
 
     // Apply transitions after the first time.
@@ -43,35 +45,13 @@ const std::string &Style::getSpriteURL() const {
     return sprite_url;
 }
 
-void Style::setDefaultTransitionDuration(uint16_t duration_milliseconds) {
-    defaultTransition.duration = duration_milliseconds;
+void Style::setDefaultTransitionDuration(std::chrono::steady_clock::duration duration) {
+    defaultTransition.duration = duration;
 }
 
-const std::vector<std::string> &Style::getAppliedClasses() const {
-    return appliedClasses;
-}
-
-void Style::setAppliedClasses(const std::vector<std::string> &class_names) {
-    appliedClasses = class_names;
-    updateClasses();
-}
-
-void Style::toggleClass(const std::string &name) {
-    if (name.length()) {
-        auto it = std::find(appliedClasses.begin(), appliedClasses.end(), name);
-        if (it == appliedClasses.end()) {
-            appliedClasses.push_back(name);
-        } else {
-            appliedClasses.erase(it);
-        }
-    }
-
-    updateClasses();
-}
-
-void Style::updateClasses() {
+void Style::cascadeClasses(const std::vector<std::string>& classes) {
     if (layers) {
-        layers->setClasses(appliedClasses, util::now(), defaultTransition);
+        layers->setClasses(classes, std::chrono::steady_clock::now(), defaultTransition);
     }
 }
 
@@ -91,6 +71,7 @@ void Style::loadJSON(const uint8_t *const data) {
     rapidjson::Document doc;
     doc.Parse<0>((const char *const)data);
     if (doc.HasParseError()) {
+        Log::Error(Event::ParseStyle, "Error parsing style JSON at %i: %s", doc.GetErrorOffset(), doc.GetParseError());
         throw error::style_parse(doc.GetErrorOffset(), doc.GetParseError());
     }
 
@@ -100,8 +81,6 @@ void Style::loadJSON(const uint8_t *const data) {
     layers = parser.getLayers();
     sprite_url = parser.getSprite();
     glyph_url = parser.getGlyphURL();
-
-    updateClasses();
 }
 
 }
