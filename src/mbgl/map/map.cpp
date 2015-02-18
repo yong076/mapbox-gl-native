@@ -80,11 +80,7 @@ Map::Map(View& view_, FileSource& fileSource_, std::string featureJSON_)
     isSwapped.test_and_set();
 
     if (featureJSON_.length()) {
-
-        using namespace mbgl;
-        using namespace util;
-        using namespace geojsonvt;
-
+        using GeoJSONVT = mapbox::util::geojsonvt::GeoJSONVT;
         GeoJSONVT vt = GeoJSONVT(featureJSON_);
     }
 }
