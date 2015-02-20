@@ -8,6 +8,8 @@
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/mat4.hpp>
 #include <mbgl/util/ptr.hpp>
+#include <mbgl/util/uv.hpp>
+#include <mbgl/util/geojsonvt.hpp>
 
 #include <cstdint>
 #include <forward_list>
@@ -35,6 +37,7 @@ public:
     Source(SourceInfo&);
 
     void load(Map&, FileSource&);
+//    void load(std::string& url);
     void update(Map&, uv::worker&,
                 util::ptr<Style>,
                 GlyphAtlas&, GlyphStore&,
@@ -79,6 +82,8 @@ private:
 
     std::map<Tile::ID, std::unique_ptr<Tile>> tiles;
     std::map<Tile::ID, std::weak_ptr<TileData>> tile_data;
+
+    util::ptr<mapbox::util::geojsonvt::GeoJSONVT> geojsonvt;
 };
 
 }

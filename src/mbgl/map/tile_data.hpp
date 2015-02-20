@@ -7,6 +7,7 @@
 
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/ptr.hpp>
+#include <mbgl/util/geojsonvt.hpp>
 
 #include <atomic>
 #include <exception>
@@ -52,6 +53,7 @@ public:
     ~TileData();
 
     void request(uv::worker&, uv_loop_t&, float pixelRatio, std::function<void ()> callback);
+    void request(util::ptr<mapbox::util::geojsonvt::GeoJSONVT> geojsonvt);
     void reparse(uv::worker&, std::function<void ()> callback);
     void cancel();
     const std::string toString() const;

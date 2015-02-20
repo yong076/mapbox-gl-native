@@ -33,34 +33,47 @@ Source::Source(SourceInfo& info_)
 // The reason this isn't part of the constructor is that calling shared_from_this() in
 // the constructor fails.
 void Source::load(Map& map, FileSource& fileSource) {
-    if (info.url.empty()) {
-        loaded = true;
-        return;
+    if (info.type != SourceType::Live) {
+        if (info.url.empty()) {
+            loaded = true;
+            return;
+        }
+
+        util::ptr<Source> source = shared_from_this();
+
+        const std::string url = util::mapbox::normalizeSourceURL(info.url, map.getAccessToken());
+        fileSource.request({ Resource::Kind::JSON, url }, **map.loop, [source, &map](const Response &res) {
+            if (res.status != Response::Successful) {
+                Log::Warning(Event::General, "Failed to load source TileJSON: %s", res.message.c_str());
+                return;
+            }
+
+            rapidjson::Document d;
+            d.Parse<0>(res.data.c_str());
+
+            if (d.HasParseError()) {
+                Log::Warning(Event::General, "Invalid source TileJSON; Parse Error at %d: %s", d.GetErrorOffset(), d.GetParseError());
+                return;
+            }
+
+            source->info.parseTileJSONProperties(d);
+            source->loaded = true;
+
+            map.update();
+        });
+    } else {
+        util::ptr<Source> source = shared_from_this();
+
+        fileSource.request({ Resource::Kind::JSON, "asset://threestates.geojson" }, **map.loop, [source, &map](const Response &res) { // FIXME
+            assert(res.status == Response::Successful);
+            assert(res.data.length());
+
+            source->geojsonvt = std::make_shared<mapbox::util::geojsonvt::GeoJSONVT>(res.data);
+            source->loaded = true;
+
+            map.update();
+        });
     }
-
-    util::ptr<Source> source = shared_from_this();
-
-    const std::string url = util::mapbox::normalizeSourceURL(info.url, map.getAccessToken());
-    fileSource.request({ Resource::Kind::JSON, url }, **map.loop, [source, &map](const Response &res) {
-        if (res.status != Response::Successful) {
-            Log::Warning(Event::General, "Failed to load source TileJSON: %s", res.message.c_str());
-            return;
-        }
-
-        rapidjson::Document d;
-        d.Parse<0>(res.data.c_str());
-
-        if (d.HasParseError()) {
-            Log::Warning(Event::General, "Invalid source TileJSON; Parse Error at %d: %s", d.GetErrorOffset(), d.GetParseError());
-            return;
-        }
-
-        source->info.parseTileJSONProperties(d);
-        source->loaded = true;
-
-        map.update();
-
-    });
 }
 
 void Source::updateClipIDs(const std::map<Tile::ID, ClipID> &mapping) {
@@ -193,6 +206,18 @@ TileData::State Source::addTile(Map& map, uv::worker& worker,
                                                              info, fileSource);
         } else if (info.type == SourceType::Raster) {
             new_tile.data = std::make_shared<RasterTileData>(normalized_id, texturePool, info, fileSource);
+        } else if (info.type == SourceType::Live) {
+
+            new_tile.data = std::make_shared<VectorTileData>(normalized_id, map.getMaxZoom(), style,
+                                                             glyphAtlas, glyphStore,
+                                                             spriteAtlas, sprite,
+                                                             info, fileSource);
+
+            new_tile.data->request(geojsonvt);
+            tile_data.emplace(new_tile.data->id, new_tile.data);
+
+            return TileData::State::parsed;
+
         } else {
             throw std::runtime_error("source type not implemented");
         }

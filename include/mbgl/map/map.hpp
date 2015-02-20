@@ -39,7 +39,7 @@ class LineAtlas;
 
 class Map : private util::noncopyable {
 public:
-    explicit Map(View&, FileSource&, std::string = "");
+    explicit Map(View&, FileSource&);
     ~Map();
 
     // Start the map render thread. It is asynchronous.
@@ -240,6 +240,7 @@ private:
     std::chrono::steady_clock::time_point animationTime = std::chrono::steady_clock::time_point::min();
 
     std::set<util::ptr<StyleSource>> activeSources;
+    util::ptr<StyleSource> annotationsSource;
 };
 
 }

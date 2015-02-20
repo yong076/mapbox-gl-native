@@ -25,7 +25,6 @@
 #include <mbgl/util/string.hpp>
 #include <mbgl/util/uv.hpp>
 #include <mbgl/util/mapbox.hpp>
-#include <mbgl/util/geojsonvt.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -57,7 +56,7 @@ const static bool uvVersionCheck = []() {
 
 using namespace mbgl;
 
-Map::Map(View& view_, FileSource& fileSource_, std::string featureJSON_)
+Map::Map(View& view_, FileSource& fileSource_)
     : loop(util::make_unique<uv::loop>()),
       view(view_),
 #ifdef DEBUG
@@ -78,11 +77,6 @@ Map::Map(View& view_, FileSource& fileSource_, std::string featureJSON_)
     isClean.clear();
     isRendered.clear();
     isSwapped.test_and_set();
-
-    if (featureJSON_.length()) {
-        using GeoJSONVT = mapbox::util::geojsonvt::GeoJSONVT;
-        GeoJSONVT vt = GeoJSONVT(featureJSON_);
-    }
 }
 
 Map::~Map() {
@@ -641,7 +635,13 @@ void Map::updateSources(const util::ptr<StyleLayerGroup> &group) {
         if (layer->bucket && layer->bucket->style_source) {
             (*activeSources.emplace(layer->bucket->style_source).first)->enabled = true;
         }
+
     }
+    if (!annotationsSource) {
+        annotationsSource = *(activeSources.emplace(std::make_shared<StyleSource>()).first);
+        annotationsSource->info.type = SourceType::Live;
+    }
+    annotationsSource->enabled = true;
 }
 
 void Map::updateTiles() {

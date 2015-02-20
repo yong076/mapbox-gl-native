@@ -107,12 +107,7 @@ int main() {
 
     mbgl::SQLiteCache cache(defaultCacheDatabase());
     mbgl::DefaultFileSource fileSource(&cache);
-    NSString *json = [[NSString alloc] initWithContentsOfFile:
-                         [[NSBundle mainBundle] pathForResource:@"threestates" ofType:@"geojson"]
-                                                     encoding:NSUTF8StringEncoding
-                                                        error:nil];
-    NSLog(@"loaded up feature JSON of %lu bytes", (unsigned long)json.length);
-    mbgl::Map map(view, fileSource, std::string([json UTF8String]));
+    mbgl::Map map(view, fileSource);
 
     URLHandler *handler = [[URLHandler alloc] init];
     [handler setMap:&map];
