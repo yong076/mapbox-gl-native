@@ -28,6 +28,31 @@ void StyleParser::parse(JSVal document) {
     if (document.HasMember("layers")) {
         root = createLayers(document["layers"]);
         parseLayers();
+
+        // fake-create an annotations style layer above all others
+        std::string id = "annotations";
+
+        // "parse" paints
+        std::map<ClassID, ClassProperties> paints;
+        paints[ClassID::Default].set(PropertyKey::LineWidth, 3.0);
+        util::ptr<StyleLayer> annotations = std::make_shared<StyleLayer>(id, std::move(paints));
+
+        // add layer
+        layers.emplace(id, std::pair<JSVal, util::ptr<StyleLayer>> { "", annotations });
+        root->layers.emplace_back(annotations);
+
+        // "parse" (type, bucket, source)
+        annotations->type = StyleLayerType::Line;
+
+        util::ptr<StyleBucket> bucket = std::make_shared<StyleBucket>(annotations->type);
+        bucket->name = annotations->id;
+
+        SourceInfo& info = sources.emplace("annotations", std::make_shared<StyleSource>()).first->second->info;
+        info.type = SourceType::Live;
+
+        auto source_it = sources.find("annotations");
+        bucket->style_source = source_it->second;
+        annotations->bucket = bucket;
     }
 
     if (document.HasMember("sprite")) {
