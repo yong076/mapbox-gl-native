@@ -5,6 +5,7 @@
 #include <mbgl/geometry/elements_buffer.hpp>
 #include <mbgl/geometry/fill_buffer.hpp>
 #include <mbgl/style/style_bucket.hpp>
+#include <mbgl/util/vec.hpp>
 
 #include <clipper/clipper.hpp>
 #include <libtess2/tesselator.h>
@@ -49,6 +50,7 @@ public:
     virtual bool hasData() const;
 
     void addGeometry(pbf& data);
+    void addGeometry(const std::vector<Coordinate>& line);
     void tessellate();
 
     void drawElements(PlainShader& shader);

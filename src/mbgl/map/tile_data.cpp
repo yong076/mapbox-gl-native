@@ -79,17 +79,6 @@ void TileData::request(uv::worker &worker, uv_loop_t &loop,
     });
 }
 
-void TileData::request(util::ptr<mapbox::util::geojsonvt::GeoJSONVT> geojsonvt) {
-
-    printf("live loading %i,%i,%i\n", id.z, id.x, id.y);
-
-    mapbox::util::geojsonvt::Tile tile = geojsonvt->getTile(id.z, id.x, id.y);
-
-    // translate geojsonvt tile features into true vector tile here
-
-//    state = State::parsed;
-}
-
 void TileData::cancel() {
     if (state != State::obsolete) {
         state = State::obsolete;

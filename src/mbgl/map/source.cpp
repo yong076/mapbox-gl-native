@@ -19,6 +19,7 @@
 
 #include <mbgl/map/vector_tile_data.hpp>
 #include <mbgl/map/raster_tile_data.hpp>
+#include <mbgl/map/live_tile_data.hpp>
 
 #include <algorithm>
 
@@ -64,7 +65,7 @@ void Source::load(Map& map, FileSource& fileSource) {
     } else {
         util::ptr<Source> source = shared_from_this();
 
-        fileSource.request({ Resource::Kind::JSON, "asset://threestates.geojson" }, **map.loop, [source, &map](const Response &res) { // FIXME
+        fileSource.request({ Resource::Kind::JSON, "asset://threestates.geojson" }, **map.loop, [source, &map](const Response &res) {
             assert(res.status == Response::Successful);
             assert(res.data.length());
 
@@ -204,25 +205,21 @@ TileData::State Source::addTile(Map& map, uv::worker& worker,
                                                              glyphAtlas, glyphStore,
                                                              spriteAtlas, sprite,
                                                              info, fileSource);
+            new_tile.data->request(worker, loop, map.getState().getPixelRatio(), callback);
         } else if (info.type == SourceType::Raster) {
             new_tile.data = std::make_shared<RasterTileData>(normalized_id, texturePool, info, fileSource);
+            new_tile.data->request(worker, loop, map.getState().getPixelRatio(), callback);
         } else if (info.type == SourceType::Live) {
-
-            new_tile.data = std::make_shared<VectorTileData>(normalized_id, map.getMaxZoom(), style,
-                                                             glyphAtlas, glyphStore,
-                                                             spriteAtlas, sprite,
-                                                             info, fileSource);
-
-            new_tile.data->request(geojsonvt);
-            tile_data.emplace(new_tile.data->id, new_tile.data);
-
-            return TileData::State::parsed;
-
+            new_tile.data = std::make_shared<LiveTileData>(normalized_id, map.getMaxZoom(), style,
+                                                           glyphAtlas, glyphStore,
+                                                           spriteAtlas, sprite,
+                                                           info, fileSource,
+                                                           geojsonvt);
+            new_tile.data->reparse(worker, callback);
         } else {
             throw std::runtime_error("source type not implemented");
         }
 
-        new_tile.data->request(worker, loop, map.getState().getPixelRatio(), callback);
         tile_data.emplace(new_tile.data->id, new_tile.data);
     }
 

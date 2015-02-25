@@ -83,7 +83,7 @@ private:
     std::map<Tile::ID, std::unique_ptr<Tile>> tiles;
     std::map<Tile::ID, std::weak_ptr<TileData>> tile_data;
 
-    util::ptr<mapbox::util::geojsonvt::GeoJSONVT> geojsonvt;
+    util::ptr<mapbox::util::geojsonvt::GeoJSONVT> geojsonvt; // load from url?
 };
 
 }

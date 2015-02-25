@@ -15,7 +15,6 @@
 namespace mbgl {
 
 class Bucket;
-class TexturePool;
 class FontStack;
 class GlyphAtlas;
 class GlyphStore;
@@ -30,7 +29,6 @@ class StyleLayoutSymbol;
 class StyleLayerGroup;
 class VectorTileData;
 class Collision;
-class TexturePool;
 
 class TileParser : private util::noncopyable
 {

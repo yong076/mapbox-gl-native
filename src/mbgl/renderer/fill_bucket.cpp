@@ -95,6 +95,10 @@ void FillBucket::addGeometry(pbf& geom) {
     tessellate();
 }
 
+void FillBucket::addGeometry(const std::vector<Coordinate>& line_) {
+    printf("skipping fill bucket line with %lu points\n", line_.size());
+}
+
 void FillBucket::tessellate() {
     if (!hasVertices) {
         return;
