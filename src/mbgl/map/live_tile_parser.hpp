@@ -50,11 +50,11 @@ private:
     void parseStyleLayers(util::ptr<const StyleLayerGroup> group);
 
     std::unique_ptr<Bucket> createBucket(const StyleBucket &bucket_desc);
-    std::unique_ptr<Bucket> createFillBucket(const mapbox::util::geojsonvt::TileFeature &feature, const StyleBucket &bucket_desc);
-    std::unique_ptr<Bucket> createLineBucket(const mapbox::util::geojsonvt::TileFeature &feature, const StyleBucket &bucket_desc);
+//    std::unique_ptr<Bucket> createFillBucket(const mapbox::util::geojsonvt::TileFeature &feature, const StyleBucket &bucket_desc);
+    std::unique_ptr<Bucket> createLineBucket(const mapbox::util::geojsonvt::Tile &tile, const StyleBucket &bucket_desc);
 //    std::unique_ptr<Bucket> createSymbolBucket(const mapbox::util::geojsonvt::TileFeature &feature, const StyleBucket &bucket_desc);
 
-    template <class Bucket> void addBucketGeometries(Bucket& bucket, const mapbox::util::geojsonvt::TileFeature &feature);
+    template <class Bucket> void addBucketGeometries(Bucket& bucket, const mapbox::util::geojsonvt::Tile &tile);
 
 private:
     mapbox::util::geojsonvt::Tile& in_tile;

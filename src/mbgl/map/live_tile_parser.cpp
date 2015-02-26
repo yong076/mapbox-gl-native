@@ -117,11 +117,11 @@ void applyLayoutProperty(PropertyKey key, const ClassProperties &classProperties
     }
 }
 
-static std::unique_ptr<StyleLayoutFill> parseStyleLayoutFill2(const StyleBucket &/*bucket*/, const float /*z*/) {
-    // no-op; Fill buckets don't currently have any applicable layout properties
-    auto fillPtr = util::make_unique<StyleLayoutFill>();
-    return fillPtr;
-}
+//static std::unique_ptr<StyleLayoutFill> parseStyleLayoutFill2(const StyleBucket &/*bucket*/, const float /*z*/) {
+//    // no-op; Fill buckets don't currently have any applicable layout properties
+//    auto fillPtr = util::make_unique<StyleLayoutFill>();
+//    return fillPtr;
+//}
 
 static std::unique_ptr<StyleLayoutLine> parseStyleLayoutLine2(const StyleBucket &bucket_desc, const float z) {
     auto linePtr = util::make_unique<StyleLayoutLine>();
@@ -182,79 +182,69 @@ std::unique_ptr<Bucket> LiveTileParser::createBucket(const StyleBucket &bucket_d
     if (tile.id.z >= std::ceil(bucket_desc.max_zoom)) return nullptr;
     if (bucket_desc.visibility == mbgl::VisibilityType::None) return nullptr;
 
-    for (auto& feature : in_tile.features) {
-        assert(feature.type == mapbox::util::geojsonvt::TileFeatureType::LineString ||
-               feature.type == mapbox::util::geojsonvt::TileFeatureType::Polygon);
-
-        return createLineBucket(feature, bucket_desc);
-    }
-
-//    auto layer_it = vector_data.layers.find(bucket_desc.source_layer);
-//    if (layer_it != vector_data.layers.end()) {
-//        const VectorTileLayer &layer = layer_it->second;
+    if (bucket_desc.source_layer == "" && bucket_desc.name != "background" && bucket_desc.style_source->info.type == SourceType::Live) {
 //        if (bucket_desc.type == StyleLayerType::Fill) {
-//            return createFillBucket(layer, bucket_desc);
+//            return createFillBucket(feature, bucket_desc);
 //        } else if (bucket_desc.type == StyleLayerType::Line) {
-//            return createLineBucket(layer, bucket_desc);
-////        } else if (bucket_desc.type == StyleLayerType::Symbol) {
-////            return createSymbolBucket(layer, bucket_desc);
-//        } else if (bucket_desc.type == StyleLayerType::Raster) {
-//            return nullptr;
+            return createLineBucket(in_tile, bucket_desc);
 //        } else {
-//            fprintf(stderr, "[WARNING] unknown bucket render type for layer '%s' (source layer '%s')\n", bucket_desc.name.c_str(), bucket_desc.source_layer.c_str());
+//            throw std::runtime_error("live feature type not implemented");
 //        }
-//    } else {
-//        // The layer specified in the bucket does not exist. Do nothing.
-//        if (debug::tileParseWarnings) {
-//            fprintf(stderr, "[WARNING] layer '%s' does not exist in tile %d/%d/%d\n",
-//                    bucket_desc.source_layer.c_str(), tile.id.z, tile.id.x, tile.id.y);
-//        }
-//    }
+    } else {
+        // The layer specified in the bucket does not exist. Do nothing.
+        if (debug::tileParseWarnings) {
+            fprintf(stderr, "[WARNING] layer '%s' does not exist in tile %d/%d/%d\n",
+                    bucket_desc.source_layer.c_str(), tile.id.z, tile.id.x, tile.id.y);
+        }
+    }
 
     return nullptr;
 }
 
 template <class Bucket>
-void LiveTileParser::addBucketGeometries(Bucket& bucket, const mapbox::util::geojsonvt::TileFeature &feature) {
-    for (auto& geometry : feature.geometry) {
-        if (obsolete())
-            return;
+void LiveTileParser::addBucketGeometries(Bucket& bucket, const mapbox::util::geojsonvt::Tile &in_tile_) {
 
-        std::vector<Coordinate> line;
+    for (auto& feature : in_tile_.features) {
+        for (auto& geometry : feature.geometry) {
+            if (obsolete())
+                return;
 
-        if (geometry.is<mapbox::util::geojsonvt::TilePoint>()) {
-            auto &point = geometry.get<mapbox::util::geojsonvt::TilePoint>();
-            line.emplace_back(point.x, point.y);
-        } else {
-            auto &ring = geometry.get<mapbox::util::geojsonvt::TileRing>();
-            for (auto& point : ring.points) {
+            std::vector<Coordinate> line;
+
+            if (geometry.is<mapbox::util::geojsonvt::TilePoint>()) {
+                auto &point = geometry.get<mapbox::util::geojsonvt::TilePoint>();
                 line.emplace_back(point.x, point.y);
+            } else {
+                auto &ring = geometry.get<mapbox::util::geojsonvt::TileRing>();
+                for (auto& point : ring.points) {
+                    line.emplace_back(point.x, point.y);
+                }
             }
-        }
 
-        bucket->addGeometry(line);
+            bucket->addGeometry(line);
+        }
     }
 }
 
-std::unique_ptr<Bucket> LiveTileParser::createFillBucket(const mapbox::util::geojsonvt::TileFeature &feature,
-                                                     const StyleBucket &bucket_desc) {
-    auto fill = parseStyleLayoutFill2(bucket_desc, tile.id.z);
-    auto bucket = util::make_unique<FillBucket>(std::move(fill),
-                                                tile.fillVertexBuffer,
-                                                tile.triangleElementsBuffer,
-                                                tile.lineElementsBuffer);
-    addBucketGeometries(bucket, feature);
-    return obsolete() ? nullptr : std::move(bucket);
-}
+//std::unique_ptr<Bucket> LiveTileParser::createFillBucket(const mapbox::util::geojsonvt::TileFeature &feature,
+//                                                     const StyleBucket &bucket_desc) {
+//    auto fill = parseStyleLayoutFill2(bucket_desc, tile.id.z);
+//    auto bucket = util::make_unique<FillBucket>(std::move(fill),
+//                                                tile.fillVertexBuffer,
+//                                                tile.triangleElementsBuffer,
+//                                                tile.lineElementsBuffer);
+//    addBucketGeometries(bucket, feature);
+//    return obsolete() ? nullptr : std::move(bucket);
+//}
 
-std::unique_ptr<Bucket> LiveTileParser::createLineBucket(const mapbox::util::geojsonvt::TileFeature &feature,
-                                                     const StyleBucket &bucket_desc) {
+std::unique_ptr<Bucket> LiveTileParser::createLineBucket(const mapbox::util::geojsonvt::Tile &in_tile_,
+                                                         const StyleBucket &bucket_desc) {
     auto line = parseStyleLayoutLine2(bucket_desc, tile.id.z);
     auto bucket = util::make_unique<LineBucket>(std::move(line),
                                                 tile.lineVertexBuffer,
                                                 tile.triangleElementsBuffer,
                                                 tile.pointElementsBuffer);
-    addBucketGeometries(bucket, feature);
+    addBucketGeometries(bucket, in_tile_);
     return obsolete() ? nullptr : std::move(bucket);
 }
 
