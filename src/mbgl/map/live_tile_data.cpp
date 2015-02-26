@@ -43,15 +43,11 @@ void LiveTileData::parse() {
         mapbox::util::geojsonvt::Tile& in_tile = geojsonvt->getTile(id.z, id.x, id.y);
 
         if (in_tile) {
-            printf(" + translating tile [%d/%d/%d]\n", id.z, id.x, id.y);
-
             LiveTileParser parser(in_tile, *this, style/*, glyphAtlas, glyphStore, spriteAtlas, sprite*/);
             style.reset();
 
             parser.parse();
         } else {
-            printf(" - not a valid tile [%d/%d/%d]\n", id.z, id.x, id.y);
-
             state = State::obsolete;
             return;
         }
