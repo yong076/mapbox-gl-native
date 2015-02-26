@@ -637,11 +637,6 @@ void Map::updateSources(const util::ptr<StyleLayerGroup> &group) {
         }
 
     }
-    if (!annotationsSource) {
-        annotationsSource = *(activeSources.emplace(std::make_shared<StyleSource>()).first);
-        annotationsSource->info.type = SourceType::Live;
-    }
-    annotationsSource->enabled = true;
 }
 
 void Map::updateTiles() {

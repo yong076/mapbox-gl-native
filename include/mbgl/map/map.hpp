@@ -240,7 +240,6 @@ private:
     std::chrono::steady_clock::time_point animationTime = std::chrono::steady_clock::time_point::min();
 
     std::set<util::ptr<StyleSource>> activeSources;
-    util::ptr<StyleSource> annotationsSource;
 };
 
 }
