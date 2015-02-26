@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 #include <ctime>
+#include <mutex>
 
 #include <rapidjson/document.h>
 
@@ -204,6 +205,7 @@ private:
     };
 
 private:
+    std::mutex mtx;
     uint8_t baseZoom;
     uint8_t maxZoom;
     uint32_t maxPoints;
