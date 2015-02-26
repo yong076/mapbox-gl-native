@@ -157,9 +157,9 @@ public:
 
 class Tile {
 public:
-    static Tile createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify);
+    static Tile createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify);
 
-    static void addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify);
+    static void addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify);
 
     inline operator bool() const { return this->numPoints > 0; }
 
@@ -185,7 +185,7 @@ public:
 private:
     void splitTile(std::vector<ProjectedFeature> features, uint8_t z, uint8_t x, uint8_t y, int8_t cz = -1, int8_t cx = -1, int8_t cy = -1);
 
-    bool isClippedSquare(const std::vector<TileFeature> features, uint16_t extent, uint8_t buffer) const;
+    bool isClippedSquare(const std::vector<TileFeature> &features, uint16_t extent, uint8_t buffer) const;
 
     static uint64_t toID(uint32_t z, uint32_t x, uint32_t y);
 

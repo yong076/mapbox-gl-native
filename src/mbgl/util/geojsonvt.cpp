@@ -10,7 +10,7 @@ std::map<std::string, clock_t> Time::activities;
 
 #pragma mark - Tile
 
-Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify) {
+Tile Tile::createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify) {
 
     Tile tile;
 
@@ -19,10 +19,10 @@ Tile Tile::createTile(std::vector<ProjectedFeature> features, uint8_t z2, uint8_
         addFeature(tile, features[i], z2, tx, ty, tolerance, extent, noSimplify);
     }
 
-    return tile;
+    return std::move(tile);
 }
 
-void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify) {
+void Tile::addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify) {
 
     ProjectedGeometryContainer *geom = &(feature.geometry.get<ProjectedGeometryContainer>());
     ProjectedFeatureType type = feature.type;
@@ -64,7 +64,7 @@ void Tile::addFeature(Tile &tile, ProjectedFeature feature, uint8_t z2, uint8_t 
     }
 
     if (transformed.size()) {
-        tile.features.push_back(TileFeature(transformed, type, feature.tags));
+        tile.features.push_back(TileFeature(transformed, type, Tags(feature.tags)));
     }
 
 }
@@ -123,35 +123,30 @@ GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom
 void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, uint8_t x_, uint8_t y_, int8_t cz, int8_t cx, int8_t cy) {
 
     std::queue<FeatureStackItem> stack;
-    stack.emplace(features_, z_, x_, y_);
+    stack.emplace(std::move(features_), z_, x_, y_);
 
     while (stack.size()) {
         FeatureStackItem set = stack.front();
         stack.pop();
-        std::vector<ProjectedFeature> *features = &(set.features);
+        std::vector<ProjectedFeature> features = std::move(set.features);
         uint8_t z = set.z;
         uint8_t x = set.x;
         uint8_t y = set.y;
 
         uint32_t z2 = 1 << z;
         uint64_t id = toID(z, x, y);
-        Tile tile;
         double tileTolerance = (z == this->baseZoom ? 0 : this->tolerance / (z2 * this->extent));
 
-        if (this->tiles.count(id)) {
-            tile = this->tiles[id];
-        } else {
+        if (!this->tiles.count(id)) {
             if (this->debug) {
                 Time::time("creation");
             }
 
-            tile = Tile::createTile(*features, z2, x, y, tileTolerance, extent, (z == this->baseZoom));
-
-            this->tiles[id] = tile;
+            this->tiles[id] = Tile::createTile(features, z2, x, y, tileTolerance, extent, (z == this->baseZoom));
 
             if (this->debug) {
                 printf("tile z%i-%i-%i (features: %i, points: %i, simplified: %i\n", z, x, y,
-                       tile.numFeatures, tile.numPoints, tile.numSimplified);
+                       this->tiles[id].numFeatures, this->tiles[id].numPoints, this->tiles[id].numSimplified);
                 Time::timeEnd("creation");
 
                 std::string key = "z" + std::to_string(z) + ":";
@@ -164,16 +159,16 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
             }
         }
 
-        if ((cz <= 0 && (z == this->maxZoom || tile.numPoints <= this->maxPoints ||
-            isClippedSquare(tile.features, this->extent, this->buffer))) || z == this->baseZoom || z == cz) {
-            tile.source = *features;
+        if ((cz <= 0 && (z == this->maxZoom || this->tiles[id].numPoints <= this->maxPoints ||
+            isClippedSquare(this->tiles[id].features, this->extent, this->buffer))) || z == this->baseZoom || z == cz) {
+            this->tiles[id].source = std::vector<ProjectedFeature>(features);
             continue;
         }
 
         if (cz > 0) {
-            tile.source = *features;
+            this->tiles[id].source = std::vector<ProjectedFeature>(features);
         } else {
-            tile.source = {};
+            this->tiles[id].source = {};
         }
 
         if (this->debug) {
@@ -202,11 +197,11 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
         }
 
         if (cz <= 0 || goLeft) {
-            left = Clip::clip(*features, z2, x - k1, x + k3, 0, intersectX);
+            left = Clip::clip(features, z2, x - k1, x + k3, 0, intersectX);
         }
 
         if (cz <= 0 || !goLeft) {
-            right = Clip::clip(*features, z2, x + k2, x + k4, 0, intersectX);
+            right = Clip::clip(features, z2, x + k2, x + k4, 0, intersectX);
         }
 
         if (left.size()) {
@@ -233,10 +228,10 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
             Time::timeEnd("clipping");
         }
 
-        if (tl.size()) stack.emplace(tl, z + 1, x * 2,     y * 2);
-        if (bl.size()) stack.emplace(bl, z + 1, x * 2,     y * 2 + 1);
-        if (tr.size()) stack.emplace(tr, z + 1, x * 2 + 1, y * 2);
-        if (br.size()) stack.emplace(br, z + 1, x * 2 + 1, y * 2 + 1);
+        if (tl.size()) stack.emplace(std::move(tl), z + 1, x * 2,     y * 2);
+        if (bl.size()) stack.emplace(std::move(bl), z + 1, x * 2,     y * 2 + 1);
+        if (tr.size()) stack.emplace(std::move(tr), z + 1, x * 2 + 1, y * 2);
+        if (br.size()) stack.emplace(std::move(br), z + 1, x * 2 + 1, y * 2 + 1);
     }
 }
 
@@ -289,19 +284,19 @@ Tile& GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
     return this->tiles[id];
 }
 
-bool GeoJSONVT::isClippedSquare(const std::vector<TileFeature> features, uint16_t extent_, uint8_t buffer_) const {
+bool GeoJSONVT::isClippedSquare(const std::vector<TileFeature> &features, uint16_t extent_, uint8_t buffer_) const {
 
     if (features.size() != 1) {
         return false;
     }
 
-    const TileFeature *feature = &features.front();
+    const TileFeature feature = features.front();
 
-    if (feature->type != TileFeatureType::Polygon || feature->geometry.size() > 1) {
+    if (feature.type != TileFeatureType::Polygon || feature.geometry.size() > 1) {
         return false;
     }
 
-    const TileRing *ring = &(feature->geometry.front().get<TileRing>());
+    const TileRing *ring = &(feature.geometry.front().get<TileRing>());
 
     for (uint32_t i = 0; i < ring->points.size(); ++i) {
         const TilePoint *p = &ring->points[i];
@@ -373,7 +368,7 @@ std::vector<ProjectedFeature> Convert::convert(const JSDocument &data, double to
 
     }
 
-    return features;
+    return std::move(features);
 }
 
 void Convert::convertFeature(std::vector<ProjectedFeature> &features, const JSValue &feature, double tolerance) {
@@ -544,7 +539,7 @@ ProjectedFeature Convert::create(Tags tags, ProjectedFeatureType type, Projected
     ProjectedFeature feature(geometry, type, tags);
     calcBBox(feature);
 
-    return feature;
+    return std::move(feature);
 }
 
 ProjectedGeometryContainer Convert::project(const std::vector<LonLat> &lonlats, double tolerance) {
@@ -558,7 +553,7 @@ ProjectedGeometryContainer Convert::project(const std::vector<LonLat> &lonlats, 
         calcSize(projected);
     }
 
-    return projected;
+    return std::move(projected);
 }
 
 ProjectedPoint Convert::projectPoint(const LonLat &p_) {
@@ -737,7 +732,7 @@ std::vector<ProjectedFeature> Clip::clip(const std::vector<ProjectedFeature> fea
         }
     }
 
-    return clipped;
+    return std::move(clipped);
 }
 
 ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer geometry, double k1, double k2, uint8_t axis) {
@@ -753,7 +748,7 @@ ProjectedGeometryContainer Clip::clipPoints(ProjectedGeometryContainer geometry,
         }
     }
 
-    return slice;
+    return std::move(slice);
 }
 
 ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometry, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double), bool closed) {
@@ -834,7 +829,7 @@ ProjectedGeometryContainer Clip::clipGeometry(ProjectedGeometryContainer geometr
         newSlice(slices, slice, area, dist);
     }
 
-    return slices;
+    return std::move(slices);
 }
 
 ProjectedGeometryContainer Clip::newSlice(ProjectedGeometryContainer &slices, ProjectedGeometryContainer &slice, double area, double dist) {
