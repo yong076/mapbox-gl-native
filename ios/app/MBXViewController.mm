@@ -28,6 +28,8 @@ static NSString *const kStyleVersion = @"v7";
 
 mbgl::Settings_NSUserDefaults *settings = nullptr;
 
+UIView *rotationSnapshot;
+
 #pragma mark - Setup
 
 - (id)init
@@ -115,6 +117,18 @@ mbgl::Settings_NSUserDefaults *settings = nullptr;
         self.mapView.direction = settings->bearing;
         [self.mapView setDebugActive:settings->debug];
     }
+}
+
+- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
+                                duration:(NSTimeInterval)duration {
+    NSLog(@"willRotateToInterfaceOrientation called.");
+    rotationSnapshot = [self.view snapshotViewAfterScreenUpdates:YES];
+    [self.view addSubview:rotationSnapshot];
+}
+
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    NSLog(@"didRotateFromInterfaceOrientation called.");
+    [rotationSnapshot removeFromSuperview];
 }
 
 #pragma clang diagnostic pop
