@@ -48,6 +48,7 @@ UIView *rotationSnapshot;
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    NSLog(@"viewDidLoad");
 
     NSString *accessToken = [[NSProcessInfo processInfo] environment][@"MAPBOX_ACCESS_TOKEN"];
     if (accessToken) {
@@ -121,14 +122,20 @@ UIView *rotationSnapshot;
 
 - (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
                                 duration:(NSTimeInterval)duration {
-    NSLog(@"willRotateToInterfaceOrientation called.");
-    rotationSnapshot = [self.view snapshotViewAfterScreenUpdates:YES];
+    NSLog(@"willRotateToInterfaceOrientation called with duration = %f", duration);
+    rotationSnapshot = [self.view snapshotViewAfterScreenUpdates:NO];
     [self.view addSubview:rotationSnapshot];
+    
+    dispatch_time_t time = dispatch_time(DISPATCH_TIME_NOW, (duration + 0.25) * NSEC_PER_SEC);
+    dispatch_after(time, dispatch_get_main_queue(), ^{
+        NSLog(@"GCD removeFromSuperview");
+        [rotationSnapshot removeFromSuperview];
+    });
 }
 
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
     NSLog(@"didRotateFromInterfaceOrientation called.");
-    [rotationSnapshot removeFromSuperview];
+//    [rotationSnapshot removeFromSuperview];
 }
 
 #pragma clang diagnostic pop
