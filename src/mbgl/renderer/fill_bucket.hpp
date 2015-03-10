@@ -2,6 +2,7 @@
 #define MBGL_RENDERER_FILLBUCKET
 
 #include <mbgl/renderer/bucket.hpp>
+#include <mbgl/map/geometry_tile.hpp>
 #include <mbgl/geometry/elements_buffer.hpp>
 #include <mbgl/geometry/fill_buffer.hpp>
 #include <mbgl/style/style_bucket.hpp>
@@ -28,7 +29,6 @@ class BucketDescription;
 class OutlineShader;
 class PlainShader;
 class PatternShader;
-struct pbf;
 
 class FillBucket : public Bucket {
 
@@ -44,13 +44,13 @@ public:
                FillVertexBuffer &vertexBuffer,
                TriangleElementsBuffer &triangleElementsBuffer,
                LineElementsBuffer &lineElementsBuffer);
-    ~FillBucket();
+    ~FillBucket() override;
 
-    virtual void render(Painter& painter, util::ptr<StyleLayer> layer_desc, const Tile::ID& id, const mat4 &matrix);
-    virtual bool hasData() const;
+    void render(Painter &painter, const StyleLayer &layer_desc, const Tile::ID &id,
+                const mat4 &matrix) override;
+    bool hasData() const override;
 
-    void addGeometry(pbf& data);
-    void addGeometry(const std::vector<Coordinate>& line);
+    void addGeometry(const GeometryCollection&);
     void tessellate();
 
     void drawElements(PlainShader& shader);

@@ -1,21 +1,23 @@
 #include <mbgl/map/tile_data.hpp>
 #include <mbgl/map/map.hpp>
+#include <mbgl/map/environment.hpp>
 #include <mbgl/style/style_source.hpp>
 
 #include <mbgl/util/token.hpp>
 #include <mbgl/util/string.hpp>
+#include <mbgl/util/mapbox.hpp>
 #include <mbgl/storage/file_source.hpp>
 #include <mbgl/util/uv_detail.hpp>
 #include <mbgl/platform/log.hpp>
 
 using namespace mbgl;
 
-TileData::TileData(Tile::ID const& id_, const SourceInfo& source_, FileSource& fileSource_)
+TileData::TileData(Tile::ID const& id_, const SourceInfo& source_, Environment& env_)
     : id(id_),
       name(id),
       state(State::initial),
       source(source_),
-      fileSource(fileSource_),
+      env(env_),
       debugBucket(debugFontBuffer) {
     // Initialize tile debug coordinates
     debugFontBuffer.addText(name.c_str(), 50, 200, 5);
@@ -23,7 +25,7 @@ TileData::TileData(Tile::ID const& id_, const SourceInfo& source_, FileSource& f
 
 TileData::~TileData() {
     if (req) {
-        fileSource.cancel(req);
+        env.cancelRequest(req);
     }
 }
 
@@ -31,12 +33,12 @@ const std::string TileData::toString() const {
     return std::string { "[tile " } + name + "]";
 }
 
-void TileData::request(uv::worker &worker, uv_loop_t &loop,
-                       float pixelRatio, std::function<void()> callback) {
+void TileData::request(uv::worker &worker, float pixelRatio, std::function<void()> callback) {
     if (source.tiles.empty())
         return;
 
     std::string url = source.tiles[(id.x + id.y) % source.tiles.size()];
+    url = util::mapbox::normalizeTileURL(url, source.url, source.type);
     url = util::replaceTokens(url, [&](const std::string &token) -> std::string {
         if (token == "z") return util::toString(id.z);
         if (token == "x") return util::toString(id.x);
@@ -53,9 +55,8 @@ void TileData::request(uv::worker &worker, uv_loop_t &loop,
 
     state = State::loading;
 
-    // Note: Somehow this feels slower than the change to request_http()
     std::weak_ptr<TileData> weak_tile = shared_from_this();
-    req = fileSource.request({ Resource::Kind::Tile, url }, &loop, [weak_tile, url, callback, &worker](const Response &res) {
+    req = env.request({ Resource::Kind::Tile, url }, [weak_tile, url, callback, &worker](const Response &res) {
         util::ptr<TileData> tile = weak_tile.lock();
         if (!tile || tile->state == State::obsolete) {
             // noop. Tile is obsolete and we're now just waiting for the refcount
@@ -84,7 +85,7 @@ void TileData::cancel() {
         state = State::obsolete;
     }
     if (req) {
-        fileSource.cancel(req);
+        env.cancelRequest(req);
         req = nullptr;
     }
 }

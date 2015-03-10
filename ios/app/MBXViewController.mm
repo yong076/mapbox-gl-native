@@ -8,12 +8,15 @@
 
 static UIColor *const kTintColor = [UIColor colorWithRed:0.120 green:0.550 blue:0.670 alpha:1.000];
 
-static NSDictionary *const kStyles = @{
-    @"bright-v6":    @"Bright",
-    @"basic-v6":     @"Basic",
-    @"outdoors-v6":  @"Outdoors",
-    @"satellite-v6": @"Satellite"
-};
+static NSArray *const kStyleNames = @[
+    @"Bright",
+    @"Basic",
+    @"Outdoors",
+    @"Satellite",
+    @"Hybrid",
+];
+
+static NSString *const kStyleVersion = @"v7";
 
 @interface MBXViewController () <UIActionSheetDelegate, CLLocationManagerDelegate>
 
@@ -75,7 +78,7 @@ mbgl::Settings_NSUserDefaults *settings = nullptr;
 
     UIButton *titleButton = [UIButton buttonWithType:UIButtonTypeCustom];
     [titleButton setFrame:CGRectMake(0, 0, 120, 40)];
-    [titleButton setTitle:[[kStyles allValues] firstObject] forState:UIControlStateNormal];
+    [titleButton setTitle:[kStyleNames firstObject] forState:UIControlStateNormal];
     [titleButton setTitleColor:kTintColor forState:UIControlStateNormal];
     [titleButton addTarget:self action:@selector(cycleStyles) forControlEvents:UIControlEventTouchUpInside];
     self.navigationItem.titleView = titleButton;
@@ -159,18 +162,21 @@ mbgl::Settings_NSUserDefaults *settings = nullptr;
 
     if ( ! styleName)
     {
-        styleName = [[kStyles allKeys] firstObject];
+        styleName = [kStyleNames firstObject];
     }
     else
     {
-        NSUInteger index = [[kStyles allValues] indexOfObject:styleName] + 1;
-        if (index == [[kStyles allKeys] count]) index = 0;
-        styleName = [[kStyles allKeys] objectAtIndex:index];
+        NSUInteger index = [kStyleNames indexOfObject:styleName] + 1;
+        if (index == [kStyleNames count]) index = 0;
+        styleName = [kStyleNames objectAtIndex:index];
     }
 
-    [self.mapView useBundledStyleNamed:styleName];
+    [self.mapView useBundledStyleNamed:
+        [[[styleName lowercaseString]
+        stringByAppendingString:@"-"]
+        stringByAppendingString:kStyleVersion]];
 
-    [titleButton setTitle:kStyles[styleName] forState:UIControlStateNormal];
+    [titleButton setTitle:styleName forState:UIControlStateNormal];
 }
 
 - (void)locateUser

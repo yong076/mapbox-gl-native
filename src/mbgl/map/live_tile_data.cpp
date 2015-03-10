@@ -2,18 +2,23 @@
 #include <mbgl/map/live_tile_parser.hpp>
 #include <mbgl/style/style_layer.hpp>
 #include <mbgl/style/style_bucket.hpp>
+#include <mbgl/style/style_source.hpp>
 #include <mbgl/geometry/glyph_atlas.hpp>
 #include <mbgl/platform/log.hpp>
 
 using namespace mbgl;
 
 LiveTileData::LiveTileData(Tile::ID const& id_,
-                           float mapMaxZoom, util::ptr<Style> style_,
-                           GlyphAtlas& glyphAtlas_, GlyphStore& glyphStore_,
-                           SpriteAtlas& spriteAtlas_, util::ptr<Sprite> sprite_,
-                           const SourceInfo& source_, FileSource &fileSource_,
+                           float mapMaxZoom,
+                           util::ptr<Style> style_,
+                           GlyphAtlas& glyphAtlas_,
+                           GlyphStore& glyphStore_,
+                           SpriteAtlas& spriteAtlas_,
+                           util::ptr<Sprite> sprite_,
+                           const SourceInfo& source_,
+                           Environment& env_,
                            util::ptr<mapbox::util::geojsonvt::GeoJSONVT>& geojsonvt_)
-    : TileData(id_, source_, fileSource_),
+    : TileData(id_, source_, env_),
       glyphAtlas(glyphAtlas_),
       glyphStore(glyphStore_),
       spriteAtlas(spriteAtlas_),
@@ -62,9 +67,9 @@ void LiveTileData::parse() {
     }
 }
 
-void LiveTileData::render(Painter &painter, util::ptr<StyleLayer> layer_desc, const mat4 &matrix) {
-    if (state == State::parsed && layer_desc->bucket) {
-        auto databucket_it = buckets.find(layer_desc->bucket->name);
+void LiveTileData::render(Painter &painter, const StyleLayer &layer_desc, const mat4 &matrix) {
+    if (state == State::parsed && layer_desc.bucket) {
+        auto databucket_it = buckets.find(layer_desc.bucket->name);
         if (databucket_it != buckets.end()) {
             assert(databucket_it->second);
             databucket_it->second->render(painter, layer_desc, id, matrix);

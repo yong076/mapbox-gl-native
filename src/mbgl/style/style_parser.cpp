@@ -4,6 +4,7 @@
 #include <mbgl/util/constants.hpp>
 #include <mbgl/util/std.hpp>
 #include <mbgl/util/vec.hpp>
+#include <mbgl/util/uv_detail.hpp>
 #include <mbgl/platform/log.hpp>
 #include <csscolorparser/csscolorparser.hpp>
 
@@ -354,7 +355,6 @@ template <> inline float defaultBaseValue<Color>() { return 1.0; }
 
 template <typename T>
 std::tuple<bool, Function<T>> StyleParser::parseFunction(JSVal value, const char *property_name) {
-    
     if (!value.IsObject()) {
         return std::tuple<bool, Function<T>> { true, ConstantFunction<T>(std::get<1>(parseProperty<T>(value, property_name))) };
     }
@@ -981,7 +981,7 @@ void StyleParser::parseBucket(JSVal value, util::ptr<StyleLayer> &layer) {
     if (value.HasMember("maxzoom")) {
         JSVal max_zoom = value["maxzoom"];
         if (max_zoom.IsNumber()) {
-            bucket->min_zoom = max_zoom.GetDouble();
+            bucket->max_zoom = max_zoom.GetDouble();
         } else {
             Log::Warning(Event::ParseStyle, "maxzoom of layer %s must be numeric", layer->id.c_str());
         }

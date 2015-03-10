@@ -36,8 +36,11 @@ class View;
 class GlyphAtlas;
 class SpriteAtlas;
 class LineAtlas;
+class Environment;
 
 class Map : private util::noncopyable {
+    friend class View;
+
 public:
     explicit Map(View&, FileSource&);
     ~Map();
@@ -75,10 +78,6 @@ public:
     bool needsSwap();
     void swapped();
 
-    // Size
-    void resize(uint16_t width, uint16_t height, float ratio = 1);
-    void resize(uint16_t width, uint16_t height, float ratio, uint16_t fbWidth, uint16_t fbHeight);
-
     // Styling
     void addClass(const std::string&);
     void removeClass(const std::string&);
@@ -98,7 +97,7 @@ public:
     // Position
     void moveBy(double dx, double dy, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
     void setLatLng(LatLng latLng, std::chrono::steady_clock::duration duration = std::chrono::steady_clock::duration::zero());
-    inline const LatLng getLatLng() const { return state.getLatLng(); }
+    LatLng getLatLng() const;
     void startPanning();
     void stopPanning();
     void resetPosition();
@@ -147,6 +146,10 @@ public:
     inline std::chrono::steady_clock::time_point getTime() const { return animationTime; }
 
 private:
+    // This may only be called by the View object.
+    void resize(uint16_t width, uint16_t height, float ratio = 1);
+    void resize(uint16_t width, uint16_t height, float ratio, uint16_t fbWidth, uint16_t fbHeight);
+
     util::ptr<Sprite> getSprite();
     uv::worker& getWorker();
 
@@ -175,8 +178,8 @@ private:
 
     Mode mode = Mode::None;
 
-public: // TODO: make private again
-    std::unique_ptr<uv::loop> loop;
+    const std::unique_ptr<Environment> env;
+    View &view;
 
 private:
     std::unique_ptr<uv::worker> workers;
@@ -207,12 +210,8 @@ private:
     // Stores whether the map thread has been stopped already.
     std::atomic_bool isStopped;
 
-    View &view;
-
-#ifdef DEBUG
     const std::thread::id mainThread;
     std::thread::id mapThread;
-#endif
 
     Transform transform;
     TransformState state;

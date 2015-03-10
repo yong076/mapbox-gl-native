@@ -1,16 +1,11 @@
 #include <mbgl/renderer/fill_bucket.hpp>
 #include <mbgl/geometry/fill_buffer.hpp>
 #include <mbgl/geometry/elements_buffer.hpp>
-#include <mbgl/geometry/geometry.hpp>
-
 #include <mbgl/renderer/painter.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/style_layout.hpp>
-#include <mbgl/map/vector_tile.hpp>
 #include <mbgl/util/std.hpp>
-
 #include <mbgl/platform/gl.hpp>
-
 
 #include <cassert>
 
@@ -69,34 +64,19 @@ FillBucket::~FillBucket() {
     }
 }
 
-void FillBucket::addGeometry(pbf& geom) {
-    Geometry::command cmd;
-
-    Coordinate coord;
-    Geometry geometry(geom);
-    int32_t x, y;
-    while ((cmd = geometry.next(x, y)) != Geometry::end) {
-        if (cmd == Geometry::move_to) {
-            if (line.size()) {
-                clipper.AddPath(line, ClipperLib::ptSubject, true);
-                line.clear();
-                hasVertices = true;
-            }
+void FillBucket::addGeometry(const GeometryCollection& geometryCollection) {
+    for (auto& line_ : geometryCollection) {
+        for (auto& v : line_) {
+            line.emplace_back(v.x, v.y);
         }
-        line.emplace_back(x, y);
-    }
-
-    if (line.size()) {
-        clipper.AddPath(line, ClipperLib::ptSubject, true);
-        line.clear();
-        hasVertices = true;
+        if (line.size()) {
+            clipper.AddPath(line, ClipperLib::ptSubject, true);
+            line.clear();
+            hasVertices = true;
+        }
     }
 
     tessellate();
-}
-
-void FillBucket::addGeometry(const std::vector<Coordinate>& line_) {
-    printf("skipping fill bucket line with %lu points\n", line_.size());
 }
 
 void FillBucket::tessellate() {
@@ -217,7 +197,8 @@ void FillBucket::tessellate() {
     lineGroup.vertex_length += total_vertex_count;
 }
 
-void FillBucket::render(Painter& painter, util::ptr<StyleLayer> layer_desc, const Tile::ID& id, const mat4 &matrix) {
+void FillBucket::render(Painter &painter, const StyleLayer &layer_desc, const Tile::ID &id,
+                        const mat4 &matrix) {
     painter.renderFill(*this, layer_desc, id, matrix);
 }
 

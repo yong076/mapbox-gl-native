@@ -4,10 +4,9 @@
 
 using namespace mbgl;
 
-
-RasterTileData::RasterTileData(Tile::ID const& id_, TexturePool& texturePool, const SourceInfo& source_, FileSource& fileSource_)
-    : TileData(id_, source_, fileSource_),
-    bucket(texturePool, layout) {
+RasterTileData::RasterTileData(Tile::ID const &id_, TexturePool &texturePool,
+                               const SourceInfo &source_, Environment &env_)
+    : TileData(id_, source_, env_), bucket(texturePool, layout) {
 }
 
 RasterTileData::~RasterTileData() {
@@ -25,7 +24,7 @@ void RasterTileData::parse() {
     }
 }
 
-void RasterTileData::render(Painter &painter, util::ptr<StyleLayer> layer_desc, const mat4 &matrix) {
+void RasterTileData::render(Painter &painter, const StyleLayer &layer_desc, const mat4 &matrix) {
     bucket.render(painter, layer_desc, id, matrix);
 }
 

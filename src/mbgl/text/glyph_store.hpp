@@ -2,9 +2,9 @@
 #define MBGL_TEXT_GLYPH_STORE
 
 #include <mbgl/text/glyph.hpp>
-#include <mbgl/util/pbf.hpp>
 #include <mbgl/util/vec.hpp>
 #include <mbgl/util/ptr.hpp>
+#include <mbgl/util/uv.hpp>
 
 #include <cstdint>
 #include <vector>
@@ -16,6 +16,7 @@
 namespace mbgl {
 
 class FileSource;
+class Environment;
 
 class SDFGlyph {
 public:
@@ -48,7 +49,10 @@ private:
 
 class GlyphPBF {
 public:
-    GlyphPBF(const std::string &glyphURL, const std::string &fontStack, GlyphRange glyphRange, FileSource& fileSource);
+    GlyphPBF(const std::string &glyphURL,
+             const std::string &fontStack,
+             GlyphRange glyphRange,
+             Environment &env);
 
 private:
     GlyphPBF(const GlyphPBF &) = delete;
@@ -71,12 +75,12 @@ private:
 // Manages Glyphrange PBF loading.
 class GlyphStore {
 public:
-    GlyphStore(FileSource& fileSource);
+    GlyphStore(Environment &);
 
     // Block until all specified GlyphRanges of the specified font stack are loaded.
     void waitForGlyphRanges(const std::string &fontStack, const std::set<GlyphRange> &glyphRanges);
 
-    FontStack &getFontStack(const std::string &fontStack);
+    uv::exclusive<FontStack> getFontStack(const std::string &fontStack);
 
     void setURL(const std::string &url);
 
@@ -87,10 +91,10 @@ private:
     FontStack &createFontStack(const std::string &fontStack);
 
     std::string glyphURL;
-    FileSource& fileSource;
+    Environment &env;
     std::unordered_map<std::string, std::map<GlyphRange, std::unique_ptr<GlyphPBF>>> ranges;
     std::unordered_map<std::string, std::unique_ptr<FontStack>> stacks;
-    std::mutex mtx;
+    std::unique_ptr<uv::mutex> mtx;
 };
 
 

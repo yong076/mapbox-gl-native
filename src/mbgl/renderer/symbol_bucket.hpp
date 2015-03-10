@@ -2,14 +2,15 @@
 #define MBGL_RENDERER_SYMBOLBUCKET
 
 #include <mbgl/renderer/bucket.hpp>
+#include <mbgl/map/geometry_tile.hpp>
 #include <mbgl/geometry/vao.hpp>
 #include <mbgl/geometry/elements_buffer.hpp>
 #include <mbgl/geometry/text_buffer.hpp>
 #include <mbgl/geometry/icon_buffer.hpp>
-#include <mbgl/map/vector_tile.hpp>
 #include <mbgl/text/types.hpp>
 #include <mbgl/text/glyph.hpp>
 #include <mbgl/style/style_bucket.hpp>
+#include <mbgl/util/ptr.hpp>
 
 #include <memory>
 #include <map>
@@ -56,16 +57,21 @@ class SymbolBucket : public Bucket {
 
 public:
     SymbolBucket(std::unique_ptr<const StyleLayoutSymbol> styleLayout, Collision &collision);
-    ~SymbolBucket();
+    ~SymbolBucket() override;
 
-    virtual void render(Painter &painter, util::ptr<StyleLayer> layer_desc, const Tile::ID &id, const mat4 &matrix);
-    virtual bool hasData() const;
-    virtual bool hasTextData() const;
-    virtual bool hasIconData() const;
+    void render(Painter &painter, const StyleLayer &layer_desc, const Tile::ID &id,
+                const mat4 &matrix) override;
+    bool hasData() const override;
+    bool hasTextData() const;
+    bool hasIconData() const;
 
-    void addFeatures(const VectorTileLayer &layer, const FilterExpression &filter,
-                     const Tile::ID &id, SpriteAtlas &spriteAtlas, Sprite &sprite,
-                     GlyphAtlas &glyphAtlas, GlyphStore &glyphStore);
+    void addFeatures(const GeometryTileLayer&,
+                     const FilterExpression&,
+                     const Tile::ID&,
+                     SpriteAtlas&,
+                     Sprite&,
+                     GlyphAtlas&,
+                     GlyphStore&);
 
     void addGlyphs(const PlacedGlyphs &glyphs, float placementZoom, PlacementRange placementRange,
                    float zoom);
@@ -75,12 +81,12 @@ public:
     void drawIcons(IconShader& shader);
 
 private:
-
-    std::vector<SymbolFeature> processFeatures(const VectorTileLayer &layer, const FilterExpression &filter, GlyphStore &glyphStore, const Sprite &sprite);
-
+    std::vector<SymbolFeature> processFeatures(const GeometryTileLayer&,
+                                               const FilterExpression&,
+                                               GlyphStore&,
+                                               const Sprite&);
 
     void addFeature(const std::vector<Coordinate> &line, const Shaping &shaping, const GlyphPositions &face, const Rect<uint16_t> &image);
-
 
     // Adds placed items to the buffer.
     template <typename Buffer, typename GroupType>

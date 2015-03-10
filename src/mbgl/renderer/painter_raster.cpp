@@ -8,14 +8,12 @@
 
 using namespace mbgl;
 
-void Painter::renderRaster(RasterBucket& bucket, util::ptr<StyleLayer> layer_desc, const Tile::ID&, const mat4 &matrix) {
+void Painter::renderRaster(RasterBucket& bucket, const StyleLayer &layer_desc, const Tile::ID&, const mat4 &matrix) {
     if (pass != RenderPass::Translucent) return;
 
-    const RasterProperties &properties = layer_desc->getProperties<RasterProperties>();
+    const RasterProperties &properties = layer_desc.getProperties<RasterProperties>();
 
     if (bucket.hasData()) {
-        depthMask(false);
-
         useProgram(rasterShader->program);
         rasterShader->u_matrix = matrix;
         rasterShader->u_buffer = 0;
@@ -29,8 +27,6 @@ void Painter::renderRaster(RasterBucket& bucket, util::ptr<StyleLayer> layer_des
         depthRange(strata + strata_epsilon, 1.0f);
 
         bucket.drawRaster(*rasterShader, tileStencilBuffer, coveringRasterArray);
-
-        depthMask(true);
     }
 }
 

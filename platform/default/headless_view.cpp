@@ -10,6 +10,8 @@
 #include <cstring>
 #include <cassert>
 
+pthread_once_t loadGLExtensions = PTHREAD_ONCE_INIT;
+
 #ifdef MBGL_USE_CGL
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -48,10 +50,18 @@ HeadlessView::HeadlessView(std::shared_ptr<HeadlessDisplay> display)
 }
 
 void HeadlessView::loadExtensions() {
-    activate();
-    const char *extensionPtr = reinterpret_cast<const char *>(MBGL_CHECK_ERROR(glGetString(GL_EXTENSIONS)));
+    if (extensionsLoaded) {
+        return;
+    }
 
-    if (extensionPtr) {
+    activate();
+
+    pthread_once(&loadGLExtensions, [] {
+        const char *extensionPtr = reinterpret_cast<const char *>(MBGL_CHECK_ERROR(glGetString(GL_EXTENSIONS)));
+
+        if (!extensionPtr) {
+            return;
+        }
         const std::string extensions = extensionPtr;
 
 #ifdef MBGL_USE_CGL
@@ -78,16 +88,22 @@ void HeadlessView::loadExtensions() {
             assert(gl::IsVertexArray != nullptr);
         }
 #endif
-    }
+    });
 
     // HeadlessView requires packed depth stencil
     gl::isPackedDepthStencilSupported = true;
     gl::isDepth24Supported = true;
 
+    extensionsLoaded = true;
+
     deactivate();
 }
 
 void HeadlessView::createContext() {
+    if (!display_) {
+        throw std::runtime_error("Display is not set");
+    }
+
 #if MBGL_USE_CGL
     CGLError error = CGLCreateContext(display_->pixelFormat, NULL, &glContext);
     if (error != kCGLNoError) {
@@ -131,7 +147,7 @@ void HeadlessView::createContext() {
 #endif
 }
 
-void HeadlessView::resize(uint16_t width, uint16_t height, float pixelRatio) {
+void HeadlessView::resize(const uint16_t width, const uint16_t height, const float pixelRatio) {
     clearBuffers();
 
     width_ = width;
@@ -176,6 +192,8 @@ void HeadlessView::resize(uint16_t width, uint16_t height, float pixelRatio) {
         }
         throw std::runtime_error(error.str());
     }
+
+    View::resize(width, height, pixelRatio, w, h);
 
     deactivate();
 }

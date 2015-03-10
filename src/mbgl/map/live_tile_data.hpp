@@ -32,16 +32,20 @@ class LiveTileData : public TileData {
 
 public:
     LiveTileData(Tile::ID const&,
-                 float mapMaxZoom, util::ptr<Style>,
-                 GlyphAtlas&, GlyphStore&,
-                 SpriteAtlas&, util::ptr<Sprite>,
-                 const SourceInfo&, FileSource &,
-                 util::ptr<mapbox::util::geojsonvt::GeoJSONVT>& geojsonvt);
+                 float mapMaxZoom,
+                 util::ptr<Style>,
+                 GlyphAtlas&,
+                 GlyphStore&,
+                 SpriteAtlas&,
+                 util::ptr<Sprite>,
+                 const SourceInfo&,
+                 Environment&,
+                 util::ptr<mapbox::util::geojsonvt::GeoJSONVT>&);
     ~LiveTileData();
 
-    virtual void parse();
-    virtual void render(Painter &painter, util::ptr<StyleLayer> layer_desc, const mat4 &matrix);
-    virtual bool hasData(StyleLayer const& layer_desc) const;
+    void parse();
+    void render(Painter &painter, const StyleLayer &layer_desc, const mat4 &matrix) override;
+    bool hasData(StyleLayer const& layer_desc) const;
 
 protected:
     // Holds the actual geometries in this tile.

@@ -4,17 +4,22 @@
 #include <mbgl/map/map.hpp>
 #include <mbgl/style/style_layer.hpp>
 #include <mbgl/style/style_bucket.hpp>
+#include <mbgl/style/style_source.hpp>
 #include <mbgl/geometry/glyph_atlas.hpp>
 #include <mbgl/platform/log.hpp>
 
 using namespace mbgl;
 
 VectorTileData::VectorTileData(Tile::ID const& id_,
-                               float mapMaxZoom, util::ptr<Style> style_,
-                               GlyphAtlas& glyphAtlas_, GlyphStore& glyphStore_,
-                               SpriteAtlas& spriteAtlas_, util::ptr<Sprite> sprite_,
-                               const SourceInfo& source_, FileSource &fileSource_)
-    : TileData(id_, source_, fileSource_),
+                               float mapMaxZoom,
+                               util::ptr<Style> style_,
+                               GlyphAtlas& glyphAtlas_,
+                               GlyphStore& glyphStore_,
+                               SpriteAtlas& spriteAtlas_,
+                               util::ptr<Sprite> sprite_,
+                               const SourceInfo& source_,
+                               Environment& env_)
+    : TileData(id_, source_, env_),
       glyphAtlas(glyphAtlas_),
       glyphStore(glyphStore_),
       spriteAtlas(spriteAtlas_),
@@ -26,7 +31,6 @@ VectorTileData::VectorTileData(Tile::ID const& id_,
 VectorTileData::~VectorTileData() {
     glyphAtlas.removeGlyphs(id.to_uint64());
 }
-
 
 void VectorTileData::parse() {
     if (state != State::loaded) {
@@ -59,9 +63,9 @@ void VectorTileData::parse() {
     }
 }
 
-void VectorTileData::render(Painter &painter, util::ptr<StyleLayer> layer_desc, const mat4 &matrix) {
-    if (state == State::parsed && layer_desc->bucket) {
-        auto databucket_it = buckets.find(layer_desc->bucket->name);
+void VectorTileData::render(Painter &painter, const StyleLayer &layer_desc, const mat4 &matrix) {
+    if (state == State::parsed && layer_desc.bucket) {
+        auto databucket_it = buckets.find(layer_desc.bucket->name);
         if (databucket_it != buckets.end()) {
             assert(databucket_it->second);
             databucket_it->second->render(painter, layer_desc, id, matrix);
@@ -69,7 +73,7 @@ void VectorTileData::render(Painter &painter, util::ptr<StyleLayer> layer_desc, 
     }
 }
 
-bool VectorTileData::hasData(StyleLayer const& layer_desc) const {
+bool VectorTileData::hasData(const StyleLayer &layer_desc) const {
     if (state == State::parsed && layer_desc.bucket) {
         auto databucket_it = buckets.find(layer_desc.bucket->name);
         if (databucket_it != buckets.end()) {

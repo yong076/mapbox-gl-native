@@ -49,10 +49,10 @@ public:
     void enableFps(bool enable);
     void updateFps();
 
+    void resize(uint16_t width, uint16_t height, float ratio, uint16_t fbWidth, uint16_t fbHeight);
+
 private:
     EGLConfig chooseConfig(const EGLConfig configs[], EGLint numConfigs);
-
-    void loadExtensions();
 
     bool inEmulator();
 
@@ -77,8 +77,6 @@ private:
     std::string apiKey;
 
     bool firstTime = false;
-
-    bool usingDepth24 = false;
 
     bool fpsEnabled = false;
     double fps = 0.0;

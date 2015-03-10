@@ -2,6 +2,7 @@
 #define MBGL_RENDERER_LINEBUCKET
 
 #include <mbgl/renderer/bucket.hpp>
+#include <mbgl/map/geometry_tile.hpp>
 #include <mbgl/geometry/vao.hpp>
 #include <mbgl/geometry/elements_buffer.hpp>
 #include <mbgl/geometry/line_buffer.hpp>
@@ -20,7 +21,6 @@ class LineShader;
 class LinejoinShader;
 class LineSDFShader;
 class LinepatternShader;
-struct pbf;
 
 class LineBucket : public Bucket {
     typedef ElementGroup<3> triangle_group_type;
@@ -31,12 +31,13 @@ public:
                LineVertexBuffer &vertexBuffer,
                TriangleElementsBuffer &triangleElementsBuffer,
                PointElementsBuffer &pointElementsBuffer);
-    ~LineBucket();
+    ~LineBucket() override;
 
-    virtual void render(Painter& painter, util::ptr<StyleLayer> layer_desc, const Tile::ID& id, const mat4 &matrix);
-    virtual bool hasData() const;
+    void render(Painter &painter, const StyleLayer &layer_desc, const Tile::ID &id,
+                const mat4 &matrix) override;
+    bool hasData() const override;
 
-    void addGeometry(pbf& data);
+    void addGeometry(const GeometryCollection&);
     void addGeometry(const std::vector<Coordinate>& line);
 
     bool hasPoints() const;

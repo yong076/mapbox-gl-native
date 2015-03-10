@@ -30,16 +30,20 @@ class VectorTileData : public TileData {
     friend class TileParser;
 
 public:
-    VectorTileData(Tile::ID const&,
-                   float mapMaxZoom, util::ptr<Style>,
-                   GlyphAtlas&, GlyphStore&,
-                   SpriteAtlas&, util::ptr<Sprite>,
-                   const SourceInfo&, FileSource &);
+    VectorTileData(Tile::ID const &,
+                   float mapMaxZoom,
+                   util::ptr<Style>,
+                   GlyphAtlas&,
+                   GlyphStore&,
+                   SpriteAtlas&,
+                   util::ptr<Sprite>,
+                   const SourceInfo&,
+                   Environment&);
     ~VectorTileData();
 
-    virtual void parse();
-    virtual void render(Painter &painter, util::ptr<StyleLayer> layer_desc, const mat4 &matrix);
-    virtual bool hasData(StyleLayer const& layer_desc) const;
+    void parse() override;
+    void render(Painter &painter, const StyleLayer &layer_desc, const mat4 &matrix) override;
+    bool hasData(StyleLayer const& layer_desc) const override;
 
 protected:
     // Holds the actual geometries in this tile.

@@ -1,6 +1,7 @@
 #ifndef MBGL_MAP_TILE_PARSER
 #define MBGL_MAP_TILE_PARSER
 
+#include <mbgl/map/geometry_tile.hpp>
 #include <mbgl/map/vector_tile.hpp>
 #include <mbgl/style/filter_expression.hpp>
 #include <mbgl/style/class_properties.hpp>
@@ -33,12 +34,13 @@ class Collision;
 class TileParser : private util::noncopyable
 {
 public:
-    TileParser(const std::string &data, VectorTileData &tile,
-               const util::ptr<const Style> &style,
-               GlyphAtlas & glyphAtlas,
-               GlyphStore & glyphStore,
-               SpriteAtlas & spriteAtlas,
-               const util::ptr<Sprite> &sprite);
+    TileParser(const std::string& rawData,
+               VectorTileData& tile,
+               const util::ptr<const Style>& style,
+               GlyphAtlas& glyphAtlas,
+               GlyphStore& glyphStore,
+               SpriteAtlas& spriteAtlas,
+               const util::ptr<Sprite>& sprite);
     ~TileParser();
 
 public:
@@ -48,22 +50,23 @@ private:
     bool obsolete() const;
     void parseStyleLayers(util::ptr<const StyleLayerGroup> group);
 
-    std::unique_ptr<Bucket> createBucket(const StyleBucket &bucket_desc);
-    std::unique_ptr<Bucket> createFillBucket(const VectorTileLayer &layer, const StyleBucket &bucket_desc);
-    std::unique_ptr<Bucket> createLineBucket(const VectorTileLayer& layer, const StyleBucket &bucket_desc);
-    std::unique_ptr<Bucket> createSymbolBucket(const VectorTileLayer& layer, const StyleBucket &bucket_desc);
+    std::unique_ptr<Bucket> createBucket(const StyleBucket&);
+    std::unique_ptr<Bucket> createFillBucket(const GeometryTileLayer&, const StyleBucket&);
+    std::unique_ptr<Bucket> createLineBucket(const GeometryTileLayer&, const StyleBucket&);
+    std::unique_ptr<Bucket> createSymbolBucket(const GeometryTileLayer&, const StyleBucket&);
 
-    template <class Bucket> void addBucketGeometries(Bucket& bucket, const VectorTileLayer& layer, const FilterExpression &filter);
+    template <class Bucket>
+    void addBucketGeometries(Bucket&, const GeometryTileLayer&, const FilterExpression&);
 
 private:
-    const VectorTile vector_data;
+    const VectorTile vectorTile;
     VectorTileData& tile;
 
     // Cross-thread shared data.
     util::ptr<const Style> style;
-    GlyphAtlas & glyphAtlas;
-    GlyphStore & glyphStore;
-    SpriteAtlas & spriteAtlas;
+    GlyphAtlas& glyphAtlas;
+    GlyphStore& glyphStore;
+    SpriteAtlas& spriteAtlas;
     util::ptr<Sprite> sprite;
 
     std::unique_ptr<Collision> collision;

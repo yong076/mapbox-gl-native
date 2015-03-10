@@ -20,13 +20,15 @@ class DefaultFileSource : public FileSource {
 public:
     DefaultFileSource(FileCache *cache, const std::string &root = "");
     DefaultFileSource(FileCache *cache, uv_loop_t *loop, const std::string &root = "");
-    ~DefaultFileSource();
+    ~DefaultFileSource() override;
 
-    Request *request(const Resource &resource, uv_loop_t *loop, Callback callback);
-    void cancel(Request *request);
-    void request(const Resource &resource, Callback callback);
+    Request *request(const Resource &resource, uv_loop_t *loop, const Environment &env,
+                     Callback callback) override;
+    void cancel(Request *request) override;
+    void request(const Resource &resource, const Environment &env, Callback callback) override;
 
-    enum class CacheHint : uint8_t { Full, Refresh, No };
+    void abort(const Environment &env) override;
+
     void notify(SharedRequestBase *sharedRequest, const std::set<Request *> &observers,
                 std::shared_ptr<const Response> response, FileCache::Hint hint);
 
@@ -39,14 +41,16 @@ private:
     struct RemoveRequestAction;
     struct ResultAction;
     struct StopAction;
-    using Action =
-        mapbox::util::variant<AddRequestAction, RemoveRequestAction, ResultAction, StopAction>;
+    struct AbortAction;
+    using Action = mapbox::util::variant<AddRequestAction, RemoveRequestAction, ResultAction,
+                                         StopAction, AbortAction>;
     using Queue = util::AsyncQueue<Action>;
 
     void process(AddRequestAction &action);
     void process(RemoveRequestAction &action);
     void process(ResultAction &action);
     void process(StopAction &action);
+    void process(AbortAction &action);
 
     SharedRequestBase *find(const Resource &resource);
 

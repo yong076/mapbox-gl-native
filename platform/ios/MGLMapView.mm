@@ -25,7 +25,7 @@
 // Returns the path to the default cache database on this system.
 const std::string &defaultCacheDatabase() {
     static const std::string path = []() -> std::string {
-        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES);
+        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
         if ([paths count] == 0) {
             // Disable the cache if we don't have a location to write.
             return "";
@@ -37,6 +37,7 @@ const std::string &defaultCacheDatabase() {
     return path;
 }
 
+static dispatch_once_t loadGLExtensions;
 
 extern NSString *const MGLStyleKeyGeneric;
 extern NSString *const MGLStyleKeyFill;
@@ -65,6 +66,7 @@ NSTimeInterval const MGLAnimationDuration = 0.3;
 @property (nonatomic) UIPinchGestureRecognizer *pinch;
 @property (nonatomic) UIRotationGestureRecognizer *rotate;
 @property (nonatomic) UILongPressGestureRecognizer *quickZoom;
+@property (nonatomic) NSMutableArray *bundledStyleNames;
 @property (nonatomic, readonly) NSDictionary *allowedStyleTypes;
 @property (nonatomic) CGPoint centerPoint;
 @property (nonatomic) CGFloat scale;
@@ -92,6 +94,8 @@ NSTimeInterval const MGLAnimationDuration = 0.3;
 @end
 
 @implementation MGLMapView
+
+@synthesize bundledStyleNames=_bundledStyleNames;
 
 #pragma mark - Setup & Teardown -
 
@@ -158,7 +162,7 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
 {
     if ( ! styleJSON)
     {
-        [self useBundledStyleNamed:@"bright-v6"];
+        [self useBundledStyleNamed:@"bright-v7"];
     }
     else
     {
@@ -213,8 +217,9 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
 
     // load extensions
     //
-    const std::string extensions = (char *)glGetString(GL_EXTENSIONS);
-    {
+    dispatch_once(&loadGLExtensions, ^{
+        const std::string extensions = (char *)glGetString(GL_EXTENSIONS);
+
         using namespace mbgl;
 
         if (extensions.find("GL_OES_vertex_array_object") != std::string::npos) {
@@ -231,7 +236,7 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
         if (extensions.find("GL_OES_depth24") != std::string::npos) {
             gl::isDepth24Supported = YES;
         }
-    }
+    });
 
     // setup mbgl map
     //
@@ -239,7 +244,7 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
     mbglFileCache  = new mbgl::SQLiteCache(defaultCacheDatabase());
     mbglFileSource = new mbgl::DefaultFileSource(mbglFileCache);
     mbglMap = new mbgl::Map(*mbglView, *mbglFileSource);
-    mbglMap->resize(self.bounds.size.width, self.bounds.size.height, _glView.contentScaleFactor, _glView.drawableWidth, _glView.drawableHeight);
+    mbglView->resize(self.bounds.size.width, self.bounds.size.height, _glView.contentScaleFactor, _glView.drawableWidth, _glView.drawableHeight);
 
     // Notify map object when network reachability status changes.
     [[NSNotificationCenter defaultCenter] addObserver:self
@@ -489,7 +494,7 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-    mbglMap->resize(rect.size.width, rect.size.height, view.contentScaleFactor, view.drawableWidth, view.drawableHeight);
+    mbglView->resize(rect.size.width, rect.size.height, view.contentScaleFactor, view.drawableWidth, view.drawableHeight);
 }
 
 - (void)layoutSubviews
@@ -936,16 +941,37 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
 
 - (NSArray *)bundledStyleNames
 {
-    NSString *stylesPath = [[MGLMapView resourceBundlePath] stringByAppendingString:@"/styles"];
+    if (!_bundledStyleNames) {
+        NSString *stylesPath = [[MGLMapView resourceBundlePath] stringByAppendingString:@"/styles"];
 
-    NSArray *styleNames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:stylesPath error:nil];
+        _bundledStyleNames = [[[NSFileManager defaultManager] contentsOfDirectoryAtPath:stylesPath error:nil] mutableCopy];
 
-    return styleNames;
+        // Add satellite raster & "hybrid" (satellite raster + vector contours & labels)
+        NSString *hybridStylePrefix = @"hybrid-";
+        NSString *satelliteStylePrefix = @"satellite-";
+        NSMutableArray *hybridStyleNames = [NSMutableArray array];
+        for (NSString *styleName in _bundledStyleNames) {
+            if ([styleName hasPrefix:satelliteStylePrefix]) {
+                [hybridStyleNames addObject:[hybridStylePrefix stringByAppendingString:[styleName substringFromIndex:[satelliteStylePrefix length]]]];
+            }
+        }
+        [_bundledStyleNames addObjectsFromArray:hybridStyleNames];
+    }
+
+    return [NSArray arrayWithArray:_bundledStyleNames];
 }
 
 - (void)useBundledStyleNamed:(NSString *)styleName
 {
+    NSString *hybridStylePrefix = @"hybrid-";
+    BOOL isHybrid = [styleName hasPrefix:hybridStylePrefix];
+    if (isHybrid) {
+        styleName = [@"satellite-" stringByAppendingString:[styleName substringFromIndex:[hybridStylePrefix length]]];
+    }
     [self setStyleURL:[NSString stringWithFormat:@"styles/%@.json", styleName]];
+    if (isHybrid) {
+        [self setAppliedStyleClasses:@[@"contours", @"labels"]];
+    }
 }
 
 - (NSArray *)getStyleOrderedLayerNames
@@ -1629,6 +1655,10 @@ class MBGLView : public mbgl::View
     void deactivate()
     {
         [EAGLContext setCurrentContext:nil];
+    }
+
+    void resize(uint16_t width, uint16_t height, float ratio, uint16_t fbWidth, uint16_t fbHeight) {
+        View::resize(width, height, ratio, fbWidth, fbHeight);
     }
 
     void swap()
