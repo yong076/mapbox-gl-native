@@ -123,7 +123,7 @@ GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom
 void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, uint8_t x_, uint8_t y_, int8_t cz, int8_t cx, int8_t cy) {
 
     std::queue<FeatureStackItem> stack;
-    stack.emplace(std::move(features_), z_, x_, y_);
+    stack.emplace(std::move(features_), z_, x_, y_); // FIXME
 
     while (stack.size()) {
         FeatureStackItem set = stack.front();
