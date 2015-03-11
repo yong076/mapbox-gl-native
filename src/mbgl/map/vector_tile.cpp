@@ -128,6 +128,10 @@ VectorTile::VectorTile(pbf tile_pbf) {
     }
 }
 
+std::size_t VectorTile::layerCount() const {
+    return layers.size();
+}
+
 util::ptr<const GeometryTileLayer> VectorTile::getLayer(const std::string& name) const {
     auto layer_it = layers.find(name);
     if (layer_it != layers.end()) {

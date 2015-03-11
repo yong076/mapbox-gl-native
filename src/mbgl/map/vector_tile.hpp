@@ -45,6 +45,7 @@ class VectorTile : public GeometryTile {
 public:
     VectorTile(pbf);
 
+    std::size_t layerCount() const override;
     util::ptr<const GeometryTileLayer> getLayer(const std::string&) const override;
 
 private:
