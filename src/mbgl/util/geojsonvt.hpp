@@ -4,6 +4,7 @@
 #include <array>
 #include <vector>
 #include <map>
+#include <unordered_map>
 #include <string>
 #include <ctime>
 #include <mutex>
@@ -27,7 +28,7 @@ public:
     }
 
 private:
-    static std::map<std::string, clock_t> activities;
+    static std::unordered_map<std::string, clock_t> activities;
 };
 
 #pragma mark -

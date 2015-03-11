@@ -6,7 +6,7 @@
 
 namespace mapbox { namespace util { namespace geojsonvt {
 
-std::map<std::string, clock_t> Time::activities;
+std::unordered_map<std::string, clock_t> Time::activities;
 
 #pragma mark - Tile
 
