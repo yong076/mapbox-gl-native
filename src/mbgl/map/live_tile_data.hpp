@@ -18,6 +18,7 @@ public:
                  const SourceInfo&,
                  Environment&,
                  util::ptr<mapbox::util::geojsonvt::GeoJSONVT>&);
+    ~LiveTileData();
 
     void parse() override;
 

@@ -16,7 +16,6 @@
 #include <mbgl/text/collision.hpp>
 #include <mbgl/text/glyph.hpp>
 #include <mbgl/map/map.hpp>
-
 #include <mbgl/util/std.hpp>
 #include <mbgl/util/utf.hpp>
 

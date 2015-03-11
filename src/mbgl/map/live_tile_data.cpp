@@ -15,14 +15,14 @@ LiveTileData::LiveTileData(Tile::ID const& id_,
                            const SourceInfo& source_,
                            Environment& env_,
                            util::ptr<mapbox::util::geojsonvt::GeoJSONVT>& geojsonvt_)
-    : VectorTileData::VectorTileData(id_, mapMaxZoom, style_,
-                                     glyphAtlas_, glyphStore_,
-                                     spriteAtlas_, sprite_,
-                                     source_, env_),
+    : VectorTileData::VectorTileData(id_, mapMaxZoom, style_, glyphAtlas_, glyphStore_,
+                                     spriteAtlas_, sprite_, source_, env_),
       geojsonvt(geojsonvt_) {
-
     // GeoJSON is already loaded by now
     state = State::loaded;
+}
+
+LiveTileData::~LiveTileData() {
 }
 
 void LiveTileData::parse() {
@@ -44,6 +44,7 @@ void LiveTileData::parse() {
             VectorTile dummyTile;
             VectorTile* vt = &dummyTile;
             TileParser parser(vt, *this, style, glyphAtlas, glyphStore, spriteAtlas, sprite);
+
             // Clear the style so that we don't have a cycle in the shared_ptr references.
             style.reset();
 

@@ -9,6 +9,7 @@
 #include <mbgl/text/glyph.hpp>
 #include <mbgl/util/ptr.hpp>
 #include <mbgl/util/noncopyable.hpp>
+
 #include <cstdint>
 #include <iosfwd>
 #include <string>
@@ -31,8 +32,7 @@ class StyleLayerGroup;
 class VectorTileData;
 class Collision;
 
-class TileParser : private util::noncopyable
-{
+class TileParser : private util::noncopyable {
 public:
     TileParser(const VectorTile* vectorTile,
                VectorTileData& tile,

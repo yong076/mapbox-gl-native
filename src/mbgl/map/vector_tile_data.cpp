@@ -48,6 +48,7 @@ void VectorTileData::parse() {
         VectorTile vectorTile(pbf((const uint8_t *)data.data(), data.size()));
         VectorTile* vt = &vectorTile;
         TileParser parser(vt, *this, style, glyphAtlas, glyphStore, spriteAtlas, sprite);
+
         // Clear the style so that we don't have a cycle in the shared_ptr references.
         style.reset();
 
