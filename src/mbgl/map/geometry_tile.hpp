@@ -43,7 +43,6 @@ public:
 
 class GeometryTile : public mbgl::util::noncopyable {
 public:
-    virtual std::size_t layerCount() const = 0;
     virtual util::ptr<const GeometryTileLayer> getLayer(const std::string&) const = 0;
 };
 

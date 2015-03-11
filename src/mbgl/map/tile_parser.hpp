@@ -34,7 +34,7 @@ class Collision;
 
 class TileParser : private util::noncopyable {
 public:
-    TileParser(const VectorTile* vectorTile,
+    TileParser(const GeometryTile* geometryTile,
                VectorTileData& tile,
                const util::ptr<const Style>& style,
                GlyphAtlas& glyphAtlas,
@@ -46,11 +46,11 @@ public:
 public:
     void parse();
 
-private:
+protected:
     bool obsolete() const;
     void parseStyleLayers(util::ptr<const StyleLayerGroup> group);
 
-    std::unique_ptr<Bucket> createBucket(const StyleBucket&);
+    virtual std::unique_ptr<Bucket> createBucket(const StyleBucket&);
     std::unique_ptr<Bucket> createFillBucket(const GeometryTileLayer&, const StyleBucket&);
     std::unique_ptr<Bucket> createLineBucket(const GeometryTileLayer&, const StyleBucket&);
     std::unique_ptr<Bucket> createSymbolBucket(const GeometryTileLayer&, const StyleBucket&);
@@ -58,8 +58,8 @@ private:
     template <class Bucket>
     void addBucketGeometries(Bucket&, const GeometryTileLayer&, const FilterExpression&);
 
-private:
-    const VectorTile* vectorTile;
+protected:
+    const GeometryTile* geometryTile;
     VectorTileData& tile;
 
     // Cross-thread shared data.

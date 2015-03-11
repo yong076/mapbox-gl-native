@@ -1,5 +1,5 @@
 #include <mbgl/map/live_tile_data.hpp>
-#include <mbgl/map/tile_parser.hpp>
+#include <mbgl/map/live_tile_parser.hpp>
 #include <mbgl/map/vector_tile.hpp>
 #include <mbgl/platform/log.hpp>
 
@@ -41,9 +41,10 @@ void LiveTileData::parse() {
             // Parsing creates state that is encapsulated in TileParser. While parsing,
             // the TileParser object writes results into this objects. All other state
             // is going to be discarded afterwards.
-            VectorTile dummyTile;
-            VectorTile* vt = &dummyTile;
-            TileParser parser(vt, *this, style, glyphAtlas, glyphStore, spriteAtlas, sprite);
+            mapbox::util::geojsonvt::Tile* geojsonTile = &in_tile;
+            LiveTile live_tile(geojsonTile);
+            const LiveTile* lt = &live_tile;
+            LiveTileParser parser(lt, *this, style, glyphAtlas, glyphStore, spriteAtlas, sprite);
 
             // Clear the style so that we don't have a cycle in the shared_ptr references.
             style.reset();

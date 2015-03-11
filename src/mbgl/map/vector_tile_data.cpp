@@ -46,7 +46,7 @@ void VectorTileData::parse() {
         // the TileParser object writes results into this objects. All other state
         // is going to be discarded afterwards.
         VectorTile vectorTile(pbf((const uint8_t *)data.data(), data.size()));
-        VectorTile* vt = &vectorTile;
+        const VectorTile* vt = &vectorTile;
         TileParser parser(vt, *this, style, glyphAtlas, glyphStore, spriteAtlas, sprite);
 
         // Clear the style so that we don't have a cycle in the shared_ptr references.

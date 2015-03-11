@@ -117,8 +117,6 @@ GeometryCollection VectorTileFeature::getGeometries() const {
     return lines;
 }
 
-VectorTile::VectorTile() {}
-
 VectorTile::VectorTile(pbf tile_pbf) {
     while (tile_pbf.next()) {
         if (tile_pbf.tag == 3) { // layer
@@ -128,10 +126,6 @@ VectorTile::VectorTile(pbf tile_pbf) {
             tile_pbf.skip();
         }
     }
-}
-
-std::size_t VectorTile::layerCount() const {
-    return layers.size();
 }
 
 util::ptr<const GeometryTileLayer> VectorTile::getLayer(const std::string& name) const {
