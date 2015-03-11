@@ -1,9 +1,6 @@
 #include <mbgl/map/live_tile_data.hpp>
-#include <mbgl/map/live_tile_parser.hpp>
-#include <mbgl/style/style_layer.hpp>
-#include <mbgl/style/style_bucket.hpp>
-#include <mbgl/style/style_source.hpp>
-#include <mbgl/geometry/glyph_atlas.hpp>
+#include <mbgl/map/tile_parser.hpp>
+#include <mbgl/map/vector_tile.hpp>
 #include <mbgl/platform/log.hpp>
 
 using namespace mbgl;
@@ -18,21 +15,14 @@ LiveTileData::LiveTileData(Tile::ID const& id_,
                            const SourceInfo& source_,
                            Environment& env_,
                            util::ptr<mapbox::util::geojsonvt::GeoJSONVT>& geojsonvt_)
-    : TileData(id_, source_, env_),
-      glyphAtlas(glyphAtlas_),
-      glyphStore(glyphStore_),
-      spriteAtlas(spriteAtlas_),
-      sprite(sprite_),
-      style(style_),
-      geojsonvt(geojsonvt_),
-      depth(id.z >= source.max_zoom ? mapMaxZoom - id.z : 1) {
+    : VectorTileData::VectorTileData(id_, mapMaxZoom, style_,
+                                     glyphAtlas_, glyphStore_,
+                                     spriteAtlas_, sprite_,
+                                     source_, env_),
+      geojsonvt(geojsonvt_) {
 
     // GeoJSON is already loaded by now
     state = State::loaded;
-}
-
-LiveTileData::~LiveTileData() {
-    glyphAtlas.removeGlyphs(id.to_uint64());
 }
 
 void LiveTileData::parse() {
@@ -48,7 +38,13 @@ void LiveTileData::parse() {
         mapbox::util::geojsonvt::Tile& in_tile = geojsonvt->getTile(id.z, id.x, id.y);
 
         if (in_tile) {
-            LiveTileParser parser(in_tile, *this, style/*, glyphAtlas, glyphStore, spriteAtlas, sprite*/);
+            // Parsing creates state that is encapsulated in TileParser. While parsing,
+            // the TileParser object writes results into this objects. All other state
+            // is going to be discarded afterwards.
+            VectorTile dummyTile;
+            VectorTile* vt = &dummyTile;
+            TileParser parser(vt, *this, style, glyphAtlas, glyphStore, spriteAtlas, sprite);
+            // Clear the style so that we don't have a cycle in the shared_ptr references.
             style.reset();
 
             parser.parse();
@@ -57,7 +53,7 @@ void LiveTileData::parse() {
             return;
         }
     } catch (const std::exception& ex) {
-        Log::Error(Event::ParseTile, "Live-converting [%d/%d/%d] failed: %s", id.z, id.x, id.y, ex.what());
+        Log::Error(Event::ParseTile, "Live-parsing [%d/%d/%d] failed: %s", id.z, id.x, id.y, ex.what());
         state = State::obsolete;
         return;
     }
@@ -65,25 +61,4 @@ void LiveTileData::parse() {
     if (state != State::obsolete) {
         state = State::parsed;
     }
-}
-
-void LiveTileData::render(Painter &painter, const StyleLayer &layer_desc, const mat4 &matrix) {
-    if (state == State::parsed && layer_desc.bucket) {
-        auto databucket_it = buckets.find(layer_desc.bucket->name);
-        if (databucket_it != buckets.end()) {
-            assert(databucket_it->second);
-            databucket_it->second->render(painter, layer_desc, id, matrix);
-        }
-    }
-}
-
-bool LiveTileData::hasData(StyleLayer const& layer_desc) const {
-    if (state == State::parsed && layer_desc.bucket) {
-        auto databucket_it = buckets.find(layer_desc.bucket->name);
-        if (databucket_it != buckets.end()) {
-            assert(databucket_it->second);
-            return databucket_it->second->hasData();
-        }
-    }
-    return false;
 }

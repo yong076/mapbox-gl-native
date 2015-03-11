@@ -7,7 +7,6 @@
 
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/ptr.hpp>
-#include <mbgl/util/geojsonvt.hpp>
 
 #include <atomic>
 #include <exception>

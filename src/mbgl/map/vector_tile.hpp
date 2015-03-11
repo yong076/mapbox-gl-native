@@ -43,6 +43,7 @@ private:
 
 class VectorTile : public GeometryTile {
 public:
+    VectorTile();
     VectorTile(pbf);
 
     std::size_t layerCount() const override;

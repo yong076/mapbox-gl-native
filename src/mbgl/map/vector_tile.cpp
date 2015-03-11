@@ -117,6 +117,8 @@ GeometryCollection VectorTileFeature::getGeometries() const {
     return lines;
 }
 
+VectorTile::VectorTile() {}
+
 VectorTile::VectorTile(pbf tile_pbf) {
     while (tile_pbf.next()) {
         if (tile_pbf.tag == 3) { // layer

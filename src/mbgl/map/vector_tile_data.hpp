@@ -30,7 +30,7 @@ class VectorTileData : public TileData {
     friend class TileParser;
 
 public:
-    VectorTileData(Tile::ID const &,
+    VectorTileData(Tile::ID const&,
                    float mapMaxZoom,
                    util::ptr<Style>,
                    GlyphAtlas&,

@@ -34,7 +34,7 @@ class Collision;
 class TileParser : private util::noncopyable
 {
 public:
-    TileParser(const std::string& rawData,
+    TileParser(const VectorTile* vectorTile,
                VectorTileData& tile,
                const util::ptr<const Style>& style,
                GlyphAtlas& glyphAtlas,
@@ -59,7 +59,7 @@ private:
     void addBucketGeometries(Bucket&, const GeometryTileLayer&, const FilterExpression&);
 
 private:
-    const VectorTile vectorTile;
+    const VectorTile* vectorTile;
     VectorTileData& tile;
 
     // Cross-thread shared data.
