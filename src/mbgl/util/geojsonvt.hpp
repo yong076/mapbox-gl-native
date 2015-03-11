@@ -91,9 +91,9 @@ using Tags = std::map<std::string, std::string>;
 #pragma mark -
 
 enum class ProjectedFeatureType: uint8_t {
-    Point,
-    LineString,
-    Polygon
+    Point = 1,
+    LineString = 2,
+    Polygon = 3
 };
 
 #pragma mark -

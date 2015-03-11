@@ -38,7 +38,7 @@ public:
 class GeometryTileLayer : public mbgl::util::noncopyable {
 public:
     virtual std::size_t featureCount() const = 0;
-    virtual util::ptr<const GeometryTileFeature> feature(std::size_t i) const = 0;
+    virtual util::ptr<const GeometryTileFeature> feature(std::size_t) const = 0;
 };
 
 class GeometryTile : public mbgl::util::noncopyable {
