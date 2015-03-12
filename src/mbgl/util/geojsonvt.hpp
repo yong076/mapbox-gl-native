@@ -159,14 +159,14 @@ public:
 
 class Tile {
 public:
-    static Tile createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify);
+    static Tile createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint32_t tx, uint32_t ty, double tolerance, uint16_t extent, bool noSimplify);
 
-    static void addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify);
+    static void addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint32_t tx, uint32_t ty, double tolerance, uint16_t extent, bool noSimplify);
 
     inline operator bool() const { return this->numPoints > 0; }
 
 private:
-    static TilePoint transformPoint(const ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, uint16_t extent);
+    static TilePoint transformPoint(const ProjectedPoint &p, uint8_t z2, uint32_t tx, uint32_t ty, uint16_t extent);
 
 public:
     std::vector<TileFeature> features;
@@ -180,16 +180,16 @@ public:
 
 class GeoJSONVT {
 public:
-    GeoJSONVT(const std::string &data, uint8_t baseZoom = 14, uint8_t maxZoom = 4, uint32_t maxPoints = 100, double tolerance = 3, bool debug = false);
+    GeoJSONVT(const std::string &data, uint8_t baseZoom = 14, uint8_t maxZoom = 4, uint32_t maxPoints = 100, double tolerance = 3, bool debug = true);
 
-    Tile& getTile(uint8_t z, uint8_t x, uint8_t y);
+    Tile& getTile(uint8_t z, uint32_t x, uint32_t y);
 
 private:
-    void splitTile(std::vector<ProjectedFeature> features, uint8_t z, uint8_t x, uint8_t y, int8_t cz = -1, int8_t cx = -1, int8_t cy = -1);
+    void splitTile(std::vector<ProjectedFeature> features, uint8_t z, uint32_t x, uint32_t y, int8_t cz = -1, int32_t cx = -1, int32_t cy = -1);
 
     bool isClippedSquare(const std::vector<TileFeature> &features, uint16_t extent, uint8_t buffer) const;
 
-    static uint64_t toID(uint32_t z, uint32_t x, uint32_t y);
+    static uint64_t toID(uint8_t z, uint32_t x, uint32_t y);
 
     static ProjectedPoint intersectX(const ProjectedPoint &a, const ProjectedPoint &b, double x);
 
@@ -198,10 +198,10 @@ private:
     struct FeatureStackItem {
         std::vector<ProjectedFeature> features;
         uint8_t z;
-        uint8_t x;
-        uint8_t y;
+        uint32_t x;
+        uint32_t y;
 
-        FeatureStackItem(std::vector<ProjectedFeature> features_, uint8_t z_, uint8_t x_, uint8_t y_)
+        FeatureStackItem(std::vector<ProjectedFeature> features_, uint8_t z_, uint32_t x_, uint32_t y_)
             : features(features_), z(z_), x(x_), y(y_) {}
     };
 

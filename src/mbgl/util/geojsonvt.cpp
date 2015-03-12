@@ -10,7 +10,7 @@ std::unordered_map<std::string, clock_t> Time::activities;
 
 #pragma mark - Tile
 
-Tile Tile::createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify) {
+Tile Tile::createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint32_t tx, uint32_t ty, double tolerance, uint16_t extent, bool noSimplify) {
 
     Tile tile;
 
@@ -22,7 +22,7 @@ Tile Tile::createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint8
     return std::move(tile);
 }
 
-void Tile::addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint8_t tx, uint8_t ty, double tolerance, uint16_t extent, bool noSimplify) {
+void Tile::addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint32_t tx, uint32_t ty, double tolerance, uint16_t extent, bool noSimplify) {
 
     ProjectedGeometryContainer *geom = &(feature.geometry.get<ProjectedGeometryContainer>());
     ProjectedFeatureType type = feature.type;
@@ -69,7 +69,7 @@ void Tile::addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint8_t
 
 }
 
-TilePoint Tile::transformPoint(const ProjectedPoint &p, uint8_t z2, uint8_t tx, uint8_t ty, uint16_t extent) {
+TilePoint Tile::transformPoint(const ProjectedPoint &p, uint8_t z2, uint32_t tx, uint32_t ty, uint16_t extent) {
 
     uint16_t x = extent * (p.x * z2 - tx);
     uint16_t y = extent * (p.y * z2 - ty);
@@ -90,7 +90,7 @@ GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom
         Time::time("preprocess data");
     }
 
-    uint32_t z2 = 1 << this->baseZoom;
+    uint8_t z2 = 1 << this->baseZoom;
 
     JSDocument deserializedData;
     deserializedData.Parse<0>(data.c_str());
@@ -120,7 +120,7 @@ GeoJSONVT::GeoJSONVT(const std::string &data, uint8_t baseZoom_, uint8_t maxZoom
     }
 }
 
-void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, uint8_t x_, uint8_t y_, int8_t cz, int8_t cx, int8_t cy) {
+void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, uint32_t x_, uint32_t y_, int8_t cz, int32_t cx, int32_t cy) {
 
     std::queue<FeatureStackItem> stack;
     stack.emplace(std::move(features_), z_, x_, y_); // FIXME
@@ -130,8 +130,8 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
         stack.pop();
         std::vector<ProjectedFeature> features = std::move(set.features);
         uint8_t z = set.z;
-        uint8_t x = set.x;
-        uint8_t y = set.y;
+        uint32_t x = set.x;
+        uint32_t y = set.y;
 
         uint32_t z2 = 1 << z;
         uint64_t id = toID(z, x, y);
@@ -235,7 +235,7 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
     }
 }
 
-Tile& GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
+Tile& GeoJSONVT::getTile(uint8_t z, uint32_t x, uint32_t y) {
 
     std::lock_guard<std::mutex> lock(mtx);
 
@@ -249,8 +249,8 @@ Tile& GeoJSONVT::getTile(uint8_t z, uint8_t x, uint8_t y) {
     }
 
     uint8_t z0 = z;
-    uint8_t x0 = x;
-    uint8_t y0 = y;
+    uint32_t x0 = x;
+    uint32_t y0 = y;
     Tile *parent = nullptr;
 
     while (!parent && z0) {
@@ -311,7 +311,7 @@ bool GeoJSONVT::isClippedSquare(const std::vector<TileFeature> &features, uint16
     return true;
 }
 
-uint64_t GeoJSONVT::toID(uint32_t z, uint32_t x, uint32_t y) {
+uint64_t GeoJSONVT::toID(uint8_t z, uint32_t x, uint32_t y) {
 
     return (((1 << z) * y + x) * 32) + z;
 }
