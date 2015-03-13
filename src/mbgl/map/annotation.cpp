@@ -81,6 +81,16 @@ std::vector<uint32_t> AnnotationManager::getAnnotationsInBoundingBox(BoundingBox
 }
 
 BoundingBox AnnotationManager::getBoundingBoxForAnnotations(const std::vector<uint32_t> ids) const {
-    printf("%u\n", ids[0]);
-    return BoundingBox();
+    LatLng sw, ne;
+    for (auto id : ids) {
+        auto annotation_it = annotations.find(id);
+        if (annotation_it != annotations.end()) {
+            if (annotation_it->second->bbox.sw.latitude < sw.latitude) sw.latitude = annotation_it->second->bbox.sw.latitude;
+            if (annotation_it->second->bbox.ne.latitude > ne.latitude) ne.latitude = annotation_it->second->bbox.ne.latitude;
+            if (annotation_it->second->bbox.sw.longitude < sw.longitude) sw.longitude = annotation_it->second->bbox.sw.longitude;
+            if (annotation_it->second->bbox.ne.longitude > ne.longitude) ne.longitude = annotation_it->second->bbox.ne.longitude;
+        }
+    }
+
+    return BoundingBox(sw, ne);
 }
