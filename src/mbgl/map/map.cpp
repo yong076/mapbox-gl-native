@@ -545,35 +545,35 @@ const std::string &Map::getAccessToken() const {
 void Map::setDefaultPointAnnotationSymbol(const std::string& symbol) { annotationManager->setDefaultPointAnnotationSymbol(symbol);
 }
 
-uint64_t Map::addPointAnnotation(const LatLng point, const std::string& symbol) {
+uint32_t Map::addPointAnnotation(LatLng point, const std::string& symbol) {
     return annotationManager->addPointAnnotation(point, symbol);
 }
 
-std::vector<const uint64_t> Map::addPointAnnotations(const std::vector<LatLng> points, const std::vector<const std::string>& symbols) {
+std::vector<uint32_t> Map::addPointAnnotations(std::vector<LatLng> points, std::vector<const std::string>& symbols) {
     return annotationManager->addPointAnnotations(points, symbols);
 }
 
-uint64_t Map::addShapeAnnotation(const std::vector<AnnotationSegment> shape) {
+uint32_t Map::addShapeAnnotation(std::vector<AnnotationSegment> shape) {
     return annotationManager->addShapeAnnotation(shape);
 }
 
-std::vector<const uint64_t> Map::addShapeAnnotations(const std::vector<const std::vector<AnnotationSegment>> shapes) {
+std::vector<uint32_t> Map::addShapeAnnotations(std::vector<std::vector<AnnotationSegment>> shapes) {
     return annotationManager->addShapeAnnotations(shapes);
 }
 
-void Map::removeAnnotation(const uint64_t annotation) {
+void Map::removeAnnotation(uint32_t annotation) {
     annotationManager->removeAnnotation(annotation);
 }
 
-void Map::removeAnnotations(const std::vector<const uint64_t> annotations) {
+void Map::removeAnnotations(std::vector<uint32_t> annotations) {
     annotationManager->removeAnnotations(annotations);
 }
 
-std::vector<const uint64_t> Map::getAnnotationsInBoundingBox(BoundingBox bbox) const {
+std::vector<uint32_t> Map::getAnnotationsInBoundingBox(BoundingBox bbox) const {
     return annotationManager->getAnnotationsInBoundingBox(bbox);
 }
 
-BoundingBox Map::getBoundingBoxForAnnotations(const std::vector<const uint64_t> annotations) const {
+BoundingBox Map::getBoundingBoxForAnnotations(std::vector<uint32_t> annotations) const {
     return annotationManager->getBoundingBoxForAnnotations(annotations);
 }
 

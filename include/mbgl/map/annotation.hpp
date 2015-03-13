@@ -6,6 +6,7 @@
 #include <mbgl/map/live_tile.hpp>
 #include <mbgl/util/geo.hpp>
 #include <mbgl/util/noncopyable.hpp>
+#include <mbgl/util/std.hpp>
 
 #include <string>
 #include <vector>
@@ -22,30 +23,38 @@ enum class AnnotationType : uint8_t {
 
 class AnnotationManager : private util::noncopyable {
 public:
-    void setDefaultPointAnnotationSymbol(const std::string&);
-    uint64_t addPointAnnotation(const LatLng, const std::string& symbol = "");
-    std::vector<const uint64_t> addPointAnnotations(const std::vector<LatLng>, const std::vector<const std::string>& symbols = {{}});
-    uint64_t addShapeAnnotation(const std::vector<AnnotationSegment>);
-    std::vector<const uint64_t> addShapeAnnotations(const std::vector<const std::vector<AnnotationSegment>>);
-    void removeAnnotation(const uint64_t);
-    void removeAnnotations(const std::vector<const uint64_t>);
-    std::vector<const uint64_t> getAnnotationsInBoundingBox(BoundingBox) const;
-    BoundingBox getBoundingBoxForAnnotations(const std::vector<const uint64_t>) const;
+    void setDefaultPointAnnotationSymbol(const std::string& symbol) { defaultPointAnnotationSymbol = symbol; }
+    uint32_t addPointAnnotation(LatLng, const std::string& symbol = "");
+    std::vector<uint32_t> addPointAnnotations(std::vector<LatLng>, std::vector<const std::string>& symbols);
+    uint32_t addShapeAnnotation(std::vector<AnnotationSegment>);
+    std::vector<uint32_t> addShapeAnnotations(std::vector<std::vector<AnnotationSegment>>);
+    void removeAnnotation(uint32_t);
+    void removeAnnotations(std::vector<uint32_t>);
+    std::vector<uint32_t> getAnnotationsInBoundingBox(BoundingBox) const;
+    BoundingBox getBoundingBoxForAnnotations(std::vector<uint32_t>) const;
 
 private:
-    std::map<std::string, Annotation> annotations;
+    uint32_t nextID() { return nextID_++; }
+
+private:
+    std::string defaultPointAnnotationSymbol;
+    std::map<uint32_t, std::unique_ptr<Annotation>> annotations;
     std::map<Tile::ID, LiveTile> annotationTiles;
+    uint32_t nextID_;
 };
 
 class Annotation : private util::noncopyable {
 public:
+    Annotation(AnnotationType, std::vector<AnnotationSegment>);
+
+    std::vector<AnnotationSegment> getGeometry() const { return geometry; }
     LatLng getPoint() const { return geometry[0][0]; }
+    BoundingBox getBoundingBox() const { return bbox; }
 
 public:
-    const std::string id;
     const AnnotationType type = AnnotationType::Point;
     const std::vector<AnnotationSegment> geometry;
-    const BoundingBox bbox;
+    BoundingBox bbox;
     std::map<Tile::ID, std::vector<LiveTileFeature>> tileFeatures;
 };
 
