@@ -4,6 +4,7 @@
 #include <mbgl/platform/platform.hpp>
 #include <mbgl/map/source.hpp>
 #include <mbgl/renderer/painter.hpp>
+#include <mbgl/map/annotation.hpp>
 #include <mbgl/map/sprite.hpp>
 #include <mbgl/util/transition.hpp>
 #include <mbgl/util/math.hpp>
@@ -537,6 +538,43 @@ void Map::setAccessToken(const std::string &token) {
 
 const std::string &Map::getAccessToken() const {
     return accessToken;
+}
+
+#pragma mark - Annotations
+
+void Map::setDefaultPointAnnotationSymbol(const std::string& symbol) { annotationManager->setDefaultPointAnnotationSymbol(symbol);
+}
+
+uint64_t Map::addPointAnnotation(const LatLng point, const std::string& symbol) {
+    return annotationManager->addPointAnnotation(point, symbol);
+}
+
+std::vector<const uint64_t> Map::addPointAnnotations(const std::vector<LatLng> points, const std::vector<const std::string>& symbols) {
+    return annotationManager->addPointAnnotations(points, symbols);
+}
+
+uint64_t Map::addShapeAnnotation(const std::vector<AnnotationSegment> shape) {
+    return annotationManager->addShapeAnnotation(shape);
+}
+
+std::vector<const uint64_t> Map::addShapeAnnotations(const std::vector<const std::vector<AnnotationSegment>> shapes) {
+    return annotationManager->addShapeAnnotations(shapes);
+}
+
+void Map::removeAnnotation(const uint64_t annotation) {
+    annotationManager->removeAnnotation(annotation);
+}
+
+void Map::removeAnnotations(const std::vector<const uint64_t> annotations) {
+    annotationManager->removeAnnotations(annotations);
+}
+
+std::vector<const uint64_t> Map::getAnnotationsInBoundingBox(BoundingBox bbox) const {
+    return annotationManager->getAnnotationsInBoundingBox(bbox);
+}
+
+BoundingBox Map::getBoundingBoxForAnnotations(const std::vector<const uint64_t> annotations) const {
+    return annotationManager->getBoundingBoxForAnnotations(annotations);
 }
 
 #pragma mark - Toggles

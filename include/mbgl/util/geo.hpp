@@ -19,6 +19,14 @@ struct ProjectedMeters {
         : northing(n), easting(e) {}
 };
 
+struct BoundingBox {
+    LatLng sw = {0, 0};
+    LatLng ne = {0, 0};
+
+    inline BoundingBox(LatLng sw_ = {0, 0}, LatLng ne_ = {0, 0})
+        : sw(sw_), ne(ne_) {}
+};
+
 }
 
 #endif

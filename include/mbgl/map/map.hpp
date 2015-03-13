@@ -37,6 +37,9 @@ class GlyphAtlas;
 class SpriteAtlas;
 class LineAtlas;
 class Environment;
+class AnnotationManager;
+
+typedef std::vector<LatLng> AnnotationSegment;
 
 class Map : private util::noncopyable {
     friend class View;
@@ -137,6 +140,17 @@ public:
     inline const vec2<double> pixelForLatLng(const LatLng latLng) const { return state.pixelForLatLng(latLng); }
     inline const LatLng latLngForPixel(const vec2<double> pixel) const { return state.latLngForPixel(pixel); }
 
+    // Annotations
+    void setDefaultPointAnnotationSymbol(const std::string&);
+    uint64_t addPointAnnotation(const LatLng, const std::string& symbol = "");
+    std::vector<const uint64_t> addPointAnnotations(const std::vector<LatLng>, const std::vector<const std::string>& symbols = {{}});
+    uint64_t addShapeAnnotation(const std::vector<AnnotationSegment>);
+    std::vector<const uint64_t> addShapeAnnotations(const std::vector<const std::vector<AnnotationSegment>>);
+    void removeAnnotation(const uint64_t);
+    void removeAnnotations(const std::vector<const uint64_t>);
+    std::vector<const uint64_t> getAnnotationsInBoundingBox(BoundingBox) const;
+    BoundingBox getBoundingBoxForAnnotations(const std::vector<const uint64_t>) const;
+
     // Debug
     void setDebug(bool value);
     void toggleDebug();
@@ -227,6 +241,8 @@ private:
     util::ptr<TexturePool> texturePool;
 
     const std::unique_ptr<Painter> painter;
+
+    const std::unique_ptr<AnnotationManager> annotationManager;
 
     std::string styleURL;
     std::string styleJSON = "";
