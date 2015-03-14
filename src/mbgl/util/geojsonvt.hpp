@@ -37,6 +37,9 @@ struct LonLat {
     LonLat(std::array<double, 2> coordinates)
         : lon(coordinates[0]), lat(coordinates[1]) {}
 
+    LonLat(double lon_, double lat_)
+        : lon(lon_), lat(lat_) {}
+
     double lon;
     double lat;
 };
@@ -159,14 +162,14 @@ public:
 
 class Tile {
 public:
-    static Tile createTile(std::vector<ProjectedFeature> &features, uint8_t z2, uint32_t tx, uint32_t ty, double tolerance, uint16_t extent, bool noSimplify);
+    static Tile createTile(std::vector<ProjectedFeature> &features, uint32_t z2, uint32_t tx, uint32_t ty, double tolerance, uint16_t extent, bool noSimplify);
 
-    static void addFeature(Tile &tile, ProjectedFeature &feature, uint8_t z2, uint32_t tx, uint32_t ty, double tolerance, uint16_t extent, bool noSimplify);
+    static void addFeature(Tile &tile, ProjectedFeature &feature, uint32_t z2, uint32_t tx, uint32_t ty, double tolerance, uint16_t extent, bool noSimplify);
 
     inline operator bool() const { return this->numPoints > 0; }
 
 private:
-    static TilePoint transformPoint(const ProjectedPoint &p, uint8_t z2, uint32_t tx, uint32_t ty, uint16_t extent);
+    static TilePoint transformPoint(const ProjectedPoint &p, uint32_t z2, uint32_t tx, uint32_t ty, uint16_t extent);
 
 public:
     std::vector<TileFeature> features;
@@ -215,7 +218,7 @@ private:
     uint16_t extent = 4096;
     uint8_t buffer = 64;
     std::map<uint64_t, Tile> tiles;
-    std::map<std::string, uint8_t> stats;
+    std::map<uint8_t, uint16_t> stats;
     uint16_t total = 0;
 };
 
@@ -255,7 +258,7 @@ private:
 
 class Clip {
 public:
-    static std::vector<ProjectedFeature> clip(std::vector<ProjectedFeature> features, uint8_t scale, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double));
+    static std::vector<ProjectedFeature> clip(std::vector<ProjectedFeature> features, uint32_t scale, double k1, double k2, uint8_t axis, ProjectedPoint (*intersect)(const ProjectedPoint&, const ProjectedPoint&, double));
 
 private:
     static ProjectedGeometryContainer clipPoints(ProjectedGeometryContainer geometry, double k1, double k2, uint8_t axis);
