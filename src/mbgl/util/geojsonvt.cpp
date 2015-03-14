@@ -150,7 +150,7 @@ void GeoJSONVT::splitTile(std::vector<ProjectedFeature> features_, uint8_t z_, u
                 Time::timeEnd("creation");
 
                 std::string key = "z" + std::to_string(z) + ":";
-                if (this->stats.size() - 1 >= z) {
+                if (this->stats.count(key)) {
                     this->stats[key] += 1;
                 } else {
                     this->stats[key] = 1;
