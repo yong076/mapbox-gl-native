@@ -2,6 +2,9 @@
 
 namespace mbgl {
 
+LiveTileFeature::LiveTileFeature(FeatureType type_, GeometryCollection geometries_)
+    : type(type_), geometries(geometries_) {}
+
 LiveTileFeature::LiveTileFeature(TFeature& tile_feature) {
     type = (FeatureType)tile_feature.type;
     properties = tile_feature.tags;
@@ -29,15 +32,31 @@ mapbox::util::optional<Value> LiveTileFeature::getValue(const std::string& key) 
     return mapbox::util::optional<Value>();
 }
 
+LiveTileLayer::LiveTileLayer() {}
+
 LiveTileLayer::LiveTileLayer(std::vector<TFeature>& tile_features) {
     for (auto& tile_feature : tile_features) {
         features.push_back(std::make_shared<LiveTileFeature>(tile_feature));
     }
 }
 
+void LiveTileLayer::prepareToAddFeatures(size_t count) {
+    features.reserve(features.size() + count);
+}
+
+void LiveTileLayer::addFeature(util::ptr<const LiveTileFeature> feature) {
+    features.push_back(std::move(feature));
+}
+
+LiveTile::LiveTile() {}
+
 LiveTile::LiveTile(TTile* tile_)
     : tile(tile_) {
     convert();
+}
+
+void LiveTile::addLayer(const std::string& name, util::ptr<const LiveTileLayer> layer) {
+    layers.emplace(name, std::move(layer));
 }
 
 void LiveTile::convert() {

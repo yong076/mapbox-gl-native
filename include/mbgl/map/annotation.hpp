@@ -7,6 +7,7 @@
 #include <mbgl/util/geo.hpp>
 #include <mbgl/util/noncopyable.hpp>
 #include <mbgl/util/std.hpp>
+#include <mbgl/util/vec.hpp>
 
 #include <string>
 #include <vector>
@@ -23,9 +24,11 @@ enum class AnnotationType : uint8_t {
 
 class AnnotationManager : private util::noncopyable {
 public:
-    void setDefaultPointAnnotationSymbol(const std::string& symbol) { defaultPointAnnotationSymbol = symbol; }
-    uint32_t addPointAnnotation(LatLng, const std::string& symbol = "");
-    std::vector<uint32_t> addPointAnnotations(std::vector<LatLng>, std::vector<const std::string>& symbols);
+    AnnotationManager();
+
+    void setDefaultPointAnnotationSymbol(std::string& symbol) { defaultPointAnnotationSymbol = symbol; }
+    uint32_t addPointAnnotation(LatLng, std::string& symbol);
+    std::vector<uint32_t> addPointAnnotations(std::vector<LatLng>, std::vector<std::string>& symbols);
     uint32_t addShapeAnnotation(std::vector<AnnotationSegment>);
     std::vector<uint32_t> addShapeAnnotations(std::vector<std::vector<AnnotationSegment>>);
     void removeAnnotation(uint32_t);
@@ -35,12 +38,13 @@ public:
 
 private:
     uint32_t nextID() { return nextID_++; }
+    static vec2<double> projectPoint(LatLng& point);
 
 private:
     std::string defaultPointAnnotationSymbol;
     std::map<uint32_t, std::unique_ptr<Annotation>> annotations;
-    std::map<Tile::ID, LiveTile> annotationTiles;
-    uint32_t nextID_;
+    std::map<Tile::ID, std::unique_ptr<LiveTile>> annotationTiles;
+    uint32_t nextID_ = 0;
 };
 
 class Annotation : private util::noncopyable {

@@ -65,17 +65,17 @@ void Source::load(Map &map, Environment &env) {
             map.update();
         });
     } else {
-        util::ptr<Source> source = shared_from_this();
-
-        env.request({ Resource::Kind::JSON, "asset://threestates.geojson" }, [source, &map](const Response &res) {
-            assert(res.status == Response::Successful);
-            assert(res.data.length());
-
-            source->geojsonvt = std::make_shared<mapbox::util::geojsonvt::GeoJSONVT>(res.data);
-            source->loaded = true;
-
-            map.update();
-        });
+//        util::ptr<Source> source = shared_from_this();
+//
+//        env.request({ Resource::Kind::JSON, "asset://points.geojson" }, [source, &map](const Response &res) {
+//            assert(res.status == Response::Successful);
+//            assert(res.data.length());
+//
+//            source->geojsonvt = std::make_shared<mapbox::util::geojsonvt::GeoJSONVT>(res.data, 20, 20, 1);
+//            source->loaded = true;
+//
+//            map.update();
+//        });
     }
 }
 

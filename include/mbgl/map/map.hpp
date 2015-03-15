@@ -141,9 +141,9 @@ public:
     inline const LatLng latLngForPixel(const vec2<double> pixel) const { return state.latLngForPixel(pixel); }
 
     // Annotations
-    void setDefaultPointAnnotationSymbol(const std::string&);
-    uint32_t addPointAnnotation(LatLng, const std::string& symbol = "");
-    std::vector<uint32_t> addPointAnnotations(std::vector<LatLng>, std::vector<const std::string>& symbols);
+    void setDefaultPointAnnotationSymbol(std::string&);
+    uint32_t addPointAnnotation(LatLng, std::string& symbol);
+    std::vector<uint32_t> addPointAnnotations(std::vector<LatLng>, std::vector<std::string>& symbols);
     uint32_t addShapeAnnotation(std::vector<AnnotationSegment>);
     std::vector<uint32_t> addShapeAnnotations(std::vector<std::vector<AnnotationSegment>>);
     void removeAnnotation(uint32_t);
@@ -239,9 +239,7 @@ private:
     util::ptr<Sprite> sprite;
     const std::unique_ptr<LineAtlas> lineAtlas;
     util::ptr<TexturePool> texturePool;
-
     const std::unique_ptr<Painter> painter;
-
     const std::unique_ptr<AnnotationManager> annotationManager;
 
     std::string styleURL;

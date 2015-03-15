@@ -71,7 +71,8 @@ Map::Map(View& view_, FileSource& fileSource_)
       spriteAtlas(util::make_unique<SpriteAtlas>(512, 512)),
       lineAtlas(util::make_unique<LineAtlas>(512, 512)),
       texturePool(std::make_shared<TexturePool>()),
-      painter(util::make_unique<Painter>(*spriteAtlas, *glyphAtlas, *lineAtlas))
+      painter(util::make_unique<Painter>(*spriteAtlas, *glyphAtlas, *lineAtlas)),
+      annotationManager(util::make_unique<AnnotationManager>())
 {
     view.initialize(this);
     // Make sure that we're doing an initial drawing in all cases.
@@ -542,14 +543,14 @@ const std::string &Map::getAccessToken() const {
 
 #pragma mark - Annotations
 
-void Map::setDefaultPointAnnotationSymbol(const std::string& symbol) { annotationManager->setDefaultPointAnnotationSymbol(symbol);
+void Map::setDefaultPointAnnotationSymbol(std::string& symbol) { annotationManager->setDefaultPointAnnotationSymbol(symbol);
 }
 
-uint32_t Map::addPointAnnotation(LatLng point, const std::string& symbol) {
+uint32_t Map::addPointAnnotation(LatLng point, std::string& symbol) {
     return annotationManager->addPointAnnotation(point, symbol);
 }
 
-std::vector<uint32_t> Map::addPointAnnotations(std::vector<LatLng> points, std::vector<const std::string>& symbols) {
+std::vector<uint32_t> Map::addPointAnnotations(std::vector<LatLng> points, std::vector<std::string>& symbols) {
     return annotationManager->addPointAnnotations(points, symbols);
 }
 

@@ -11,8 +11,9 @@ using TRing = mapbox::util::geojsonvt::TileRing;
 using TFeature = mapbox::util::geojsonvt::TileFeature;
 using TTile = mapbox::util::geojsonvt::Tile;
 
-class LiveTileFeature : public GeometryTileFeature {
+class LiveTileFeature : public GeometryTileFeature, private util::noncopyable {
 public:
+    LiveTileFeature(FeatureType, GeometryCollection);
     LiveTileFeature(TFeature&);
 
     FeatureType getType() const override { return type; }
@@ -21,14 +22,17 @@ public:
 
 private:
     FeatureType type = FeatureType::Unknown;
-    std::map<std::string, std::string> properties;
+    std::map<std::string, std::string> properties; // map to Values
     GeometryCollection geometries;
 };
 
-class LiveTileLayer : public GeometryTileLayer {
+    class LiveTileLayer : public GeometryTileLayer, private util::noncopyable {
 public:
+    LiveTileLayer();
     LiveTileLayer(std::vector<TFeature>&);
 
+    void prepareToAddFeatures(size_t count);
+    void addFeature(util::ptr<const LiveTileFeature>);
     std::size_t featureCount() const override { return features.size(); }
     util::ptr<const GeometryTileFeature> feature(std::size_t i) const override { return features[i]; }
 
@@ -36,18 +40,20 @@ private:
     std::vector<util::ptr<const LiveTileFeature>> features;
 };
 
-class LiveTile : public GeometryTile {
+class LiveTile : public GeometryTile, private util::noncopyable {
 public:
+    LiveTile();
     LiveTile(TTile*);
 
-    util::ptr<const GeometryTileLayer> getLayer(const std::string&) const override;
+    void addLayer(const std::string&, util::ptr<const LiveTileLayer>);
+    util::ptr<GeometryTileLayer> getLayer(const std::string&) const override;
 
 private:
     void convert();
 
 private:
     TTile* tile;
-    std::map<std::string, util::ptr<const LiveTileLayer>> layers;
+    std::map<std::string, util::ptr<LiveTileLayer>> layers;
 };
 
 }
