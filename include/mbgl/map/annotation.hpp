@@ -24,7 +24,7 @@ enum class AnnotationType : uint8_t {
 
 class AnnotationManager : private util::noncopyable {
 public:
-    AnnotationManager();
+    AnnotationManager(Map&);
 
     void setDefaultPointAnnotationSymbol(std::string& symbol) { defaultPointAnnotationSymbol = symbol; }
     uint32_t addPointAnnotation(LatLng, std::string& symbol);
@@ -41,6 +41,7 @@ private:
     static vec2<double> projectPoint(LatLng& point);
 
 private:
+    Map& map;
     std::string defaultPointAnnotationSymbol;
     std::map<uint32_t, std::unique_ptr<Annotation>> annotations;
     std::map<Tile::ID, std::unique_ptr<LiveTile>> annotationTiles;

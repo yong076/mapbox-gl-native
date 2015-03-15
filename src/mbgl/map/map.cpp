@@ -72,7 +72,7 @@ Map::Map(View& view_, FileSource& fileSource_)
       lineAtlas(util::make_unique<LineAtlas>(512, 512)),
       texturePool(std::make_shared<TexturePool>()),
       painter(util::make_unique<Painter>(*spriteAtlas, *glyphAtlas, *lineAtlas)),
-      annotationManager(util::make_unique<AnnotationManager>())
+      annotationManager(util::make_unique<AnnotationManager>(*this))
 {
     view.initialize(this);
     // Make sure that we're doing an initial drawing in all cases.

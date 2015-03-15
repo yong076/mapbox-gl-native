@@ -24,7 +24,8 @@ Annotation::Annotation(AnnotationType type_, std::vector<AnnotationSegment> geom
     }
 }
 
-AnnotationManager::AnnotationManager() {}
+AnnotationManager::AnnotationManager(Map& map_)
+    : map(map_) {}
 
 uint32_t AnnotationManager::addPointAnnotation(LatLng point, std::string& symbol) {
     std::vector<LatLng> points({ point });
@@ -49,14 +50,16 @@ std::vector<uint32_t> AnnotationManager::addPointAnnotations(std::vector<LatLng>
     for (uint32_t i = 0; i < points.size(); ++i) {
         uint32_t annotationID = nextID();
 
-        uint32_t z2 = 1 << 18;
+        uint8_t maxZoom = map.getMaxZoom();
+
+        uint32_t z2 = 1 << maxZoom;
 
         vec2<double> p = projectPoint(points[i]);
 
         uint32_t x = p.x * z2;
         uint32_t y = p.y * z2;
 
-        for (int8_t z = 18; z >= 0; z--) {
+        for (int8_t z = maxZoom; z >= 0; z--) {
             Tile::ID tileID(z, x, y);
             Coordinate coordinate(extent * (p.x * z2 - x), extent * (p.y * z2 - y));
 
@@ -82,9 +85,9 @@ std::vector<uint32_t> AnnotationManager::addPointAnnotations(std::vector<LatLng>
             y /= 2;
         }
 
-//        annotations[id] = std::move(util::make_unique<Annotation>(AnnotationType::Point, std::vector<AnnotationSegment>({{ points }})));
-//
-//        result.push_back(id);
+        annotations.emplace(annotationID, util::make_unique<Annotation>(AnnotationType::Point, std::vector<AnnotationSegment>({{ points[i] }})));
+
+        result.push_back(annotationID);
 
         printf("%s\n", symbols[i].c_str());
     }
