@@ -40,19 +40,18 @@
         ['OS == "mac"', {
           'libraries': [ '<@(libraries)' ],
           'xcode_settings': {
+            'SDKROOT': 'macosx',
+            'SUPPORTED_PLATFORMS':'macosx',
             'OTHER_CPLUSPLUSFLAGS': [ '<@(cflags_cc)' ],
             'OTHER_LDFLAGS': [ '<@(ldflags)' ],
+            'SDKROOT': 'macosx',
+            'MACOSX_DEPLOYMENT_TARGET': '10.9',
           }
         }, {
           'cflags_cc': [ '<@(cflags_cc)' ],
           'libraries': [ '<@(libraries)', '<@(ldflags)' ],
         }]
       ],
-
-      'copies': [{
-        'files': [ '../styles/styles' ],
-        'destination': '<(PRODUCT_DIR)'
-      }],
     },
   ],
 }

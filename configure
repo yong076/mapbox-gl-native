@@ -37,7 +37,7 @@ case ${MASON_PLATFORM} in
         LIBZIP_VERSION=0.11.2
         ;;
     *)
-        GLFW_VERSION=e1ae9af5
+        GLFW_VERSION=3.1
         SQLITE_VERSION=3.8.8.1
         LIBPNG_VERSION=1.6.16
         LIBJPEG_VERSION=v9a
@@ -49,6 +49,12 @@ case ${MASON_PLATFORM} in
         LIBZIP_VERSION=0.11.2
         ;;
 esac
+
+if [ ${MASON_PLATFORM} == 'linux' ] ; then
+    MESA_VERSION=10.4.3
+    mason install mesa ${MESA_VERSION}
+    export PKG_CONFIG_PATH=`mason prefix mesa ${MESA_VERSION}`/lib/pkgconfig
+fi
 
 function abort { >&2 echo -e "\033[1m\033[31m$1\033[0m"; exit 1; }
 
@@ -119,6 +125,14 @@ if [ ! -z ${GLFW_VERSION} ]; then
     CONFIG+="    'glfw3_static_libs%': $(quote_flags $(mason static_libs glfw ${GLFW_VERSION})),"$LN
     CONFIG+="    'glfw3_cflags%': $(quote_flags $(mason cflags glfw ${GLFW_VERSION})),"$LN
     CONFIG+="    'glfw3_ldflags%': $(quote_flags $(mason ldflags glfw ${GLFW_VERSION})),"$LN
+fi
+
+if [ ${MASON_PLATFORM} == 'linux' ]; then
+    CONFIG+="    'opengl_cflags%': $(quote_flags $(pkg-config gl --cflags)),"$LN
+    CONFIG+="    'opengl_ldflags%': $(quote_flags $(pkg-config gl --libs)),"$LN
+else
+    CONFIG+="    'opengl_cflags%': $(quote_flags),"$LN
+    CONFIG+="    'opengl_ldflags%': $(quote_flags),"$LN
 fi
 
 if [ ! -z ${LIBPNG_VERSION} ]; then

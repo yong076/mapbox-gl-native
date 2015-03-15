@@ -1,9 +1,9 @@
 #include <mbgl/mbgl.hpp>
 #include <mbgl/util/uv.hpp>
+#include <mbgl/platform/log.hpp>
 #include <mbgl/platform/platform.hpp>
 #include <mbgl/platform/default/settings_json.hpp>
 #include <mbgl/platform/default/glfw_view.hpp>
-#include <mbgl/platform/default/log_stderr.hpp>
 #include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/storage/default/sqlite_cache.hpp>
 
@@ -17,7 +17,7 @@ GLFWView *view = nullptr;
 
 void quit_handler(int) {
     if (view) {
-        fprintf(stderr, "waiting for quit...\n");
+        mbgl::Log::Info(mbgl::Event::Setup, "waiting for quit...");
         glfwSetWindowShouldClose(view->window, true);
         glfwPostEmptyEvent();
     } else {
@@ -26,8 +26,6 @@ void quit_handler(int) {
 }
 
 int main(int argc, char *argv[]) {
-    mbgl::Log::Set<mbgl::StderrLogBackend>();
-
     int fullscreen_flag = 0;
     std::string style;
 
