@@ -64,8 +64,6 @@ std::vector<uint32_t> AnnotationManager::addPointAnnotations(std::vector<LatLng>
             Tile::ID tileID(z, x, y);
             Coordinate coordinate(extent * (p.x * z2 - x), extent * (p.y * z2 - y));
 
-            printf("%i: %i/%i/%i - %i, %i\n", annotationID, tileID.z, tileID.x, tileID.y, coordinate.x, coordinate.y);
-
             GeometryCollection geometries({{ {{ coordinate }} }});
             auto feature = std::make_shared<const LiveTileFeature>(FeatureType::Point, geometries);
 
