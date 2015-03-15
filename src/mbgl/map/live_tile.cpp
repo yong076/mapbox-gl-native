@@ -65,7 +65,7 @@ void LiveTile::convert() {
     layers.emplace("annotations", std::make_shared<LiveTileLayer>(tile->features));
 }
 
-util::ptr<GeometryTileLayer> LiveTile::getLayer(const std::string& name) const {
+util::ptr<const GeometryTileLayer> LiveTile::getLayer(const std::string& name) const {
     auto layer_it = layers.find(name);
     if (layer_it != layers.end()) {
         return layer_it->second;

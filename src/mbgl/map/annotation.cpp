@@ -72,7 +72,8 @@ std::vector<uint32_t> AnnotationManager::addPointAnnotations(std::vector<LatLng>
             auto tile_it = annotationTiles.find(tileID);
             if (tile_it != annotationTiles.end()) {
                 auto layer = tile_it->second->getLayer("annotations");
-                auto liveLayer = std::static_pointer_cast<LiveTileLayer>(layer);
+                auto mutableLayer = std::const_pointer_cast<GeometryTileLayer>(layer);
+                auto liveLayer = std::static_pointer_cast<LiveTileLayer>(mutableLayer);
                 liveLayer->addFeature(feature);
             } else {
                 util::ptr<LiveTileLayer> layer = std::make_shared<LiveTileLayer>();

@@ -46,7 +46,7 @@ public:
     LiveTile(TTile*);
 
     void addLayer(const std::string&, util::ptr<LiveTileLayer>);
-    util::ptr<GeometryTileLayer> getLayer(const std::string&) const override;
+    util::ptr<const GeometryTileLayer> getLayer(const std::string&) const override;
     bool operator()(const LiveTile&) const { return layers.size() > 0; }
 
 private:

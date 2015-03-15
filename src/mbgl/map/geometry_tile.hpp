@@ -38,7 +38,7 @@ public:
 
 class GeometryTile : private util::noncopyable {
 public:
-    virtual util::ptr<GeometryTileLayer> getLayer(const std::string&) const = 0;
+    virtual util::ptr<const GeometryTileLayer> getLayer(const std::string&) const = 0;
 };
 
 class GeometryTileFeatureExtractor {
