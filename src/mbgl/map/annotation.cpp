@@ -25,7 +25,8 @@ Annotation::Annotation(AnnotationType type_, std::vector<AnnotationSegment> geom
 }
 
 AnnotationManager::AnnotationManager(Map& map_)
-    : map(map_) {}
+    : map(map_),
+    nullTile(util::make_unique<LiveTile>()) {}
 
 uint32_t AnnotationManager::addPointAnnotation(LatLng point, std::string& symbol) {
     std::vector<LatLng> points({ point });
@@ -146,4 +147,14 @@ BoundingBox AnnotationManager::getBoundingBoxForAnnotations(std::vector<uint32_t
     }
 
     return BoundingBox(sw, ne);
+}
+
+const std::unique_ptr<LiveTile>& AnnotationManager::getTile(Tile::ID const& id) {
+    std::lock_guard<std::mutex> lock(mtx);
+
+    auto tile_it = annotationTiles.find(id);
+    if (tile_it != annotationTiles.end()) {
+        return tile_it->second;
+    }
+    return nullTile;
 }

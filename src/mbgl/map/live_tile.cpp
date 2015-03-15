@@ -55,7 +55,7 @@ LiveTile::LiveTile(TTile* tile_)
     convert();
 }
 
-void LiveTile::addLayer(const std::string& name, util::ptr<const LiveTileLayer> layer) {
+void LiveTile::addLayer(const std::string& name, util::ptr<LiveTileLayer> layer) {
     layers.emplace(name, std::move(layer));
 }
 
@@ -65,7 +65,7 @@ void LiveTile::convert() {
     layers.emplace("annotations", std::make_shared<LiveTileLayer>(tile->features));
 }
 
-util::ptr<const GeometryTileLayer> LiveTile::getLayer(const std::string& name) const {
+util::ptr<GeometryTileLayer> LiveTile::getLayer(const std::string& name) const {
     auto layer_it = layers.find(name);
     if (layer_it != layers.end()) {
         return layer_it->second;

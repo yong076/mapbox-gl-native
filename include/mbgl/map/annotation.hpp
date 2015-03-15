@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <mutex>
 
 namespace mbgl {
 
@@ -36,15 +37,19 @@ public:
     std::vector<uint32_t> getAnnotationsInBoundingBox(BoundingBox) const;
     BoundingBox getBoundingBoxForAnnotations(std::vector<uint32_t>) const;
 
+    const std::unique_ptr<LiveTile>& getTile(Tile::ID const& id);
+
 private:
     uint32_t nextID() { return nextID_++; }
     static vec2<double> projectPoint(LatLng& point);
 
 private:
+    std::mutex mtx;
     Map& map;
     std::string defaultPointAnnotationSymbol;
     std::map<uint32_t, std::unique_ptr<Annotation>> annotations;
     std::map<Tile::ID, std::unique_ptr<LiveTile>> annotationTiles;
+    std::unique_ptr<LiveTile> nullTile;
     uint32_t nextID_ = 0;
 };
 

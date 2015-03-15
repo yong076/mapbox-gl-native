@@ -38,28 +38,38 @@ void StyleParser::parse(JSVal document) {
 
         rapidjson::Document d;
 
-        rapidjson::Value lineWidth(rapidjson::kObjectType);
-        lineWidth.AddMember("line-width", 3.0, d.GetAllocator());
-        parsePaint(lineWidth, paints[ClassID::Default]);
-
-        rapidjson::Value lineColor(rapidjson::kObjectType);
-        lineColor.AddMember("line-color", "#f00", d.GetAllocator());
-        parsePaint(lineColor, paints[ClassID::Default]);
+//        rapidjson::Value lineWidth(rapidjson::kObjectType);
+//        lineWidth.AddMember("line-width", 3.0, d.GetAllocator());
+//        parsePaint(lineWidth, paints[ClassID::Default]);
+//
+//        rapidjson::Value lineColor(rapidjson::kObjectType);
+//        lineColor.AddMember("line-color", "#f00", d.GetAllocator());
+//        parsePaint(lineColor, paints[ClassID::Default]);
 
         util::ptr<StyleLayer> annotations = std::make_shared<StyleLayer>(id, std::move(paints));
 
         // add layer
-        layers.emplace(id, std::pair<JSVal, util::ptr<StyleLayer>> { "", annotations });
+        layers.emplace(id, std::pair<JSVal, util::ptr<StyleLayer>> { "annotations", annotations });
         root->layers.emplace_back(annotations);
 
         // "parse" (type, bucket, source)
-        annotations->type = StyleLayerType::Line;
+//        annotations->type = StyleLayerType::Line;
+        annotations->type = StyleLayerType::Symbol;
 
         util::ptr<StyleBucket> bucket = std::make_shared<StyleBucket>(annotations->type);
         bucket->name = annotations->id;
 
+        // "parse" layout
+        rapidjson::Value iconImage(rapidjson::kObjectType);
+        iconImage.AddMember("icon-image", "marker-24", d.GetAllocator());
+        parseLayout(iconImage, bucket);
+
+        rapidjson::Value iconOverlap(rapidjson::kObjectType);
+        iconOverlap.AddMember("icon-allow-overlap", true, d.GetAllocator());
+        parseLayout(iconOverlap, bucket);
+
         SourceInfo& info = sources.emplace("annotations", std::make_shared<StyleSource>()).first->second->info;
-        info.type = SourceType::Live;
+        info.type = SourceType::Annotations;
 
         auto source_it = sources.find("annotations");
         bucket->style_source = source_it->second;

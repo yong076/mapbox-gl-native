@@ -158,6 +158,7 @@ public:
 
     inline const TransformState &getState() const { return state; }
     inline std::chrono::steady_clock::time_point getTime() const { return animationTime; }
+    inline util::ptr<AnnotationManager> getAnnotationManager() const { return annotationManager; }
 
 private:
     // This may only be called by the View object.
@@ -240,7 +241,7 @@ private:
     const std::unique_ptr<LineAtlas> lineAtlas;
     util::ptr<TexturePool> texturePool;
     const std::unique_ptr<Painter> painter;
-    const std::unique_ptr<AnnotationManager> annotationManager;
+    util::ptr<AnnotationManager> annotationManager;
 
     std::string styleURL;
     std::string styleJSON = "";

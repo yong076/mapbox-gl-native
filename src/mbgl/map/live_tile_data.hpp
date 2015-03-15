@@ -2,13 +2,15 @@
 #define MBGL_MAP_LIVE_TILE_DATA
 
 #include <mbgl/map/vector_tile_data.hpp>
-#include <mbgl/util/geojsonvt.hpp>
 
 namespace mbgl {
+
+class AnnotationManager;
 
 class LiveTileData : public VectorTileData {
 public:
     LiveTileData(Tile::ID const&,
+                 util::ptr<AnnotationManager>,
                  float mapMaxZoom,
                  util::ptr<Style>,
                  GlyphAtlas&,
@@ -16,14 +18,13 @@ public:
                  SpriteAtlas&,
                  util::ptr<Sprite>,
                  const SourceInfo&,
-                 Environment&,
-                 util::ptr<mapbox::util::geojsonvt::GeoJSONVT>&);
+                 Environment&);
     ~LiveTileData();
 
     void parse() override;
 
-protected:
-    util::ptr<mapbox::util::geojsonvt::GeoJSONVT>& geojsonvt;
+private:
+    util::ptr<AnnotationManager> annotationManager;
 };
 
 }
