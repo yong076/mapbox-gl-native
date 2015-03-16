@@ -48,6 +48,8 @@ std::vector<uint32_t> AnnotationManager::addPointAnnotations(std::vector<LatLng>
     std::vector<uint32_t> result;
     result.reserve(points.size());
 
+    std::vector<Tile::ID> affectedTiles;
+
     for (uint32_t i = 0; i < points.size(); ++i) {
         uint32_t annotationID = nextID();
 
@@ -61,7 +63,8 @@ std::vector<uint32_t> AnnotationManager::addPointAnnotations(std::vector<LatLng>
         uint32_t y = p.y * z2;
 
         for (int8_t z = maxZoom; z >= 0; z--) {
-            Tile::ID tileID(z, x, y);
+            affectedTiles.emplace_back(z, x, y);
+            Tile::ID tileID = affectedTiles.back();
             Coordinate coordinate(extent * (p.x * z2 - x), extent * (p.y * z2 - y));
 
             GeometryCollection geometries({{ {{ coordinate }} }});
@@ -89,10 +92,10 @@ std::vector<uint32_t> AnnotationManager::addPointAnnotations(std::vector<LatLng>
 
         result.push_back(annotationID);
 
-        printf("%s\n", symbols[i].c_str());
+        printf("%s", symbols[i].c_str());
     }
 
-    // map.update(); ?
+    map.updateAnnotationTiles(affectedTiles);
 
     return result;
 }

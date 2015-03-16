@@ -39,6 +39,7 @@ public:
     void load(Map &, Environment &);
     void update(Map &, Environment &, uv::worker &, util::ptr<Style>, GlyphAtlas &, GlyphStore &,
                 SpriteAtlas &, util::ptr<Sprite>, TexturePool &, std::function<void()> callback);
+    void invalidateTiles(Map&, std::vector<Tile::ID>&);
 
     void updateMatrices(const mat4 &projMatrix, const TransformState &transform);
     void drawClippingMasks(Painter &painter);
@@ -73,8 +74,6 @@ private:
 
     std::map<Tile::ID, std::unique_ptr<Tile>> tiles;
     std::map<Tile::ID, std::weak_ptr<TileData>> tile_data;
-
-    util::ptr<mapbox::util::geojsonvt::GeoJSONVT> geojsonvt; // load from url?
 };
 
 }

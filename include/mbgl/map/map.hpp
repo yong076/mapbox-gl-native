@@ -153,6 +153,7 @@ public:
     void removeAnnotations(std::vector<uint32_t>);
     std::vector<uint32_t> getAnnotationsInBoundingBox(BoundingBox) const;
     BoundingBox getBoundingBoxForAnnotations(std::vector<uint32_t>) const;
+    void updateAnnotationTiles(std::vector<Tile::ID>&);
 
     // Debug
     void setDebug(bool value);

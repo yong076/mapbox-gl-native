@@ -575,6 +575,15 @@ BoundingBox Map::getBoundingBoxForAnnotations(std::vector<uint32_t> annotations)
     return annotationManager->getBoundingBoxForAnnotations(annotations);
 }
 
+void Map::updateAnnotationTiles(std::vector<Tile::ID>& ids) {
+    for (const auto &source : activeSources) {
+        if (source->info.type == SourceType::Annotations) {
+            source->source->invalidateTiles(*this, ids);
+            return;
+        }
+    }
+}
+
 #pragma mark - Toggles
 
 void Map::setDebug(bool value) {
