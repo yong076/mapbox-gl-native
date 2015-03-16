@@ -30,51 +30,36 @@ void StyleParser::parse(JSVal document) {
         root = createLayers(document["layers"]);
         parseLayers();
 
-        // fake-create an annotations style layer above all others
+        // create point annotations layer
+        //
         std::string id = util::ANNOTATIONS_POINTS_LAYER_ID;
 
-        // "parse" paints
         std::map<ClassID, ClassProperties> paints;
-
-        rapidjson::Document d;
-
-//        rapidjson::Value lineWidth(rapidjson::kObjectType);
-//        lineWidth.AddMember("line-width", 3.0, d.GetAllocator());
-//        parsePaint(lineWidth, paints[ClassID::Default]);
-//
-//        rapidjson::Value lineColor(rapidjson::kObjectType);
-//        lineColor.AddMember("line-color", "#f00", d.GetAllocator());
-//        parsePaint(lineColor, paints[ClassID::Default]);
-
         util::ptr<StyleLayer> annotations = std::make_shared<StyleLayer>(id, std::move(paints));
-
-        // add layer
+        annotations->type = StyleLayerType::Symbol;
         layers.emplace(id, std::pair<JSVal, util::ptr<StyleLayer>> { JSVal(id), annotations });
         root->layers.emplace_back(annotations);
 
-        // "parse" (type, bucket, source)
-//        annotations->type = StyleLayerType::Line;
-        annotations->type = StyleLayerType::Symbol;
+        util::ptr<StyleBucket> pointBucket = std::make_shared<StyleBucket>(annotations->type);
+        pointBucket->name = annotations->id;
+        pointBucket->source_layer = annotations->id;
 
-        util::ptr<StyleBucket> bucket = std::make_shared<StyleBucket>(annotations->type);
-        bucket->name = annotations->id;
-        bucket->source_layer = annotations->id;
-
-        // "parse" layout
+        rapidjson::Document d;
         rapidjson::Value iconImage(rapidjson::kObjectType);
         iconImage.AddMember("icon-image", "marker-red", d.GetAllocator());
-        parseLayout(iconImage, bucket);
-
+        parseLayout(iconImage, pointBucket);
         rapidjson::Value iconOverlap(rapidjson::kObjectType);
         iconOverlap.AddMember("icon-allow-overlap", true, d.GetAllocator());
-        parseLayout(iconOverlap, bucket);
+        parseLayout(iconOverlap, pointBucket);
 
         SourceInfo& info = sources.emplace(id, std::make_shared<StyleSource>()).first->second->info;
         info.type = SourceType::Annotations;
 
         auto source_it = sources.find(id);
-        bucket->style_source = source_it->second;
-        annotations->bucket = bucket;
+        pointBucket->style_source = source_it->second;
+        annotations->bucket = pointBucket;
+        //
+        // end point annotations
     }
 
     if (document.HasMember("sprite")) {
