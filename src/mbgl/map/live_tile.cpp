@@ -3,8 +3,10 @@
 
 namespace mbgl {
 
-LiveTileFeature::LiveTileFeature(FeatureType type_, GeometryCollection geometries_)
-    : type(type_), geometries(geometries_) {}
+LiveTileFeature::LiveTileFeature(FeatureType type_, GeometryCollection geometries_, std::map<std::string, std::string> properties_)
+    : type(type_),
+      properties(properties_),
+      geometries(geometries_) {}
 
 LiveTileFeature::LiveTileFeature(TFeature& tile_feature) {
     type = (FeatureType)tile_feature.type;

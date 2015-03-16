@@ -62,7 +62,12 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
             Coordinate coordinate(extent * (p.x * z2 - x), extent * (p.y * z2 - y));
 
             GeometryCollection geometries({{ {{ coordinate }} }});
-            auto feature = std::make_shared<const LiveTileFeature>(FeatureType::Point, geometries);
+
+            std::map<std::string, std::string> properties = {{ "sprite", (symbols[i].length() ? symbols[i] : defaultPointAnnotationSymbol) }};
+
+            auto feature = std::make_shared<const LiveTileFeature>(FeatureType::Point,
+                                                                   geometries,
+                                                                   properties);
 
             auto tile_it = annotationTiles.find(tileID);
             if (tile_it != annotationTiles.end()) {
@@ -85,8 +90,6 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
         annotations.emplace(annotationID, util::make_unique<Annotation>(AnnotationType::Point, std::vector<AnnotationSegment>({{ points[i] }})));
 
         result.push_back(annotationID);
-
-        printf("%s", symbols[i].c_str());
     }
 
     return std::make_pair(affectedTiles, result);

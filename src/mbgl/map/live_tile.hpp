@@ -13,7 +13,7 @@ using TTile = mapbox::util::geojsonvt::Tile;
 
 class LiveTileFeature : public GeometryTileFeature, private util::noncopyable {
 public:
-    LiveTileFeature(FeatureType, GeometryCollection);
+    LiveTileFeature(FeatureType, GeometryCollection, std::map<std::string, std::string> = {{}});
     LiveTileFeature(TFeature&);
 
     FeatureType getType() const override { return type; }
@@ -22,7 +22,7 @@ public:
 
 private:
     FeatureType type = FeatureType::Unknown;
-    std::map<std::string, std::string> properties; // map to Values
+    std::map<std::string, std::string> properties;
     GeometryCollection geometries;
 };
 

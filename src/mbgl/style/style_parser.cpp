@@ -46,7 +46,7 @@ void StyleParser::parse(JSVal document) {
 
         rapidjson::Document d;
         rapidjson::Value iconImage(rapidjson::kObjectType);
-        iconImage.AddMember("icon-image", "marker-red", d.GetAllocator());
+        iconImage.AddMember("icon-image", "{sprite}", d.GetAllocator());
         parseLayout(iconImage, pointBucket);
         rapidjson::Value iconOverlap(rapidjson::kObjectType);
         iconOverlap.AddMember("icon-allow-overlap", true, d.GetAllocator());
