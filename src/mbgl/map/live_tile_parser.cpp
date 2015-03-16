@@ -26,7 +26,7 @@ std::unique_ptr<Bucket> LiveTileParser::createBucket(const StyleBucket& bucketDe
     if (tile.id.z >= std::ceil(bucketDesc.max_zoom)) return nullptr;
     if (bucketDesc.visibility == mbgl::VisibilityType::None) return nullptr;
 
-    auto layer = liveTile->getLayer(bucketDesc.name); // bucketDesc.source_layer);
+    auto layer = liveTile->getLayer(bucketDesc.source_layer);
     if (layer) {
         if (bucketDesc.type == StyleLayerType::Fill) {
             return createFillBucket(*layer, bucketDesc);

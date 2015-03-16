@@ -31,7 +31,7 @@ void StyleParser::parse(JSVal document) {
         parseLayers();
 
         // fake-create an annotations style layer above all others
-        std::string id = "annotations";
+        std::string id = util::ANNOTATIONS_POINTS_LAYER_ID;
 
         // "parse" paints
         std::map<ClassID, ClassProperties> paints;
@@ -49,7 +49,7 @@ void StyleParser::parse(JSVal document) {
         util::ptr<StyleLayer> annotations = std::make_shared<StyleLayer>(id, std::move(paints));
 
         // add layer
-        layers.emplace(id, std::pair<JSVal, util::ptr<StyleLayer>> { "annotations", annotations });
+        layers.emplace(id, std::pair<JSVal, util::ptr<StyleLayer>> { JSVal(id), annotations });
         root->layers.emplace_back(annotations);
 
         // "parse" (type, bucket, source)
@@ -58,6 +58,7 @@ void StyleParser::parse(JSVal document) {
 
         util::ptr<StyleBucket> bucket = std::make_shared<StyleBucket>(annotations->type);
         bucket->name = annotations->id;
+        bucket->source_layer = annotations->id;
 
         // "parse" layout
         rapidjson::Value iconImage(rapidjson::kObjectType);
@@ -68,10 +69,10 @@ void StyleParser::parse(JSVal document) {
         iconOverlap.AddMember("icon-allow-overlap", true, d.GetAllocator());
         parseLayout(iconOverlap, bucket);
 
-        SourceInfo& info = sources.emplace("annotations", std::make_shared<StyleSource>()).first->second->info;
+        SourceInfo& info = sources.emplace(id, std::make_shared<StyleSource>()).first->second->info;
         info.type = SourceType::Annotations;
 
-        auto source_it = sources.find("annotations");
+        auto source_it = sources.find(id);
         bucket->style_source = source_it->second;
         annotations->bucket = bucket;
     }

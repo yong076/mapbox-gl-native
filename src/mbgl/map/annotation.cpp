@@ -66,7 +66,7 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
 
             auto tile_it = annotationTiles.find(tileID);
             if (tile_it != annotationTiles.end()) {
-                auto layer = tile_it->second->getLayer("annotations");
+                auto layer = tile_it->second->getLayer(util::ANNOTATIONS_POINTS_LAYER_ID);
                 auto mutableLayer = std::const_pointer_cast<GeometryTileLayer>(layer);
                 auto liveLayer = std::static_pointer_cast<LiveTileLayer>(mutableLayer);
                 liveLayer->addFeature(feature);
@@ -74,7 +74,7 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
                 util::ptr<LiveTileLayer> layer = std::make_shared<LiveTileLayer>();
                 layer->addFeature(feature);
                 auto tile_pos = annotationTiles.emplace(tileID, util::make_unique<LiveTile>());
-                tile_pos.first->second->addLayer("annotations", layer);
+                tile_pos.first->second->addLayer(util::ANNOTATIONS_POINTS_LAYER_ID, layer);
             }
 
             z2 /= 2;

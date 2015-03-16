@@ -1,4 +1,5 @@
 #include <mbgl/map/live_tile.hpp>
+#include <mbgl/util/constants.hpp>
 
 namespace mbgl {
 
@@ -62,7 +63,7 @@ void LiveTile::addLayer(const std::string& name, util::ptr<LiveTileLayer> layer)
 void LiveTile::convert() {
     if (tile == nullptr || !tile) return;
 
-    layers.emplace("annotations", std::make_shared<LiveTileLayer>(tile->features));
+    layers.emplace(util::ANNOTATIONS_POINTS_LAYER_ID, std::make_shared<LiveTileLayer>(tile->features));
 }
 
 util::ptr<const GeometryTileLayer> LiveTile::getLayer(const std::string& name) const {
