@@ -544,15 +544,19 @@ void Map::setDefaultPointAnnotationSymbol(std::string& symbol) { annotationManag
 }
 
 uint32_t Map::addPointAnnotation(LatLng point, std::string& symbol) {
-    return annotationManager->addPointAnnotation(point, symbol);
+    std::vector<LatLng> points({ point });
+    std::vector<std::string> symbols({ symbol });
+    return addPointAnnotations(points, symbols)[0];
 }
 
 std::vector<uint32_t> Map::addPointAnnotations(std::vector<LatLng> points, std::vector<std::string>& symbols) {
-    return annotationManager->addPointAnnotations(points, symbols);
+    auto result = annotationManager->addPointAnnotations(points, symbols);
+    updateAnnotationTiles(result.first);
+    return result.second;
 }
 
 uint32_t Map::addShapeAnnotation(std::vector<AnnotationSegment> shape) {
-    return annotationManager->addShapeAnnotation(shape);
+    return addShapeAnnotations({{ shape }})[0];
 }
 
 std::vector<uint32_t> Map::addShapeAnnotations(std::vector<std::vector<AnnotationSegment>> shapes) {
@@ -560,7 +564,7 @@ std::vector<uint32_t> Map::addShapeAnnotations(std::vector<std::vector<Annotatio
 }
 
 void Map::removeAnnotation(uint32_t annotation) {
-    annotationManager->removeAnnotation(annotation);
+    removeAnnotations({ annotation });
 }
 
 void Map::removeAnnotations(std::vector<uint32_t> annotations) {

@@ -28,12 +28,6 @@ AnnotationManager::AnnotationManager(Map& map_)
     : map(map_),
     nullTile(util::make_unique<LiveTile>()) {}
 
-uint32_t AnnotationManager::addPointAnnotation(LatLng point, std::string& symbol) {
-    std::vector<LatLng> points({ point });
-    std::vector<std::string> symbols({ symbol });
-    return addPointAnnotations(points, symbols)[0];
-}
-
 vec2<double> AnnotationManager::projectPoint(LatLng& point) {
     double sine = std::sin(point.latitude * M_PI / 180);
     double x = point.longitude / 360 + 0.5;
@@ -41,7 +35,7 @@ vec2<double> AnnotationManager::projectPoint(LatLng& point) {
     return vec2<double>(x, y);
 }
 
-std::vector<uint32_t> AnnotationManager::addPointAnnotations(std::vector<LatLng> points, std::vector<std::string>& symbols) {
+std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPointAnnotations(std::vector<LatLng> points, std::vector<std::string>& symbols) {
 
     uint16_t extent = 4096;
 
@@ -95,13 +89,7 @@ std::vector<uint32_t> AnnotationManager::addPointAnnotations(std::vector<LatLng>
         printf("%s", symbols[i].c_str());
     }
 
-    map.updateAnnotationTiles(affectedTiles);
-
-    return result;
-}
-
-uint32_t AnnotationManager::addShapeAnnotation(std::vector<AnnotationSegment> shape) {
-    return addShapeAnnotations({ shape })[0];
+    return std::make_pair(affectedTiles, result);
 }
 
 std::vector<uint32_t> AnnotationManager::addShapeAnnotations(std::vector<std::vector<AnnotationSegment>> shapes) {
@@ -117,10 +105,6 @@ std::vector<uint32_t> AnnotationManager::addShapeAnnotations(std::vector<std::ve
     // map.update(); ?
 
     return result;
-}
-
-void AnnotationManager::removeAnnotation(uint32_t id) {
-    removeAnnotations({ id });
 }
 
 void AnnotationManager::removeAnnotations(std::vector<uint32_t> ids) {

@@ -153,7 +153,6 @@ public:
     void removeAnnotations(std::vector<uint32_t>);
     std::vector<uint32_t> getAnnotationsInBoundingBox(BoundingBox) const;
     BoundingBox getBoundingBoxForAnnotations(std::vector<uint32_t>) const;
-    void updateAnnotationTiles(std::vector<Tile::ID>&);
 
     // Debug
     void setDebug(bool value);
@@ -185,6 +184,8 @@ private:
     // Prepares a map render by updating the tiles we need for the current view, as well as updating
     // the stylesheet.
     void prepare();
+
+    void updateAnnotationTiles(std::vector<Tile::ID>&);
 
     enum class Mode : uint8_t {
         None, // we're not doing any processing

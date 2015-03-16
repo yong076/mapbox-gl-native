@@ -28,11 +28,8 @@ public:
     AnnotationManager(Map&);
 
     void setDefaultPointAnnotationSymbol(std::string& symbol) { defaultPointAnnotationSymbol = symbol; }
-    uint32_t addPointAnnotation(LatLng, std::string& symbol);
-    std::vector<uint32_t> addPointAnnotations(std::vector<LatLng>, std::vector<std::string>& symbols);
-    uint32_t addShapeAnnotation(std::vector<AnnotationSegment>);
+    std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> addPointAnnotations(std::vector<LatLng>, std::vector<std::string>& symbols);
     std::vector<uint32_t> addShapeAnnotations(std::vector<std::vector<AnnotationSegment>>);
-    void removeAnnotation(uint32_t);
     void removeAnnotations(std::vector<uint32_t>);
     std::vector<uint32_t> getAnnotationsInBoundingBox(BoundingBox) const;
     BoundingBox getBoundingBoxForAnnotations(std::vector<uint32_t>) const;
