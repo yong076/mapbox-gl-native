@@ -13,6 +13,7 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <memory>
 
 namespace mbgl {
 
@@ -30,7 +31,7 @@ public:
     void setDefaultPointAnnotationSymbol(std::string& symbol) { defaultPointAnnotationSymbol = symbol; }
     std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> addPointAnnotations(std::vector<LatLng>, std::vector<std::string>& symbols);
     std::vector<uint32_t> addShapeAnnotations(std::vector<std::vector<AnnotationSegment>>);
-    void removeAnnotations(std::vector<uint32_t>);
+    std::vector<Tile::ID> removeAnnotations(std::vector<uint32_t>);
     std::vector<uint32_t> getAnnotationsInBoundingBox(BoundingBox) const;
     BoundingBox getBoundingBoxForAnnotations(std::vector<uint32_t>) const;
 
@@ -54,15 +55,16 @@ class Annotation : private util::noncopyable {
 public:
     Annotation(AnnotationType, std::vector<AnnotationSegment>);
 
-    std::vector<AnnotationSegment> getGeometry() const { return geometry; }
     LatLng getPoint() const { return geometry[0][0]; }
     BoundingBox getBoundingBox() const { return bbox; }
 
 public:
     const AnnotationType type = AnnotationType::Point;
     const std::vector<AnnotationSegment> geometry;
+    std::map<Tile::ID, std::vector<std::weak_ptr<const LiveTileFeature>>> tileFeatures;
+
+private:
     BoundingBox bbox;
-    std::map<Tile::ID, std::vector<LiveTileFeature>> tileFeatures;
 };
 
 }

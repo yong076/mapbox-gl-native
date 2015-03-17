@@ -44,8 +44,12 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
 
     std::vector<Tile::ID> affectedTiles;
 
+    std::vector<std::weak_ptr<const LiveTileFeature>> pointFeatures;
+
     for (uint32_t i = 0; i < points.size(); ++i) {
         uint32_t annotationID = nextID();
+
+        auto anno_it = annotations.emplace(annotationID, util::make_unique<Annotation>(AnnotationType::Point, std::vector<AnnotationSegment>({{ points[i] }})));
 
         uint8_t maxZoom = map.getMaxZoom();
 
@@ -72,8 +76,7 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
             auto tile_it = annotationTiles.find(tileID);
             if (tile_it != annotationTiles.end()) {
                 auto layer = tile_it->second->getLayer(util::ANNOTATIONS_POINTS_LAYER_ID);
-                auto mutableLayer = std::const_pointer_cast<GeometryTileLayer>(layer);
-                auto liveLayer = std::static_pointer_cast<LiveTileLayer>(mutableLayer);
+                auto liveLayer = std::static_pointer_cast<LiveTileLayer>(layer);
                 liveLayer->addFeature(feature);
             } else {
                 util::ptr<LiveTileLayer> layer = std::make_shared<LiveTileLayer>();
@@ -82,12 +85,14 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
                 tile_pos.first->second->addLayer(util::ANNOTATIONS_POINTS_LAYER_ID, layer);
             }
 
+            pointFeatures.clear();
+            pointFeatures.emplace_back(feature);
+            anno_it.first->second->tileFeatures.emplace(tileID, pointFeatures);
+
             z2 /= 2;
             x /= 2;
             y /= 2;
         }
-
-        annotations.emplace(annotationID, util::make_unique<Annotation>(AnnotationType::Point, std::vector<AnnotationSegment>({{ points[i] }})));
 
         result.push_back(annotationID);
     }
@@ -110,12 +115,28 @@ std::vector<uint32_t> AnnotationManager::addShapeAnnotations(std::vector<std::ve
     return result;
 }
 
-void AnnotationManager::removeAnnotations(std::vector<uint32_t> ids) {
-    for (auto id : ids) {
-        annotations.erase(id);
+std::vector<Tile::ID> AnnotationManager::removeAnnotations(std::vector<uint32_t> ids) {
+    std::vector<Tile::ID> affectedTiles;
+
+    for (auto& annotationID : ids) {
+        auto annotation_it = annotations.find(annotationID);
+        if (annotation_it != annotations.end()) {
+            auto& annotation = annotation_it->second;
+            for (auto& tile_it : annotationTiles) {
+                auto features_it = annotation->tileFeatures.find(tile_it.first);
+                if (features_it != annotation->tileFeatures.end()) {
+                    auto layer = tile_it.second->getLayer(util::ANNOTATIONS_POINTS_LAYER_ID);
+                    auto liveLayer = std::static_pointer_cast<LiveTileLayer>(layer);
+                    auto& features = features_it->second;
+                    liveLayer->removeFeature(features[0]);
+                    affectedTiles.push_back(tile_it.first);
+                }
+            }
+            annotations.erase(annotationID);
+        }
     }
 
-    // map.update(); ?
+    return affectedTiles;
 }
 
 std::vector<uint32_t> AnnotationManager::getAnnotationsInBoundingBox(BoundingBox bbox) const {
@@ -128,10 +149,11 @@ BoundingBox AnnotationManager::getBoundingBoxForAnnotations(std::vector<uint32_t
     for (auto id : ids) {
         auto annotation_it = annotations.find(id);
         if (annotation_it != annotations.end()) {
-            if (annotation_it->second->bbox.sw.latitude < sw.latitude) sw.latitude = annotation_it->second->bbox.sw.latitude;
-            if (annotation_it->second->bbox.ne.latitude > ne.latitude) ne.latitude = annotation_it->second->bbox.ne.latitude;
-            if (annotation_it->second->bbox.sw.longitude < sw.longitude) sw.longitude = annotation_it->second->bbox.sw.longitude;
-            if (annotation_it->second->bbox.ne.longitude > ne.longitude) ne.longitude = annotation_it->second->bbox.ne.longitude;
+            auto bbox = annotation_it->second->getBoundingBox();
+            if (bbox.sw.latitude < sw.latitude) sw.latitude = bbox.sw.latitude;
+            if (bbox.ne.latitude > ne.latitude) ne.latitude = bbox.ne.latitude;
+            if (bbox.sw.longitude < sw.longitude) sw.longitude = bbox.sw.longitude;
+            if (bbox.ne.longitude > ne.longitude) ne.longitude = bbox.ne.longitude;
         }
     }
 

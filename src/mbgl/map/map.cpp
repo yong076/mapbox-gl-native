@@ -568,7 +568,8 @@ void Map::removeAnnotation(uint32_t annotation) {
 }
 
 void Map::removeAnnotations(std::vector<uint32_t> annotations) {
-    annotationManager->removeAnnotations(annotations);
+    auto result = annotationManager->removeAnnotations(annotations);
+    updateAnnotationTiles(result);
 }
 
 std::vector<uint32_t> Map::getAnnotationsInBoundingBox(BoundingBox bbox) const {

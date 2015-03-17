@@ -51,6 +51,15 @@ void LiveTileLayer::addFeature(util::ptr<const LiveTileFeature> feature) {
     features.push_back(std::move(feature));
 }
 
+void LiveTileLayer::removeFeature(util::ptr<const LiveTileFeature> feature) {
+    for (auto it = features.begin(); it != features.end(); ++it) {
+        if (feature == *it) {
+            features.erase(it);
+            return;
+        }
+    }
+}
+
 LiveTile::LiveTile() {}
 
 LiveTile::LiveTile(TTile* tile_)
@@ -68,7 +77,7 @@ void LiveTile::convert() {
     layers.emplace(util::ANNOTATIONS_POINTS_LAYER_ID, std::make_shared<LiveTileLayer>(tile->features));
 }
 
-util::ptr<const GeometryTileLayer> LiveTile::getLayer(const std::string& name) const {
+util::ptr<GeometryTileLayer> LiveTile::getLayer(const std::string& name) const {
     auto layer_it = layers.find(name);
     if (layer_it != layers.end()) {
         return layer_it->second;

@@ -33,6 +33,7 @@ public:
 
     void prepareToAddFeatures(size_t count);
     void addFeature(util::ptr<const LiveTileFeature>);
+    void removeFeature(util::ptr<const LiveTileFeature>);
     std::size_t featureCount() const override { return features.size(); }
     util::ptr<const GeometryTileFeature> feature(std::size_t i) const override { return features[i]; }
 
@@ -46,7 +47,7 @@ public:
     LiveTile(TTile*);
 
     void addLayer(const std::string&, util::ptr<LiveTileLayer>);
-    util::ptr<const GeometryTileLayer> getLayer(const std::string&) const override;
+    util::ptr<GeometryTileLayer> getLayer(const std::string&) const override;
     bool operator()(const LiveTile&) const { return layers.size() > 0; }
 
 private:
