@@ -44,7 +44,7 @@ private:
 private:
     std::mutex mtx;
     Map& map;
-    std::string defaultPointAnnotationSymbol = "marker-red";
+    std::string defaultPointAnnotationSymbol;
     std::map<uint32_t, std::unique_ptr<Annotation>> annotations;
     std::map<Tile::ID, std::pair<std::vector<uint32_t>, std::unique_ptr<LiveTile>>> annotationTiles;
     std::unique_ptr<LiveTile> nullTile;
