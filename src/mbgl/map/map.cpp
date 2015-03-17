@@ -540,16 +540,20 @@ const std::string &Map::getAccessToken() const {
 
 #pragma mark - Annotations
 
-void Map::setDefaultPointAnnotationSymbol(std::string& symbol) { annotationManager->setDefaultPointAnnotationSymbol(symbol);
+void Map::setDefaultPointAnnotationSymbol(std::string& symbol) {
+    assert(std::this_thread::get_id() == mainThread);
+    annotationManager->setDefaultPointAnnotationSymbol(symbol);
 }
 
 uint32_t Map::addPointAnnotation(LatLng point, std::string& symbol) {
+    assert(std::this_thread::get_id() == mainThread);
     std::vector<LatLng> points({ point });
     std::vector<std::string> symbols({ symbol });
     return addPointAnnotations(points, symbols)[0];
 }
 
 std::vector<uint32_t> Map::addPointAnnotations(std::vector<LatLng> points, std::vector<std::string>& symbols) {
+    assert(std::this_thread::get_id() == mainThread);
     auto result = annotationManager->addPointAnnotations(points, symbols);
     updateAnnotationTiles(result.first);
     return result.second;
@@ -564,19 +568,23 @@ std::vector<uint32_t> Map::addShapeAnnotations(std::vector<std::vector<Annotatio
 }
 
 void Map::removeAnnotation(uint32_t annotation) {
+    assert(std::this_thread::get_id() == mainThread);
     removeAnnotations({ annotation });
 }
 
 void Map::removeAnnotations(std::vector<uint32_t> annotations) {
+    assert(std::this_thread::get_id() == mainThread);
     auto result = annotationManager->removeAnnotations(annotations);
     updateAnnotationTiles(result);
 }
 
 std::vector<uint32_t> Map::getAnnotationsInBoundingBox(BoundingBox bbox) const {
+    assert(std::this_thread::get_id() == mainThread);
     return annotationManager->getAnnotationsInBoundingBox(bbox);
 }
 
 BoundingBox Map::getBoundingBoxForAnnotations(std::vector<uint32_t> annotations) const {
+    assert(std::this_thread::get_id() == mainThread);
     return annotationManager->getBoundingBoxForAnnotations(annotations);
 }
 
