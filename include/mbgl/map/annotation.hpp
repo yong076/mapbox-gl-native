@@ -46,7 +46,7 @@ private:
     Map& map;
     std::string defaultPointAnnotationSymbol = "marker-red";
     std::map<uint32_t, std::unique_ptr<Annotation>> annotations;
-    std::map<Tile::ID, std::unique_ptr<LiveTile>> annotationTiles;
+    std::map<Tile::ID, std::pair<std::vector<uint32_t>, std::unique_ptr<LiveTile>>> annotationTiles;
     std::unique_ptr<LiveTile> nullTile;
     uint32_t nextID_ = 0;
 };

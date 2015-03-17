@@ -1,6 +1,7 @@
 #include <mbgl/map/annotation.hpp>
 #include <mbgl/util/ptr.hpp>
 
+#include <algorithm>
 #include <memory>
 
 using namespace mbgl;
@@ -39,12 +40,8 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
 
     uint16_t extent = 4096;
 
-    std::vector<uint32_t> result;
-    result.reserve(points.size());
-
+    std::vector<uint32_t> annotationIDs(points.size());
     std::vector<Tile::ID> affectedTiles;
-
-    std::vector<std::weak_ptr<const LiveTileFeature>> pointFeatures;
 
     for (uint32_t i = 0; i < points.size(); ++i) {
         uint32_t annotationID = nextID();
@@ -63,6 +60,7 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
         for (int8_t z = maxZoom; z >= 0; z--) {
             affectedTiles.emplace_back(z, x, y);
             Tile::ID tileID = affectedTiles.back();
+
             Coordinate coordinate(extent * (p.x * z2 - x), extent * (p.y * z2 - y));
 
             GeometryCollection geometries({{ {{ coordinate }} }});
@@ -75,29 +73,34 @@ std::pair<std::vector<Tile::ID>, std::vector<uint32_t>> AnnotationManager::addPo
 
             auto tile_it = annotationTiles.find(tileID);
             if (tile_it != annotationTiles.end()) {
-                auto layer = tile_it->second->getLayer(util::ANNOTATIONS_POINTS_LAYER_ID);
+                // get point layer & add feature
+                auto layer = tile_it->second.second->getLayer(util::ANNOTATIONS_POINTS_LAYER_ID);
                 auto liveLayer = std::static_pointer_cast<LiveTileLayer>(layer);
                 liveLayer->addFeature(feature);
+                // record annotation association with tile
+                tile_it->second.first.push_back(annotationID);
             } else {
+                // create point layer & add feature
                 util::ptr<LiveTileLayer> layer = std::make_shared<LiveTileLayer>();
                 layer->addFeature(feature);
-                auto tile_pos = annotationTiles.emplace(tileID, util::make_unique<LiveTile>());
-                tile_pos.first->second->addLayer(util::ANNOTATIONS_POINTS_LAYER_ID, layer);
+                // create tile & record annotation association
+                auto tile_pos = annotationTiles.emplace(tileID, std::make_pair(std::vector<uint32_t>({ annotationID }), util::make_unique<LiveTile>()));
+                // add point layer to tile
+                tile_pos.first->second.second->addLayer(util::ANNOTATIONS_POINTS_LAYER_ID, layer);
             }
 
-            pointFeatures.clear();
-            pointFeatures.emplace_back(feature);
-            anno_it.first->second->tileFeatures.emplace(tileID, pointFeatures);
+            // record annotation association with tile feature
+            anno_it.first->second->tileFeatures.emplace(tileID, std::vector<std::weak_ptr<const LiveTileFeature>>({ feature }));
 
             z2 /= 2;
             x /= 2;
             y /= 2;
         }
 
-        result.push_back(annotationID);
+        annotationIDs.push_back(annotationID);
     }
 
-    return std::make_pair(affectedTiles, result);
+    return std::make_pair(affectedTiles, annotationIDs);
 }
 
 std::vector<uint32_t> AnnotationManager::addShapeAnnotations(std::vector<std::vector<AnnotationSegment>> shapes) {
@@ -125,7 +128,7 @@ std::vector<Tile::ID> AnnotationManager::removeAnnotations(std::vector<uint32_t>
             for (auto& tile_it : annotationTiles) {
                 auto features_it = annotation->tileFeatures.find(tile_it.first);
                 if (features_it != annotation->tileFeatures.end()) {
-                    auto layer = tile_it.second->getLayer(util::ANNOTATIONS_POINTS_LAYER_ID);
+                    auto layer = tile_it.second.second->getLayer(util::ANNOTATIONS_POINTS_LAYER_ID);
                     auto liveLayer = std::static_pointer_cast<LiveTileLayer>(layer);
                     auto& features = features_it->second;
                     liveLayer->removeFeature(features[0]);
@@ -139,9 +142,42 @@ std::vector<Tile::ID> AnnotationManager::removeAnnotations(std::vector<uint32_t>
     return affectedTiles;
 }
 
-std::vector<uint32_t> AnnotationManager::getAnnotationsInBoundingBox(BoundingBox bbox) const {
-    printf("%f, %f\n", bbox.sw.latitude, bbox.sw.longitude);
-    return {};
+std::vector<uint32_t> AnnotationManager::getAnnotationsInBoundingBox(BoundingBox queryBbox) const {
+    uint8_t z = map.getMaxZoom();
+    uint32_t z2 = 1 << z;
+    vec2<double> swPoint = projectPoint(queryBbox.sw);
+    vec2<double> nePoint = projectPoint(queryBbox.ne);
+
+    // tiles number y from top down
+    Tile::ID nwTile(z, swPoint.x * z2, nePoint.y * z2);
+    Tile::ID seTile(z, nePoint.x * z2, swPoint.y * z2);
+
+    std::vector<uint32_t> matchingAnnotations;
+
+    for (auto& tile : annotationTiles) {
+        Tile::ID id = tile.first;
+        if (id.z == z) {
+            if (id.x >= nwTile.x && id.x <= seTile.x && id.y >= nwTile.y && id.y <= seTile.y) {
+                if (id.x > nwTile.x && id.x < seTile.x && id.y > nwTile.y && id.y < seTile.y) {
+                    // trivial accept; grab all of the tile's annotations
+                    std::copy(tile.second.first.begin(), tile.second.first.end(), std::back_inserter(matchingAnnotations));
+                } else {
+                    // check tile's annotations' bounding boxes
+                    std::copy_if(tile.second.first.begin(), tile.second.first.end(),
+                                 std::back_inserter(matchingAnnotations), [&](const uint32_t annotationID) -> bool {
+                        printf("checking annotation %i\n", annotationID);
+                        BoundingBox annoBbox = this->annotations.find(annotationID)->second->getBoundingBox();
+                        return (annoBbox.sw.latitude >= queryBbox.sw.latitude &&
+                                annoBbox.ne.latitude <= queryBbox.ne.latitude &&
+                                annoBbox.sw.longitude >= queryBbox.sw.longitude &&
+                                annoBbox.ne.longitude <= queryBbox.ne.longitude);
+                    });
+                }
+            }
+        }
+    }
+
+    return matchingAnnotations;
 }
 
 BoundingBox AnnotationManager::getBoundingBoxForAnnotations(std::vector<uint32_t> ids) const {
@@ -165,7 +201,7 @@ const std::unique_ptr<LiveTile>& AnnotationManager::getTile(Tile::ID const& id) 
 
     auto tile_it = annotationTiles.find(id);
     if (tile_it != annotationTiles.end()) {
-        return tile_it->second;
+        return tile_it->second.second;
     }
     return nullTile;
 }
