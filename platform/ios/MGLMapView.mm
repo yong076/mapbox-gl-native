@@ -776,16 +776,16 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
         mbgl::LatLngBounds tapBounds;
 
         coordinate = [self convertPoint:tapRectLowerLeft  toCoordinateFromView:self];
-        tapBounds.extend(mbgl::LatLng(coordinate.latitude, coordinate.longitude));
+        tapBounds.extend(coordinateToLatLng(coordinate));
 
         coordinate = [self convertPoint:tapRectUpperLeft  toCoordinateFromView:self];
-        tapBounds.extend(mbgl::LatLng(coordinate.latitude, coordinate.longitude));
+        tapBounds.extend(coordinateToLatLng(coordinate));
 
         coordinate = [self convertPoint:tapRectUpperRight toCoordinateFromView:self];
-        tapBounds.extend(mbgl::LatLng(coordinate.latitude, coordinate.longitude));
+        tapBounds.extend(coordinateToLatLng(coordinate));
 
         coordinate = [self convertPoint:tapRectLowerRight toCoordinateFromView:self];
-        tapBounds.extend(mbgl::LatLng(coordinate.latitude, coordinate.longitude));
+        tapBounds.extend(coordinateToLatLng(coordinate));
 
         // query for nearby annotations
         std::vector<uint32_t> nearbyAnnotations = mbglMap->getAnnotationsInBounds(tapBounds);
@@ -1212,7 +1212,7 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
 
 - (CGPoint)convertCoordinate:(CLLocationCoordinate2D)coordinate toPointToView:(UIView *)view
 {
-    mbgl::vec2<double> pixel = mbglMap->pixelForLatLng(mbgl::LatLng(coordinate.latitude, coordinate.longitude));
+    mbgl::vec2<double> pixel = mbglMap->pixelForLatLng(coordinateToLatLng(coordinate));
 
     // flip y coordinate for iOS view origin in top left
     //
