@@ -1776,8 +1776,6 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
         }
     }
 
-    self.userLocationAnnotationView.layer.hidden = ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate);
-
     self.userLocationAnnotationView.haloLayer.hidden = ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate) ||
         newLocation.horizontalAccuracy > 10;
 
