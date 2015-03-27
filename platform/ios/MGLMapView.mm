@@ -876,12 +876,30 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
     if (doubleTap.state == UIGestureRecognizerStateBegan)
     {
         [self trackGestureEvent:MGLEventGestureDoubleTap forRecognizer:doubleTap];
-
-        self.userTrackingMode = MGLUserTrackingModeNone;
     }
     else if (doubleTap.state == UIGestureRecognizerStateEnded)
     {
-        mbglMap->scaleBy(2, [doubleTap locationInView:doubleTap.view].x, [doubleTap locationInView:doubleTap.view].y, secondsAsDuration(MGLAnimationDuration));
+        CGPoint doubleTapPoint = [doubleTap locationInView:doubleTap.view];
+
+        CGPoint zoomInPoint;
+
+        if (self.userTrackingMode != MGLUserTrackingModeNone)
+        {
+            CGPoint userPoint = [self convertCoordinate:self.userLocation.coordinate toPointToView:self];
+            CGRect userLocationRect = CGRectMake(userPoint.x - 40, userPoint.y - 40, 80, 80);
+            if (CGRectContainsPoint(userLocationRect, doubleTapPoint))
+            {
+                zoomInPoint = userPoint;
+            }
+        }
+        else
+        {
+            self.userTrackingMode = MGLUserTrackingModeNone;
+
+            zoomInPoint = doubleTapPoint;
+        }
+
+        mbglMap->scaleBy(2, zoomInPoint.x, zoomInPoint.y, secondsAsDuration(MGLAnimationDuration));
 
         self.animatingGesture = YES;
 
@@ -909,12 +927,23 @@ mbgl::DefaultFileSource *mbglFileSource = nullptr;
     if (twoFingerTap.state == UIGestureRecognizerStateBegan)
     {
         [self trackGestureEvent:MGLEventGestureTwoFingerSingleTap forRecognizer:twoFingerTap];
-
-        self.userTrackingMode = MGLUserTrackingModeNone;
     }
     else if (twoFingerTap.state == UIGestureRecognizerStateEnded)
     {
-        mbglMap->scaleBy(0.5, [twoFingerTap locationInView:twoFingerTap.view].x, [twoFingerTap locationInView:twoFingerTap.view].y, secondsAsDuration(MGLAnimationDuration));
+        CGPoint zoomOutPoint;
+
+        if (self.userTrackingMode != MGLUserTrackingModeNone)
+        {
+            zoomOutPoint = self.center;
+        }
+        else
+        {
+            self.userTrackingMode = MGLUserTrackingModeNone;
+
+            zoomOutPoint = CGPointMake([twoFingerTap locationInView:twoFingerTap.view].x, [twoFingerTap locationInView:twoFingerTap.view].y);
+        }
+
+        mbglMap->scaleBy(0.5, zoomOutPoint.x, zoomOutPoint.y, secondsAsDuration(MGLAnimationDuration));
 
         self.animatingGesture = YES;
 
