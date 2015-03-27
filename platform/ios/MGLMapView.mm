@@ -2082,6 +2082,8 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     {
         self.userLocationAnnotationView.center = userPoint;
 
+        self.userLocationAnnotationView.layer.hidden = NO;
+
         [self.userLocationAnnotationView setupLayers];
     }
     else
