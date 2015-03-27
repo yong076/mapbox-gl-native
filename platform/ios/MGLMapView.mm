@@ -2069,7 +2069,10 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
 
 - (void)updateUserLocationAnnotationView
 {
-    if ( ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate)) return;
+    if ( ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate)) {
+        self.userLocationAnnotationView.layer.hidden = YES;
+        return;
+    }
 
     if ( ! self.userLocationAnnotationView.superview) [self.glView addSubview:self.userLocationAnnotationView];
 
