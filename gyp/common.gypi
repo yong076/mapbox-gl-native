@@ -64,6 +64,9 @@
               'TARGETED_DEVICE_FAMILY': '1,2',
               'GCC_VERSION': 'com.apple.compilers.llvm.clang.1_0',
               'CODE_SIGN_IDENTITY': 'iPhone Developer',
+              'COPY_PHASE_STRIP': 'NO',
+              'STRIP_STYLE': 'debugging',
+              'STRIP_INSTALLED_PRODUCT': 'NO'
             },
             'configurations': {
               'Release': {
