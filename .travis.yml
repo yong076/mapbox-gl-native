@@ -2,24 +2,29 @@ language: android
 
 sudo: false
 
+cache:
+  directories:
+  - mason_packages
+  - $HOME/.ccache
+
 matrix:
   exclude:
     - os: linux
   include:
     - os: linux
-      env: FLAVOR=linux CXX=g++-4.8 BUILDTYPE=Release
+      env: FLAVOR=linux CXX="ccache g++-4.8" BUILDTYPE=Release
       addons:
         apt:
           sources: [ 'ubuntu-toolchain-r-test' ]
           packages: [ 'gdb', 'g++-4.8', 'gcc-4.8', 'libllvm3.4', 'xutils-dev', 'libxxf86vm-dev', 'x11proto-xf86vidmode-dev', 'mesa-utils' ]
     - os: linux
-      env: FLAVOR=linux CXX=clang++ BUILDTYPE=Debug
+      env: FLAVOR=linux CXX="ccache clang++" BUILDTYPE=Debug
       addons:
         apt:
           sources: [ 'ubuntu-toolchain-r-test' ]
           packages: [ 'gdb', 'libgcc-4.8-dev', 'libstdc++-4.8-dev', 'libstdc++6', 'libllvm3.4', 'xutils-dev', 'libxxf86vm-dev', 'x11proto-xf86vidmode-dev', 'mesa-utils' ]
     - os: linux
-      env: FLAVOR=linux CXX=clang++ BUILDTYPE=Release
+      env: FLAVOR=linux CXX="ccache clang++" BUILDTYPE=Release
       addons:
         apt:
           sources: [ 'ubuntu-toolchain-r-test' ]
@@ -97,3 +102,4 @@ notifications:
 
 git:
   submodules: false
+  depth: 2
