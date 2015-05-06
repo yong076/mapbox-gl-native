@@ -12,8 +12,8 @@ Pod::Spec.new do |m|
   m.social_media_url = 'https://twitter.com/mapbox'
 
   m.source = {
-    :http => "http://mapbox.s3.amazonaws.com/mapbox-gl-native/ios/builds/mapbox-gl-ios-#{m.version.to_s}.zip",
-    :flatten => true
+    :git => 'https://github.com/mapbox/mapbox-gl-native.git',
+    :tag => "ios-v#{m.version.to_s}"
   }
 
   m.platform              = :ios
@@ -22,9 +22,12 @@ Pod::Spec.new do |m|
   m.requires_arc = true
 
   m.preserve_paths = '**'
-  m.source_files = 'Headers/*.h'
-  m.resource_bundle = { 'MapboxGL' => 'MapboxGL.bundle/*' }
-  m.vendored_library = 'libMapboxGL.a'
+  # m.dependency 'boost', '~> 1.57.0'
+  m.prepare_command = 'make ipackage'
+
+  m.source_files = 'build/ios/pkg/static/Headers/*.h'
+  m.resource_bundle = { 'MapboxGL' => 'build/ios/pkg/static/MapboxGL.bundle/*' }
+  m.vendored_library = 'build/ios/pkg/static/libMapboxGL.a'
 
   m.frameworks = 'CoreLocation', 'CoreTelephony', 'GLKit', 'ImageIO', 'MobileCoreServices', 'QuartzCore', 'SystemConfiguration'
   m.libraries = 'c++', 'sqlite3', 'z'
