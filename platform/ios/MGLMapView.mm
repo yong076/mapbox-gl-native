@@ -52,6 +52,48 @@ static NSURL *MGLURLForBundledStyleNamed(NSString *styleName)
     return [NSURL URLWithString:[NSString stringWithFormat:@"asset://styles/%@.json", styleName]];
 }
 
+// Boxes the compass
+static NSString *MGLDescriptionForDirection(CLLocationDirection direction)
+{
+    NSArray *descriptions = @[
+        @"North",
+        @"North by east",
+        @"North-northeast",
+        @"Northeast by north",
+        @"Northeast",
+        @"Northeast by east",
+        @"East-northeast",
+        @"East by north",
+        @"East",
+        @"East by south",
+        @"East-southeast",
+        @"Southeast by east",
+        @"Southeast",
+        @"Southeast by south",
+        @"South-southeast",
+        @"South by east",
+        @"South",
+        @"South by west",
+        @"South-southwest",
+        @"Southwest by south",
+        @"Southwest",
+        @"Southwest by west",
+        @"West-southwest",
+        @"West by south",
+        @"West",
+        @"West by north",
+        @"West-northwest",
+        @"Northwest by west",
+        @"Northwest",
+        @"Northwest by north",
+        @"North-northwest",
+        @"North by west",
+    ];
+    
+    NSUInteger cardinalPoint = round(direction / 360 * 32);
+    return descriptions[cardinalPoint];
+}
+
 #pragma mark - Private -
 
 @interface MGLMapView () <UIGestureRecognizerDelegate, GLKViewDelegate, CLLocationManagerDelegate, UIActionSheetDelegate>
@@ -60,7 +102,7 @@ static NSURL *MGLURLForBundledStyleNamed(NSString *styleName)
 @property (nonatomic) GLKView *glView;
 @property (nonatomic) UIImageView *glSnapshotView;
 @property (nonatomic) NSOperationQueue *regionChangeDelegateQueue;
-@property (nonatomic) UIImageView *compass;
+@property (nonatomic) UIButton *compass;
 @property (nonatomic) UIImageView *logoBug;
 @property (nonatomic) UIButton *attributionButton;
 @property (nonatomic) UIActionSheet *attributionSheet;
@@ -209,7 +251,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
     // setup accessibility
     //
-    self.isAccessibilityElement = YES;
+//    self.isAccessibilityElement = YES;
     self.accessibilityLabel = @"Map";
     self.accessibilityLanguage = @"en";
     self.accessibilityTraits = UIAccessibilityTraitAllowsDirectInteraction;
@@ -309,7 +351,8 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     // setup attribution
     //
     _attributionButton = [UIButton buttonWithType:UIButtonTypeInfoLight];
-    _attributionButton.accessibilityLabel = @"Attribution info";
+    _attributionButton.accessibilityLabel = @"Credits";
+    _attributionButton.accessibilityHint = @"Opens a webpage with credits and a feedback form";
     [_attributionButton addTarget:self action:@selector(showAttribution) forControlEvents:UIControlEventTouchUpInside];
     _attributionButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_attributionButton];
@@ -326,15 +369,17 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
     // setup compass
     //
-    _compass = [[UIImageView alloc] initWithImage:[MGLMapView resourceImageNamed:@"Compass.png"]];
-    _compass.accessibilityLabel = @"Compass";
+    _compass = [UIButton buttonWithType:UIButtonTypeCustom];
     UIImage *compassImage = [MGLMapView resourceImageNamed:@"Compass.png"];
+    [_compass setImage:compassImage forState:UIControlStateNormal];
     _compass.frame = CGRectMake(0, 0, compassImage.size.width, compassImage.size.height);
     _compass.alpha = 0;
+    _compass.accessibilityLabel = @"Compass";
+    _compass.accessibilityHint = @"Rotates the map to face due north";
     UIView *container = [[UIView alloc] initWithFrame:CGRectZero];
     [container addSubview:_compass];
     container.translatesAutoresizingMaskIntoConstraints = NO;
-    [container addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleCompassTapGesture:)]];
+    [_compass addTarget:self action:@selector(resetNorthWithCompass:) forControlEvents:UIControlEventTouchDown];
     [self addSubview:container];
 
     // setup interaction
@@ -547,6 +592,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                  multiplier:1
                                    constant:5]];
 
+    UIImage *compassImage = [self.compass imageForState:UIControlStateNormal];
     [compassContainer addConstraint:
      [NSLayoutConstraint constraintWithItem:compassContainer
                                   attribute:NSLayoutAttributeWidth
@@ -554,7 +600,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                      toItem:nil
                                   attribute:NSLayoutAttributeNotAnAttribute
                                  multiplier:1
-                                   constant:self.compass.image.size.width]];
+                                   constant:compassImage.size.width]];
 
     [compassContainer addConstraint:
      [NSLayoutConstraint constraintWithItem:compassContainer
@@ -563,7 +609,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                      toItem:nil
                                   attribute:NSLayoutAttributeNotAnAttribute
                                  multiplier:1
-                                   constant:self.compass.image.size.height]];
+                                   constant:compassImage.size.height]];
 
     // logo bug
     //
@@ -742,7 +788,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
 #pragma mark - Gestures -
 
-- (void)handleCompassTapGesture:(id)sender
+- (void)resetNorthWithCompass:(id)sender
 {
     [self resetNorthAnimated:YES];
 
@@ -1345,6 +1391,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                      animations:^
                      {
                          self.compass.transform = CGAffineTransformIdentity;
+                         self.compass.accessibilityValue = MGLDescriptionForDirection(0);
                      }
                      completion:^(BOOL finished)
                      {
@@ -1512,7 +1559,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 {
     double direction = _mbglMap->getBearing() * -1;
 
-    while (direction > 360) direction -= 360;
+    while (direction >= 360) direction -= 360;
     while (direction < 0) direction += 360;
 
     return direction;
@@ -2479,11 +2526,10 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
 
 - (void)updateCompass
 {
-    double degrees = _mbglMap->getBearing() * -1;
-    while (degrees >= 360) degrees -= 360;
-    while (degrees < 0) degrees += 360;
+    CLLocationDirection degrees = self.direction;
 
     self.compass.transform = CGAffineTransformMakeRotation([MGLMapView degreesToRadians:degrees]);
+    self.compass.accessibilityValue = MGLDescriptionForDirection(degrees);
 
     if (_mbglMap->getBearing() && self.compass.alpha < 1)
     {
