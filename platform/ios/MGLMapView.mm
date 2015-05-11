@@ -45,7 +45,8 @@ const NSTimeInterval MGLAnimationDuration = 0.3;
 const CGSize MGLAnnotationUpdateViewportOutset = {150, 150};
 const CGFloat MGLMinimumZoom = 3;
 
-NSString *const MGLAnnotationIDKey = @"MGLAnnotationIDKey";
+NSString *const MGLAnnotationIDKey = @"MGLAnnotationID";
+NSString *const MGLAnnotationAccessibilityElementKey = @"MGLAccessibilityElement";
 
 static NSURL *MGLURLForBundledStyleNamed(NSString *styleName)
 {
@@ -95,6 +96,16 @@ static NSString *MGLDescriptionForDirection(CLLocationDirection direction)
 }
 
 #pragma mark - Private -
+
+@interface MGLAnnotationAccessibilityElement : UIAccessibilityElement
+
+@property (nonatomic) int32_t identifier;
+
+@end
+
+@implementation MGLAnnotationAccessibilityElement
+
+@end
 
 @interface MGLMapView () <UIGestureRecognizerDelegate, GLKViewDelegate, CLLocationManagerDelegate, UIActionSheetDelegate>
 
@@ -1438,6 +1449,78 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     return frame;
 }
 
+- (NSInteger)accessibilityElementCount
+{
+    std::vector<uint32_t> visibleAnnotations = _mbglMap->getAnnotationsInBounds(self.viewportBounds);
+    return visibleAnnotations.size();
+}
+
+- (id)accessibilityElementAtIndex:(NSInteger)index
+{
+    id <MGLAnnotation> annotation = [self annotationAtIndex:index];
+    NSDictionary *annotationInfo = [self.annotationIDsByAnnotation objectForKey:annotation];
+    MGLAnnotationAccessibilityElement *element = annotationInfo[MGLAnnotationAccessibilityElementKey];
+    
+    // Lazily create an accessibility element for the found annotation.
+    if ( ! element)
+    {
+        element = [[MGLAnnotationAccessibilityElement alloc] initWithAccessibilityContainer:self];
+        element.identifier = [[self.annotationIDsByAnnotation objectForKey:annotation][MGLAnnotationIDKey] unsignedIntValue];
+        element.accessibilityTraits = UIAccessibilityTraitButton;
+        if ([annotation respondsToSelector:@selector(title)])
+        {
+            element.accessibilityLabel = annotation.title;
+        }
+        if ([annotation respondsToSelector:@selector(subtitle)])
+        {
+            element.accessibilityValue = annotation.subtitle;
+        }
+        
+        NSMutableDictionary *elementedAnnotationInfo = [annotationInfo mutableCopy];
+        elementedAnnotationInfo[MGLAnnotationAccessibilityElementKey] = element;
+        [self.annotationIDsByAnnotation setObject:elementedAnnotationInfo forKey:annotation];
+    }
+    
+    // Update the accessibility element’s frame.
+    CGPoint mapViewPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
+    CGRect mapViewRect = CGRectMake(mapViewPoint.x - 20, mapViewPoint.y - 30, 40, 60);
+    CGRect screenRect = UIAccessibilityConvertFrameToScreenCoordinates(mapViewRect, self);
+    element.accessibilityFrame = screenRect;
+    
+    return element;
+}
+
+- (id <MGLAnnotation>)annotationAtIndex:(NSInteger)index
+{
+    std::vector<uint32_t> visibleAnnotations = _mbglMap->getAnnotationsInBounds(self.viewportBounds);
+    std::sort(visibleAnnotations.begin(), visibleAnnotations.end());
+    uint32_t annotationID = visibleAnnotations[index];
+    for (id <MGLAnnotation> annotation in self.annotationIDsByAnnotation.keyEnumerator)
+    {
+        NSDictionary *annotationInfo = [self.annotationIDsByAnnotation objectForKey:annotation];
+        if ([annotationInfo[MGLAnnotationIDKey] unsignedIntValue] == annotationID)
+        {
+            return annotation;
+        }
+    }
+    return nil;
+}
+
+- (NSInteger)indexOfAccessibilityElement:(id)element
+{
+    if (![element isKindOfClass:[MGLAnnotationAccessibilityElement class]])
+    {
+        return NSNotFound;
+    }
+    
+    std::vector<uint32_t> visibleAnnotations = _mbglMap->getAnnotationsInBounds(self.viewportBounds);
+    std::sort(visibleAnnotations.begin(), visibleAnnotations.end());
+    auto foundElement = std::find(visibleAnnotations.begin(), visibleAnnotations.end(),
+                                  ((MGLAnnotationAccessibilityElement *)element).identifier);
+    if (foundElement == visibleAnnotations.end()) return NSNotFound;
+    else return std::distance(visibleAnnotations.begin(), foundElement);
+}
+
 #pragma mark - Geography -
 
 + (NSSet *)keyPathsForValuesAffectingCenterCoordinate
@@ -1771,6 +1854,8 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
         [self.annotationIDsByAnnotation setObject:@{ MGLAnnotationIDKey : @(annotationIDs[i]) }
                                            forKey:annotations[i]];
     }
+    
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
 }
 
 - (void)removeAnnotation:(id <MGLAnnotation>)annotation
@@ -1806,6 +1891,8 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     }
 
     _mbglMap->removeAnnotations(annotationIDsToRemove);
+    
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
 }
 
 - (NSArray *)selectedAnnotations
