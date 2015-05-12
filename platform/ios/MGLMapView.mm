@@ -30,11 +30,17 @@
 #import "MGLMapboxEvents.h"
 #import "MapboxGL.h"
 
+#import <map>
 #import <algorithm>
 
 class MBGLView;
 
 static dispatch_once_t loadGLExtensions;
+
+typedef uint32_t MGLAnnotationID;
+typedef std::map<NSString *, id> MGLAnnotationContext;
+typedef std::map<MGLAnnotationID, MGLAnnotationContext> MGLAnnotationContextMap;
+enum { MGLAnnotationNotFound = UINT32_MAX };
 
 NSString *const MGLDefaultStyleName = @"mapbox-streets";
 NSString *const MGLStyleVersion = @"7";
@@ -43,10 +49,12 @@ NSString *const MGLMapboxAccessTokenManagerURLDisplayString = @"mapbox.com/accou
 
 const NSTimeInterval MGLAnimationDuration = 0.3;
 const CGSize MGLAnnotationUpdateViewportOutset = {150, 150};
+// tolerances based on touch size & typical marker aspect ratio
+const CGSize MGLAnnotationTouchTargetSize = {40, 60};
 const CGFloat MGLMinimumZoom = 3;
 
-NSString *const MGLAnnotationIDKey = @"MGLAnnotationID";
-NSString *const MGLAnnotationAccessibilityElementKey = @"MGLAccessibilityElement";
+NSString *const MGLAnnotationContextAnnotationKey = @"MGLAnnotationContextAnnotation";
+NSString *const MGLAnnotationContextAccessibilityElementKey = @"MGLAnnotationContextAccessibilityElement";
 
 static NSURL *MGLURLForBundledStyleNamed(NSString *styleName)
 {
@@ -122,9 +130,9 @@ static NSString *MGLDescriptionForDirection(CLLocationDirection direction)
 @property (nonatomic) UIRotationGestureRecognizer *rotate;
 @property (nonatomic) UILongPressGestureRecognizer *quickZoom;
 @property (nonatomic) NSMutableArray *bundledStyleURLs;
-@property (nonatomic) NSMapTable *annotationIDsByAnnotation;
-@property (nonatomic) std::vector<uint32_t> annotationsNearbyLastTap;
-@property (nonatomic, weak) id <MGLAnnotation> selectedAnnotation;
+@property (nonatomic) std::vector<MGLAnnotationID> annotationsNearbyLastTap;
+@property (nonatomic) MGLAnnotationID selectedAnnotationID;
+@property (nonatomic) BOOL userLocationSelected;
 @property (nonatomic) SMCalloutView *selectedAnnotationCalloutView;
 @property (nonatomic) MGLUserLocationAnnotationView *userLocationAnnotationView;
 @property (nonatomic) CLLocationManager *locationManager;
@@ -147,6 +155,8 @@ static NSString *MGLDescriptionForDirection(CLLocationDirection direction)
     BOOL _isTargetingInterfaceBuilder;
     CLLocationDegrees _pendingLatitude;
     CLLocationDegrees _pendingLongitude;
+    
+    MGLAnnotationContextMap _annotationContextsByAnnotationID;
 }
 
 #pragma mark - Setup & Teardown -
@@ -347,7 +357,8 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
     // setup annotations
     //
-    _annotationIDsByAnnotation = [NSMapTable mapTableWithKeyOptions:NSMapTableStrongMemory valueOptions:NSMapTableStrongMemory];
+    _annotationContextsByAnnotationID = {};
+    _selectedAnnotationID = MGLAnnotationNotFound;
     std::string defaultSymbolName([MGLDefaultStyleMarkerSymbolName UTF8String]);
     _mbglMap->setDefaultPointAnnotationSymbol(defaultSymbolName);
 
@@ -1058,7 +1069,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
         CGPoint tapPoint = [singleTap locationInView:self];
 
-        if (self.userLocationVisible && ! [self.selectedAnnotation isEqual:self.userLocation])
+        if (self.userLocationVisible && !self.userLocationSelected)
         {
             CGRect userLocationRect = CGRectMake(tapPoint.x - 15, tapPoint.y - 15, 30, 30);
 
@@ -1069,16 +1080,12 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
             }
         }
 
-        // tolerances based on touch size & typical marker aspect ratio
-        CGFloat toleranceWidth  = 40;
-        CGFloat toleranceHeight = 60;
-
         // setup a recognition area weighted 2/3 of the way above the point to account for average marker imagery
-        CGRect tapRect = CGRectMake(tapPoint.x - toleranceWidth / 2, tapPoint.y - 2 * toleranceHeight / 3, toleranceWidth, toleranceHeight);
-        CGPoint tapRectLowerLeft  = CGPointMake(tapRect.origin.x, tapRect.origin.y + tapRect.size.height);
+        CGRect tapRect = CGRectMake(tapPoint.x - MGLAnnotationTouchTargetSize.width / 2, tapPoint.y - 2 * MGLAnnotationTouchTargetSize.height / 3, MGLAnnotationTouchTargetSize.width, MGLAnnotationTouchTargetSize.height);
+        CGPoint tapRectLowerLeft  = CGPointMake(tapRect.origin.x, CGRectGetMaxY(tapRect));
         CGPoint tapRectUpperLeft  = CGPointMake(tapRect.origin.x, tapRect.origin.y);
-        CGPoint tapRectUpperRight = CGPointMake(tapRect.origin.x + tapRect.size.width, tapRect.origin.y);
-        CGPoint tapRectLowerRight = CGPointMake(tapRect.origin.x + tapRect.size.width, tapRect.origin.y + tapRect.size.height);
+        CGPoint tapRectUpperRight = CGPointMake(CGRectGetMaxX(tapRect), tapRect.origin.y);
+        CGPoint tapRectLowerRight = CGPointMake(CGRectGetMaxX(tapRect), CGRectGetMaxY(tapRect));
 
         // figure out what that means in coordinate space
         CLLocationCoordinate2D coordinate;
@@ -1097,9 +1104,9 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         tapBounds.extend(coordinateToLatLng(coordinate));
 
         // query for nearby annotations
-        std::vector<uint32_t> nearbyAnnotations = _mbglMap->getAnnotationsInBounds(tapBounds);
+        std::vector<MGLAnnotationID> nearbyAnnotations = _mbglMap->getAnnotationsInBounds(tapBounds);
 
-        int32_t newSelectedAnnotationID = -1;
+        MGLAnnotationID newSelectedAnnotationID = MGLAnnotationNotFound;
 
         if (nearbyAnnotations.size())
         {
@@ -1111,9 +1118,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
             if (nearbyAnnotations == self.annotationsNearbyLastTap)
             {
                 // the selection candidates haven't changed; cycle through them
-                if (self.selectedAnnotation &&
-                    [[[self.annotationIDsByAnnotation objectForKey:self.selectedAnnotation]
-                        objectForKey:MGLAnnotationIDKey] unsignedIntValue] == self.annotationsNearbyLastTap.back())
+                if (self.selectedAnnotationID == self.annotationsNearbyLastTap.back())
                 {
                     // the selected annotation is the last in the set; cycle back to the first
                     // note: this could be the selected annotation if only one in set
@@ -1122,8 +1127,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                 else if (self.selectedAnnotation)
                 {
                     // otherwise increment the selection through the candidates
-                    uint32_t currentID = [[[self.annotationIDsByAnnotation objectForKey:self.selectedAnnotation] objectForKey:MGLAnnotationIDKey] unsignedIntValue];
-                    auto result = std::find(self.annotationsNearbyLastTap.begin(), self.annotationsNearbyLastTap.end(), currentID);
+                    auto result = std::find(self.annotationsNearbyLastTap.begin(), self.annotationsNearbyLastTap.end(), self.selectedAnnotationID);
                     auto distance = std::distance(self.annotationsNearbyLastTap.begin(), result);
                     newSelectedAnnotationID = self.annotationsNearbyLastTap[distance + 1];
                 }
@@ -1145,33 +1149,20 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         else
         {
             // there are no nearby annotations; deselect if necessary
-            newSelectedAnnotationID = -1;
+            newSelectedAnnotationID = MGLAnnotationNotFound;
         }
 
-        if (newSelectedAnnotationID >= 0)
+        if (newSelectedAnnotationID != MGLAnnotationNotFound &&
+            newSelectedAnnotationID != self.selectedAnnotationID)
         {
             // find & select model object for selection
-            NSEnumerator *enumerator = self.annotationIDsByAnnotation.keyEnumerator;
-
-            while (id <MGLAnnotation> annotation = enumerator.nextObject)
-            {
-                if ([[[self.annotationIDsByAnnotation objectForKey:annotation] objectForKey:MGLAnnotationIDKey] integerValue] == newSelectedAnnotationID)
-                {
-                    // only change selection status if not the currently selected annotation
-                    if ( ! [annotation isEqual:self.selectedAnnotation])
-                    {
-                        [self selectAnnotation:annotation animated:YES];
-                    }
-
-                    // either way, we should stop enumerating
-                    break;
-                }
-            }
+            id <MGLAnnotation> annotation = [self annotationWithID:newSelectedAnnotationID];
+            [self selectAnnotation:annotation animated:YES];
         }
-        else
+        else if (self.selectedAnnotationID != MGLAnnotationNotFound)
         {
             // deselect any selected annotation
-            if (self.selectedAnnotation) [self deselectAnnotation:self.selectedAnnotation animated:YES];
+            [self deselectAnnotation:self.selectedAnnotation animated:YES];
         }
     }
 }
@@ -1451,21 +1442,29 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
 - (NSInteger)accessibilityElementCount
 {
-    std::vector<uint32_t> visibleAnnotations = _mbglMap->getAnnotationsInBounds(self.viewportBounds);
+    std::vector<MGLAnnotationID> visibleAnnotations = _mbglMap->getAnnotationsInBounds(self.viewportBounds);
     return visibleAnnotations.size();
 }
 
 - (id)accessibilityElementAtIndex:(NSInteger)index
 {
-    id <MGLAnnotation> annotation = [self annotationAtIndex:index];
-    NSDictionary *annotationInfo = [self.annotationIDsByAnnotation objectForKey:annotation];
-    MGLAnnotationAccessibilityElement *element = annotationInfo[MGLAnnotationAccessibilityElementKey];
+    MGLAnnotationID annotationID = [self visibleAnnotationIDAtIndex:index];
+    NSAssert(annotationID != MGLAnnotationNotFound, @"No visible annotation at index %li", index);
+    auto &annotationContext = _annotationContextsByAnnotationID[annotationID];
+    NSAssert(annotationContext.count(MGLAnnotationContextAnnotationKey),
+             @"Missing annotation for ID %u", annotationID);
+    id <MGLAnnotation> annotation = annotationContext[MGLAnnotationContextAnnotationKey];
+    MGLAnnotationAccessibilityElement *element;
     
     // Lazily create an accessibility element for the found annotation.
-    if ( ! element)
+    if (annotationContext.count(MGLAnnotationContextAccessibilityElementKey))
+    {
+        element = annotationContext[MGLAnnotationContextAccessibilityElementKey];
+    }
+    else
     {
         element = [[MGLAnnotationAccessibilityElement alloc] initWithAccessibilityContainer:self];
-        element.identifier = [[self.annotationIDsByAnnotation objectForKey:annotation][MGLAnnotationIDKey] unsignedIntValue];
+        element.identifier = annotationID;
         element.accessibilityTraits = UIAccessibilityTraitButton;
         if ([annotation respondsToSelector:@selector(title)])
         {
@@ -1475,35 +1474,23 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         {
             element.accessibilityValue = annotation.subtitle;
         }
-        
-        NSMutableDictionary *elementedAnnotationInfo = [annotationInfo mutableCopy];
-        elementedAnnotationInfo[MGLAnnotationAccessibilityElementKey] = element;
-        [self.annotationIDsByAnnotation setObject:elementedAnnotationInfo forKey:annotation];
+        annotationContext[MGLAnnotationContextAccessibilityElementKey] = element;
     }
     
     // Update the accessibility element’s frame.
     CGPoint mapViewPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
-    CGRect mapViewRect = CGRectMake(mapViewPoint.x - 20, mapViewPoint.y - 30, 40, 60);
+    CGRect mapViewRect = CGRectMake(mapViewPoint.x - MGLAnnotationTouchTargetSize.width / 2, mapViewPoint.y - 2 * MGLAnnotationTouchTargetSize.height / 3, MGLAnnotationTouchTargetSize.width, MGLAnnotationTouchTargetSize.height);
     CGRect screenRect = UIAccessibilityConvertFrameToScreenCoordinates(mapViewRect, self);
     element.accessibilityFrame = screenRect;
     
     return element;
 }
 
-- (id <MGLAnnotation>)annotationAtIndex:(NSInteger)index
+- (MGLAnnotationID)visibleAnnotationIDAtIndex:(NSInteger)index
 {
-    std::vector<uint32_t> visibleAnnotations = _mbglMap->getAnnotationsInBounds(self.viewportBounds);
+    std::vector<MGLAnnotationID> visibleAnnotations = _mbglMap->getAnnotationsInBounds(self.viewportBounds);
     std::sort(visibleAnnotations.begin(), visibleAnnotations.end());
-    uint32_t annotationID = visibleAnnotations[index];
-    for (id <MGLAnnotation> annotation in self.annotationIDsByAnnotation.keyEnumerator)
-    {
-        NSDictionary *annotationInfo = [self.annotationIDsByAnnotation objectForKey:annotation];
-        if ([annotationInfo[MGLAnnotationIDKey] unsignedIntValue] == annotationID)
-        {
-            return annotation;
-        }
-    }
-    return nil;
+    return visibleAnnotations[index];
 }
 
 - (NSInteger)indexOfAccessibilityElement:(id)element
@@ -1513,7 +1500,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         return NSNotFound;
     }
     
-    std::vector<uint32_t> visibleAnnotations = _mbglMap->getAnnotationsInBounds(self.viewportBounds);
+    std::vector<MGLAnnotationID> visibleAnnotations = _mbglMap->getAnnotationsInBounds(self.viewportBounds);
     std::sort(visibleAnnotations.begin(), visibleAnnotations.end());
     auto foundElement = std::find(visibleAnnotations.begin(), visibleAnnotations.end(),
                                   ((MGLAnnotationAccessibilityElement *)element).identifier);
@@ -1791,22 +1778,42 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
 
 - (NSArray *)annotations
 {
-    if ([_annotationIDsByAnnotation count])
+    if (_annotationContextsByAnnotationID.empty()) return nil;
+    
+    std::vector<id <MGLAnnotation> > annotations;
+    std::transform(_annotationContextsByAnnotationID.begin(),
+                   _annotationContextsByAnnotationID.end(),
+                   std::back_inserter(annotations),
+                   ^ id <MGLAnnotation> (std::pair<MGLAnnotationID, MGLAnnotationContext> pair)
     {
-        NSMutableArray *result = [NSMutableArray array];
+        NSAssert(pair.second.count(MGLAnnotationContextAnnotationKey),
+                 @"Missing annotation for ID %u", pair.first);
+        return pair.second[MGLAnnotationContextAnnotationKey];
+    });
+    return [NSArray arrayWithObjects:&annotations[0] count:annotations.size()];
+}
 
-        NSEnumerator *keyEnumerator = [_annotationIDsByAnnotation keyEnumerator];
-        id <MGLAnnotation> annotation;
+- (id <MGLAnnotation>)annotationWithID:(MGLAnnotationID)annotationID
+{
+    if ( ! _annotationContextsByAnnotationID.count(annotationID)) return nil;
+    auto &annotationContext = _annotationContextsByAnnotationID[annotationID];
+    NSAssert(annotationContext.count(MGLAnnotationContextAnnotationKey),
+             @"Missing annotation for ID %u", annotationID);
+    return annotationContext[MGLAnnotationContextAnnotationKey];
+}
 
-        while (annotation = [keyEnumerator nextObject])
+- (MGLAnnotationID)annotationIDForAnnotation:(id <MGLAnnotation>)annotation
+{
+    for (auto &pair : _annotationContextsByAnnotationID)
+    {
+        NSAssert(pair.second.count(MGLAnnotationContextAnnotationKey),
+                 @"Missing annotation for ID %u", pair.first);
+        if (pair.second[MGLAnnotationContextAnnotationKey] == annotation)
         {
-            [result addObject:annotation];
+            return pair.first;
         }
-
-        return [NSArray arrayWithArray:result];
     }
-
-    return nil;
+    return MGLAnnotationNotFound;
 }
 
 - (void)addAnnotation:(id <MGLAnnotation>)annotation
@@ -1847,12 +1854,13 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
         symbols.push_back((symbolName ? [symbolName UTF8String] : ""));
     }
 
-    std::vector<uint32_t> annotationIDs = _mbglMap->addPointAnnotations(latLngs, symbols);
+    std::vector<MGLAnnotationID> annotationIDs = _mbglMap->addPointAnnotations(latLngs, symbols);
 
     for (size_t i = 0; i < annotationIDs.size(); ++i)
     {
-        [self.annotationIDsByAnnotation setObject:@{ MGLAnnotationIDKey : @(annotationIDs[i]) }
-                                           forKey:annotations[i]];
+        MGLAnnotationContext context;
+        context[MGLAnnotationContextAnnotationKey] = annotations[i];
+        _annotationContextsByAnnotationID[annotationIDs[i]] = context;
     }
     
     UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
@@ -1873,18 +1881,19 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
 {
     if ( ! annotations) return;
 
-    std::vector<uint32_t> annotationIDsToRemove;
+    std::vector<MGLAnnotationID> annotationIDsToRemove;
     annotationIDsToRemove.reserve(annotations.count);
 
     for (id <MGLAnnotation> annotation in annotations)
     {
         assert([annotation conformsToProtocol:@protocol(MGLAnnotation)]);
 
-        annotationIDsToRemove.push_back([[[self.annotationIDsByAnnotation objectForKey:annotation]
-            objectForKey:MGLAnnotationIDKey] unsignedIntValue]);
-        [self.annotationIDsByAnnotation removeObjectForKey:annotation];
+        MGLAnnotationID annotationID = [self annotationIDForAnnotation:annotation];
+        NSAssert(annotationID != MGLAnnotationNotFound, @"No ID for annotation %@", annotation);
+        annotationIDsToRemove.push_back(annotationID);
+        _annotationContextsByAnnotationID.erase(annotationID);
 
-        if (annotation == self.selectedAnnotation)
+        if (annotationID == self.selectedAnnotationID)
         {
             [self deselectAnnotation:annotation animated:NO];
         }
@@ -1895,9 +1904,27 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
 }
 
+- (id <MGLAnnotation>)selectedAnnotation
+{
+    if ( ! _annotationContextsByAnnotationID.count(self.selectedAnnotationID))
+    {
+        return nil;
+    }
+    auto &annotationContext = _annotationContextsByAnnotationID.at(self.selectedAnnotationID);
+    NSAssert(annotationContext.count(MGLAnnotationContextAnnotationKey),
+             @"Missing annotation for ID %u", self.selectedAnnotationID);
+    return annotationContext[MGLAnnotationContextAnnotationKey];
+}
+
 - (NSArray *)selectedAnnotations
 {
     return (self.selectedAnnotation ? @[ self.selectedAnnotation ] : @[]);
+}
+
+- (void)setSelectedAnnotation:(id <MGLAnnotation>)selectedAnnotation
+{
+    self.selectedAnnotationID = [self annotationIDForAnnotation:selectedAnnotation];
+    self.userLocationSelected = selectedAnnotation == self.userLocation;
 }
 
 - (void)setSelectedAnnotations:(NSArray *)selectedAnnotations
