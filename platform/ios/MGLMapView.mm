@@ -1466,7 +1466,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     NSInteger annotationIndex = index - 1 /* compass */;
     MGLAnnotationID annotationID = visibleAnnotations[annotationIndex];
     NSAssert(annotationID != MGLAnnotationNotFound,
-             @"No visible annotation at index %li", annotationIndex);
+             @"No visible annotation at index %li", (long)annotationIndex);
     auto &annotationContext = _annotationContextsByAnnotationID[annotationID];
     NSAssert(annotationContext.count(MGLAnnotationContextAnnotationKey),
              @"Missing annotation for ID %u", annotationID);
