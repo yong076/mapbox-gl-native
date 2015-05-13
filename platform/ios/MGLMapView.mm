@@ -1154,7 +1154,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
             id <MGLAnnotation> annotation = [self annotationWithID:newSelectedAnnotationID];
             [self selectAnnotation:annotation animated:YES];
         }
-        else if (self.selectedAnnotationID != MGLAnnotationNotFound)
+        else if (self.selectedAnnotationID != MGLAnnotationNotFound || self.userLocationSelected)
         {
             // deselect any selected annotation
             [self deselectAnnotation:self.selectedAnnotation animated:YES];
@@ -1928,6 +1928,10 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
 
 - (id <MGLAnnotation>)selectedAnnotation
 {
+    if (self.userLocationSelected)
+    {
+        return self.userLocation;
+    }
     if ( ! _annotationContextsByAnnotationID.count(self.selectedAnnotationID))
     {
         return nil;
