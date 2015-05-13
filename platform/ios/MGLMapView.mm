@@ -20,6 +20,7 @@
 #import "NSString+MGLAdditions.h"
 #import "NSProcessInfo+MGLAdditions.h"
 #import "NSException+MGLAdditions.h"
+#import "MGLAccountManager.h"
 #import "MGLAnnotation.h"
 #import "MGLUserLocationAnnotationView.h"
 #import "MGLUserLocation_Private.h"
@@ -221,7 +222,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 - (void)setAccessToken:(NSString *)accessToken
 {
     _mbglMap->setAccessToken(accessToken ? (std::string)[accessToken UTF8String] : "");
-    [MGLMapboxEvents setToken:accessToken.mgl_stringOrNilIfEmpty];
+    [MGLAccountManager setAccessToken:accessToken.mgl_stringOrNilIfEmpty];
 }
 
 + (NSSet *)keyPathsForValuesAffectingStyleURL
@@ -276,14 +277,6 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     self.accessibilityLabel = @"Map";
     self.accessibilityLanguage = @"en";
     self.accessibilityTraits = UIAccessibilityTraitAllowsDirectInteraction;
-
-    // metrics: initial setup
-    NSString *appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleName"];
-    NSString *appVersion = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-    NSString *appBuildNumber = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
-    if (appName != nil) [MGLMapboxEvents setAppName:appName];
-    if (appVersion != nil) [MGLMapboxEvents setAppVersion:appVersion];
-    if (appBuildNumber != nil) [MGLMapboxEvents setAppBuildNumber:appBuildNumber];
 
     // create GL view
     //
@@ -785,6 +778,8 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     if (self.isDormant)
     {
         self.dormant = NO;
+        
+        [MGLMapboxEvents validate];
 
         self.glSnapshotView.hidden = YES;
 
