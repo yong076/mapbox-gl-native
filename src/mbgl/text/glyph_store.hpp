@@ -5,6 +5,8 @@
 #include <mbgl/util/vec.hpp>
 #include <mbgl/util/ptr.hpp>
 
+#include <harfbuzz/hb.h>
+
 #include <cstdint>
 #include <vector>
 #include <future>

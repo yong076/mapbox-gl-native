@@ -21,10 +21,12 @@
       'variables': {
         'cflags_cc': [
           '<@(uv_cflags)',
+          '<@(hb_cflags)',
           '<@(boost_cflags)',
         ],
         'libraries': [
           '<@(uv_static_libs)',
+          '<@(hb_static_libs)',
         ],
         'ldflags': [
           '-framework Foundation',

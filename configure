@@ -24,6 +24,8 @@ case ${MASON_PLATFORM} in
         LIBUV_VERSION=0.10.28
         ZLIB_VERSION=system
         BOOST_VERSION=system
+        HARFBUZZ_VERSION=0.9.40
+        FREETYPE_VERSION=2.5.5
         ;;
     'android')
         SQLITE_VERSION=3.8.8.1
@@ -49,6 +51,8 @@ case ${MASON_PLATFORM} in
         BOOST_PROGRAM_OPTIONS_VERSION=1.57.0
         NUNICODE_VERSION=1.5.1
         LIBZIP_VERSION=0.11.2
+        HARFBUZZ_VERSION=0.9.40
+        FREETYPE_VERSION=2.5.5
         ;;
 esac
 
@@ -189,6 +193,20 @@ if [ ! -z ${LIBZIP_VERSION} ]; then
     CONFIG+="    'zip_cflags%': $(quote_flags $(mason cflags libzip ${LIBZIP_VERSION})),"$LN
     CONFIG+="    'zip_ldflags%': $(quote_flags $(mason ldflags libzip ${LIBZIP_VERSION})),"$LN
 fi
+
+if [ ! -z ${HARFBUZZ_VERSION} ]; then
+    mason install harfbuzz ${HARFBUZZ_VERSION}
+    CONFIG+="    'hb_static_libs%': $(quote_flags $(mason static_libs harfbuzz ${HARFBUZZ_VERSION})),"$LN
+    CONFIG+="    'hb_cflags%': $(quote_flags $(mason cflags harfbuzz ${HARFBUZZ_VERSION})),"$LN
+    CONFIG+="    'hb_ldflags%': $(quote_flags $(mason ldflags harfbuzz ${HARFBUZZ_VERSION})),"$LN
+fi
+
+# if [ ! -z ${FREETYPE_VERSION} ]; then
+#     mason install freetype ${FREETYPE_VERSION}
+#     CONFIG+="    'ft_static_libs%': $(quote_flags $(mason static_libs freetype ${FREETYPE_VERSION})),"$LN
+#     CONFIG+="    'ft_cflags%': $(quote_flags $(mason cflags freetype ${FREETYPE_VERSION})),"$LN
+#     CONFIG+="    'ft_ldflags%': $(quote_flags $(mason ldflags freetype ${FREETYPE_VERSION})),"$LN
+# fi
 
 CONFIG+="  }
 }

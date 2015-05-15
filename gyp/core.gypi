@@ -15,6 +15,9 @@
         '<!@(find src -name "*.cpp")',
         '<!@(find src -name "*.c")',
         '<!@(find src -name "*.h")',
+        '<!@(find src -name "*.hh")',
+        '<!@(find src -name "*.cc")',
+        '<!@(find src -name "*.rl")',
         '<!@(find include -name "*.hpp")',
         '<!@(find include -name "*.h")',
         '<!@(find src -name "*.glsl")',
@@ -29,20 +32,24 @@
       'variables': {
         'cflags_cc': [
           '<@(uv_cflags)',
+          '<@(hb_cflags)',
           '<@(opengl_cflags)',
           '<@(boost_cflags)',
         ],
         'cflags': [
           '<@(uv_cflags)',
+          '<@(hb_cflags)',
           '<@(opengl_cflags)',
           '-fPIC'
         ],
         'ldflags': [
           '<@(uv_ldflags)',
+          '<@(hb_ldflags)',
           '<@(opengl_ldflags)',
         ],
         'libraries': [
           '<@(uv_static_libs)',
+          '<@(hb_static_libs)',
         ],
       },
 
