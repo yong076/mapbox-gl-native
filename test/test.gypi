@@ -77,6 +77,7 @@
       'libraries': [
         '<@(uv_static_libs)',
         '<@(sqlite3_static_libs)',
+        '<@(hb_static_libs)'
       ],
       'variables': {
         'cflags_cc': [
@@ -84,10 +85,12 @@
           '<@(opengl_cflags)',
           '<@(boost_cflags)',
           '<@(sqlite3_cflags)',
+          '<@(hb_cflags)'
         ],
         'ldflags': [
           '<@(uv_ldflags)',
           '<@(sqlite3_ldflags)',
+          '<@(hb_ldflags)'
         ],
       },
       'conditions': [
