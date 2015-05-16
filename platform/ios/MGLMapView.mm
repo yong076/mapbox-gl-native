@@ -35,11 +35,11 @@
 #import <algorithm>
 
 class MBGLView;
+class MGLAnnotationContext;
 
 static dispatch_once_t loadGLExtensions;
 
 typedef uint32_t MGLAnnotationID;
-typedef std::map<NSString *, id> MGLAnnotationContext;
 typedef std::map<MGLAnnotationID, MGLAnnotationContext> MGLAnnotationContextMap;
 enum { MGLAnnotationNotFound = UINT32_MAX };
 
@@ -53,9 +53,6 @@ const CGSize MGLAnnotationUpdateViewportOutset = {150, 150};
 // tolerances based on touch size & typical marker aspect ratio
 const CGSize MGLAnnotationTouchTargetSize = {40, 60};
 const CGFloat MGLMinimumZoom = 3;
-
-NSString *const MGLAnnotationContextAnnotationKey = @"MGLAnnotationContextAnnotation";
-NSString *const MGLAnnotationContextAccessibilityElementKey = @"MGLAnnotationContextAccessibilityElement";
 
 static NSURL *MGLURLForBundledStyleNamed(NSString *styleName)
 {
@@ -110,9 +107,21 @@ static NSString *MGLDescriptionForDirection(CLLocationDirection direction)
 
 @property (nonatomic) int32_t identifier;
 
+- (instancetype)initWithAccessibilityContainer:(id)container identifier:(MGLAnnotationID)identifier NS_DESIGNATED_INITIALIZER;
+
 @end
 
 @implementation MGLAnnotationAccessibilityElement
+
+- (instancetype)initWithAccessibilityContainer:(id)container identifier:(MGLAnnotationID)identifier
+{
+    if (self = [super initWithAccessibilityContainer:container])
+    {
+        _identifier = identifier;
+        self.accessibilityTraits = UIAccessibilityTraitButton;
+    }
+    return self;
+}
 
 @end
 
@@ -128,13 +137,20 @@ static NSString *MGLDescriptionForDirection(CLLocationDirection direction)
     if (self = [super initWithAccessibilityContainer:container])
     {
         self.accessibilityTraits = UIAccessibilityTraitButton;
-        self.accessibilityLabel = self.accessibilityLabel;
+        self.accessibilityLabel = [self.accessibilityContainer accessibilityLabel];
         self.accessibilityHint = @"Returns to the map";
     }
     return self;
 }
 
 @end
+
+class MGLAnnotationContext
+{
+public:
+    id <MGLAnnotation> annotation;
+    MGLAnnotationAccessibilityElement *accessibilityElement;
+};
 
 @interface MGLMapView () <UIGestureRecognizerDelegate, GLKViewDelegate, CLLocationManagerDelegate, UIActionSheetDelegate, SMCalloutViewDelegate>
 
@@ -164,7 +180,7 @@ static NSString *MGLDescriptionForDirection(CLLocationDirection direction)
 @property (nonatomic, getter=isDormant) BOOL dormant;
 @property (nonatomic, getter=isAnimatingGesture) BOOL animatingGesture;
 @property (nonatomic, readonly, getter=isRotationAllowed) BOOL rotationAllowed;
-@property (nonatomic) UIAccessibilityElement *mapViewProxyAccessibilityElement;
+@property (nonatomic) MGLMapViewProxyAccessibilityElement *mapViewProxyAccessibilityElement;
 
 @end
 
@@ -1093,7 +1109,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
             }
             else
             {
-                nextElement = _annotationContextsByAnnotationID[selectedAnnotationID][MGLAnnotationContextAccessibilityElementKey];
+                nextElement = _annotationContextsByAnnotationID[selectedAnnotationID].accessibilityElement;
             }
             [self deselectAnnotation:self.selectedAnnotation animated:YES];
             UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, nextElement);
@@ -1534,38 +1550,30 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     MGLAnnotationID annotationID = visibleAnnotations[annotationIndex];
     NSAssert(annotationID != MGLAnnotationNotFound,
              @"No visible annotation at index %li", (long)annotationIndex);
-    auto &annotationContext = _annotationContextsByAnnotationID[annotationID];
-    NSAssert(annotationContext.count(MGLAnnotationContextAnnotationKey),
-             @"Missing annotation for ID %u", annotationID);
-    id <MGLAnnotation> annotation = annotationContext[MGLAnnotationContextAnnotationKey];
-    MGLAnnotationAccessibilityElement *element;
+    MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationID[annotationID];
+    id <MGLAnnotation> annotation = annotationContext.annotation;
     
     // Lazily create an accessibility element for the found annotation.
-    if (annotationContext.count(MGLAnnotationContextAccessibilityElementKey))
+    MGLAnnotationAccessibilityElement *element = annotationContext.accessibilityElement;
+    if ( ! element)
     {
-        element = annotationContext[MGLAnnotationContextAccessibilityElementKey];
-    }
-    else
-    {
-        element = [[MGLAnnotationAccessibilityElement alloc] initWithAccessibilityContainer:self];
-        element.identifier = annotationID;
-        element.accessibilityTraits = UIAccessibilityTraitButton;
-        if ([annotation respondsToSelector:@selector(title)])
-        {
-            element.accessibilityLabel = annotation.title;
-        }
-        if ([annotation respondsToSelector:@selector(subtitle)])
-        {
-            element.accessibilityValue = annotation.subtitle;
-        }
-        annotationContext[MGLAnnotationContextAccessibilityElementKey] = element;
+        annotationContext.accessibilityElement = element = [[MGLAnnotationAccessibilityElement alloc] initWithAccessibilityContainer:self identifier:annotationID];
     }
     
-    // Update the accessibility element’s frame.
+    // Update the accessibility element.
     CGPoint mapViewPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
     CGRect mapViewRect = CGRectMake(mapViewPoint.x - MGLAnnotationTouchTargetSize.width / 2, mapViewPoint.y - 2 * MGLAnnotationTouchTargetSize.height / 3, MGLAnnotationTouchTargetSize.width, MGLAnnotationTouchTargetSize.height);
     CGRect screenRect = UIAccessibilityConvertFrameToScreenCoordinates(mapViewRect, self);
     element.accessibilityFrame = screenRect;
+    
+    if ([annotation respondsToSelector:@selector(title)])
+    {
+        element.accessibilityLabel = annotation.title;
+    }
+    if ([annotation respondsToSelector:@selector(subtitle)])
+    {
+        element.accessibilityValue = annotation.subtitle;
+    }
     
     return element;
 }
@@ -1604,11 +1612,11 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     else return std::distance(visibleAnnotations.begin(), foundElement) + 2 /* compass, userLocationAnnotationView */;
 }
 
-- (UIAccessibilityElement *)mapViewProxyAccessibilityElement
+- (MGLMapViewProxyAccessibilityElement *)mapViewProxyAccessibilityElement
 {
     if ( ! _mapViewProxyAccessibilityElement)
     {
-        _mapViewProxyAccessibilityElement = [[MGLAnnotationAccessibilityElement alloc] initWithAccessibilityContainer:self];
+        _mapViewProxyAccessibilityElement = [[MGLMapViewProxyAccessibilityElement alloc] initWithAccessibilityContainer:self];
     }
     return _mapViewProxyAccessibilityElement;
 }
@@ -1889,11 +1897,9 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     std::transform(_annotationContextsByAnnotationID.begin(),
                    _annotationContextsByAnnotationID.end(),
                    std::back_inserter(annotations),
-                   ^ id <MGLAnnotation> (std::pair<MGLAnnotationID, MGLAnnotationContext> pair)
+                   ^ id <MGLAnnotation> (const std::pair<MGLAnnotationID, MGLAnnotationContext> &pair)
     {
-        NSAssert(pair.second.count(MGLAnnotationContextAnnotationKey),
-                 @"Missing annotation for ID %u", pair.first);
-        return pair.second[MGLAnnotationContextAnnotationKey];
+        return pair.second.annotation;
     });
     return [NSArray arrayWithObjects:&annotations[0] count:annotations.size()];
 }
@@ -1901,19 +1907,15 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
 - (id <MGLAnnotation>)annotationWithID:(MGLAnnotationID)annotationID
 {
     if ( ! _annotationContextsByAnnotationID.count(annotationID)) return nil;
-    auto &annotationContext = _annotationContextsByAnnotationID[annotationID];
-    NSAssert(annotationContext.count(MGLAnnotationContextAnnotationKey),
-             @"Missing annotation for ID %u", annotationID);
-    return annotationContext[MGLAnnotationContextAnnotationKey];
+    MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationID[annotationID];
+    return annotationContext.annotation;
 }
 
 - (MGLAnnotationID)annotationIDForAnnotation:(id <MGLAnnotation>)annotation
 {
     for (auto &pair : _annotationContextsByAnnotationID)
     {
-        NSAssert(pair.second.count(MGLAnnotationContextAnnotationKey),
-                 @"Missing annotation for ID %u", pair.first);
-        if (pair.second[MGLAnnotationContextAnnotationKey] == annotation)
+        if (pair.second.annotation == annotation)
         {
             return pair.first;
         }
@@ -1964,7 +1966,7 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     for (size_t i = 0; i < annotationIDs.size(); ++i)
     {
         MGLAnnotationContext context;
-        context[MGLAnnotationContextAnnotationKey] = annotations[i];
+        context.annotation = annotations[i];
         _annotationContextsByAnnotationID[annotationIDs[i]] = context;
     }
     
@@ -2019,10 +2021,8 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     {
         return nil;
     }
-    auto &annotationContext = _annotationContextsByAnnotationID.at(self.selectedAnnotationID);
-    NSAssert(annotationContext.count(MGLAnnotationContextAnnotationKey),
-             @"Missing annotation for ID %u", self.selectedAnnotationID);
-    return annotationContext[MGLAnnotationContextAnnotationKey];
+    MGLAnnotationContext &annotationContext = _annotationContextsByAnnotationID.at(self.selectedAnnotationID);
+    return annotationContext.annotation;
 }
 
 - (NSArray *)selectedAnnotations
