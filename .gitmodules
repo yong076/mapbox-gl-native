@@ -16,4 +16,4 @@
 
 [submodule "platform/ios/vendor/SMCalloutView"]
 	path = platform/ios/vendor/SMCalloutView
-	url = https://github.com/nfarina/calloutview.git
+	url = https://github.com/mapbox/SMCalloutView.git
