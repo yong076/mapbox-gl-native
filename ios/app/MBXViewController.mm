@@ -310,6 +310,24 @@ mbgl::Settings_NSUserDefaults *settings = nullptr;
     }];
 }
 
+- (UIView *)mapView:(MGLMapView *)mapView leftCalloutAccessoryViewForAnnotation:(id<MGLAnnotation>)annotation
+{
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.frame = CGRectZero;
+    [button setTitle:@"Left" forState:UIControlStateNormal];
+    [button sizeToFit];
+    return button;
+}
+
+- (UIView *)mapView:(MGLMapView *)mapView rightCalloutAccessoryViewForAnnotation:(id<MGLAnnotation>)annotation
+{
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.frame = CGRectZero;
+    [button setTitle:@"Right" forState:UIControlStateNormal];
+    [button sizeToFit];
+    return button;
+}
+
 #pragma clang diagnostic pop
 
 @end

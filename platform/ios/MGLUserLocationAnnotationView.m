@@ -30,6 +30,7 @@ const CGFloat MGLTrackingDotRingWidth = 24.0;
         self.annotation.mapView = mapView;
         _mapView = mapView;
         [self setupLayers];
+        self.isAccessibilityElement = YES;
         self.accessibilityTraits = UIAccessibilityTraitButton;
     }
     return self;
@@ -71,6 +72,11 @@ const CGFloat MGLTrackingDotRingWidth = 24.0;
                 (int)latDeg, latDeg == 1 ? @"" : @"s", latDir,
                 (int)lonDeg, lonDeg == 1 ? @"" : @"s", lonDir];
     }
+}
+
+- (CGRect)accessibilityFrame
+{
+    return CGRectInset(self.frame, -15, -15);
 }
 
 - (UIBezierPath *)accessibilityPath

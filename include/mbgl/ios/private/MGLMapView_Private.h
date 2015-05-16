@@ -1,4 +1,4 @@
-#import <UIKit/UIKit.h>
+#import "MGLMapView.h"
 
 @interface MGLMapView ()
 
@@ -11,4 +11,3 @@
 - (BOOL)isFullyLoaded;
 
 @end
-
