@@ -41,6 +41,7 @@ NSString *const MGLDefaultStyleMarkerSymbolName = @"default_marker";
 NSString *const MGLMapboxAccessTokenManagerURLDisplayString = @"mapbox.com/account/apps";
 
 const NSTimeInterval MGLAnimationDuration = 0.3;
+const NSTimeInterval MGLMaximumUserLocationAnimationDuration = 1;
 const CGSize MGLAnnotationUpdateViewportOutset = {150, 150};
 const CGFloat MGLMinimumZoom = 3;
 
@@ -1370,12 +1371,16 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 - (void)setCenterCoordinate:(CLLocationCoordinate2D)coordinate animated:(BOOL)animated
 {
     CGFloat duration = (animated ? MGLAnimationDuration : 0);
+    [self setCenterCoordinate:coordinate animatedWithDuration:duration];
+}
 
+- (void)setCenterCoordinate:(CLLocationCoordinate2D)coordinate animatedWithDuration:(NSTimeInterval)duration
+{
     _mbglMap->setLatLngZoom(coordinateToLatLng(coordinate),
                             fmaxf(_mbglMap->getZoom(), self.currentMinimumZoom),
                             secondsAsDuration(duration));
 
-    [self notifyMapChange:@(animated ? mbgl::MapChangeRegionDidChangeAnimated : mbgl::MapChangeRegionDidChange)];
+    [self notifyMapChange:@(duration ? mbgl::MapChangeRegionDidChangeAnimated : mbgl::MapChangeRegionDidChange)];
 }
 
 - (void)setCenterCoordinate:(CLLocationCoordinate2D)centerCoordinate
@@ -2092,7 +2097,12 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     self.userLocationAnnotationView.haloLayer.hidden = ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate) ||
         newLocation.horizontalAccuracy > 10;
 
-    [self updateUserLocationAnnotationView];
+    NSTimeInterval duration = MGLAnimationDuration;
+    if (oldLocation && ! CGPointEqualToPoint(self.userLocationAnnotationView.center, CGPointZero))
+    {
+        duration = MAX([newLocation.timestamp timeIntervalSinceDate:oldLocation.timestamp], MGLMaximumUserLocationAnimationDuration);
+    }
+    [self updateUserLocationAnnotationViewAnimatedWithDuration:duration];
 }
 
 - (BOOL)locationManagerShouldDisplayHeadingCalibration:(CLLocationManager *)manager
@@ -2271,7 +2281,7 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
         case mbgl::MapChangeRegionWillChange:
         case mbgl::MapChangeRegionWillChangeAnimated:
         {
-            [self updateUserLocationAnnotationView];
+            [self updateUserLocationAnnotationViewAnimatedWithDuration:0];
             [self updateCompass];
 
             [self deselectAnnotation:self.selectedAnnotation animated:NO];
@@ -2308,7 +2318,7 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
         }
         case mbgl::MapChangeRegionIsChanging:
         {
-            [self updateUserLocationAnnotationView];
+            [self updateUserLocationAnnotationViewAnimatedWithDuration:0];
             [self updateCompass];
 
             if ([self.delegate respondsToSelector:@selector(mapViewRegionIsChanging:)])
@@ -2319,7 +2329,7 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
         case mbgl::MapChangeRegionDidChange:
         case mbgl::MapChangeRegionDidChangeAnimated:
         {
-            [self updateUserLocationAnnotationView];
+            [self updateUserLocationAnnotationViewAnimatedWithDuration:0];
             [self updateCompass];
 
             if (self.pan.state       == UIGestureRecognizerStateChanged ||
@@ -2386,7 +2396,7 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     }
 }
 
-- (void)updateUserLocationAnnotationView
+- (void)updateUserLocationAnnotationViewAnimatedWithDuration:(NSTimeInterval)duration
 {
     if ( ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate)) {
         self.userLocationAnnotationView.layer.hidden = YES;
@@ -2400,7 +2410,9 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     if (CGRectContainsPoint(CGRectInset(self.bounds, -MGLAnnotationUpdateViewportOutset.width,
         -MGLAnnotationUpdateViewportOutset.height), userPoint))
     {
-        self.userLocationAnnotationView.center = userPoint;
+        [UIView animateWithDuration:duration delay:0 options:UIViewAnimationOptionCurveLinear animations:^{
+            self.userLocationAnnotationView.center = userPoint;
+        } completion:NULL];
 
         self.userLocationAnnotationView.layer.hidden = NO;
 
