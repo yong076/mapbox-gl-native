@@ -24,7 +24,7 @@ const CGFloat MGLTrackingDotRingWidth = 24.0;
 
 - (instancetype)initInMapView:(MGLMapView *)mapView
 {
-    if (self = [super init])
+    if (self = [super initWithFrame:CGRectMake(0, 0, MGLTrackingDotRingWidth, MGLTrackingDotRingWidth)])
     {
         self.annotation = [[MGLUserLocation alloc] init];
         self.annotation.mapView = mapView;
