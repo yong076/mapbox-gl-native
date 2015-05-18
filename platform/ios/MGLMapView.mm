@@ -54,7 +54,7 @@ static NSURL *MGLURLForBundledStyleNamed(NSString *styleName)
 
 #pragma mark - Private -
 
-@interface MGLMapView () <UIGestureRecognizerDelegate, GLKViewDelegate, CLLocationManagerDelegate, UIActionSheetDelegate>
+@interface MGLMapView () <UIGestureRecognizerDelegate, GLKViewDelegate, CLLocationManagerDelegate, UIActionSheetDelegate, SMCalloutViewDelegate>
 
 @property (nonatomic) EAGLContext *context;
 @property (nonatomic) GLKView *glView;
@@ -94,6 +94,9 @@ static NSURL *MGLURLForBundledStyleNamed(NSString *styleName)
     BOOL _isTargetingInterfaceBuilder;
     CLLocationDegrees _pendingLatitude;
     CLLocationDegrees _pendingLongitude;
+    
+    CGPoint _initialImplicitCalloutViewOffset;
+    NSDate *_userLocationAnimationCompletionDate;
 }
 
 #pragma mark - Setup & Teardown -
@@ -983,11 +986,9 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
         CGPoint tapPoint = [singleTap locationInView:self];
 
-        if (self.userLocationVisible && ! [self.selectedAnnotation isEqual:self.userLocation])
+        if (self.userLocationVisible && self.selectedAnnotation != self.userLocation)
         {
-            CGRect userLocationRect = CGRectMake(tapPoint.x - 15, tapPoint.y - 15, 30, 30);
-
-            if (CGRectContainsPoint(userLocationRect, [self convertCoordinate:self.userLocation.coordinate toPointToView:self]))
+            if ([self.userLocationAnnotationView.layer.presentationLayer hitTest:tapPoint])
             {
                 [self selectAnnotation:self.userLocation animated:YES];
                 return;
@@ -1765,13 +1766,19 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     {
         // build the callout
         self.selectedAnnotationCalloutView = [self calloutViewForAnnotation:annotation];
+        self.selectedAnnotationCalloutView.delegate = self;
 
         CGRect calloutBounds;
 
-        if ([annotation isEqual:self.userLocation])
+        if (annotation == self.userLocation)
         {
-            CGPoint calloutAnchorPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
-            calloutBounds = CGRectMake(calloutAnchorPoint.x - 1, calloutAnchorPoint.y - 13, 0, 0);
+            CGRect userLocationFrame = [self.userLocationAnnotationView.layer.presentationLayer frame];
+            calloutBounds = userLocationFrame;
+            
+            CGRect implicitAnnotationFrame = [self.userLocationAnnotationView.layer.presentationLayer frame];
+            CGRect explicitAnnotationFrame = self.userLocationAnnotationView.frame;
+            _initialImplicitCalloutViewOffset = CGPointMake(CGRectGetMinX(explicitAnnotationFrame) - CGRectGetMinX(implicitAnnotationFrame),
+                                                            CGRectGetMinY(explicitAnnotationFrame) - CGRectGetMinY(implicitAnnotationFrame));
         }
         else
         {
@@ -1848,7 +1855,7 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
 {
     if ( ! annotation) return;
 
-    if ([self.selectedAnnotation isEqual:annotation])
+    if (self.selectedAnnotation == annotation)
     {
         // dismiss popup
         [self.selectedAnnotationCalloutView dismissCalloutAnimated:animated];
@@ -1863,6 +1870,35 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     {
         [self.delegate mapView:self didDeselectAnnotation:annotation];
     }
+}
+
+- (void)calloutViewWillAppear:(SMCalloutView *)calloutView
+{
+    if (self.selectedAnnotation != self.userLocation ||
+        CGPointEqualToPoint(_initialImplicitCalloutViewOffset, CGPointZero))
+    {
+        return;
+    }
+    
+    // The user location callout view initially points to the user location
+    // annotation’s implicit (visual) frame, which is offset from the
+    // annotation’s explicit frame. Now the callout view needs to rendezvous
+    // with the explicit frame. Then,
+    // -updateUserLocationAnnotationViewAnimatedWithDuration: will take over the
+    // next time an updated location arrives.
+    [UIView animateWithDuration:_userLocationAnimationCompletionDate.timeIntervalSinceNow
+                          delay:0
+                        options:(UIViewAnimationOptionCurveLinear |
+                                 UIViewAnimationOptionAllowUserInteraction |
+                                 UIViewAnimationOptionBeginFromCurrentState)
+                     animations:^
+     {
+         calloutView.frame = CGRectOffset(calloutView.frame,
+                                          _initialImplicitCalloutViewOffset.x,
+                                          _initialImplicitCalloutViewOffset.y);
+         _initialImplicitCalloutViewOffset = CGPointZero;
+     }
+                     completion:NULL];
 }
 
 #pragma mark - User Location -
@@ -2035,9 +2071,6 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
     if ([newLocation distanceFromLocation:oldLocation] || ! oldLocation)
     {
         self.userLocation.location = newLocation;
-
-        // deselect user if applicable since we don't do callout tracking yet
-        if ([self.selectedAnnotation isEqual:self.userLocation]) [self deselectAnnotation:self.userLocation animated:NO];
 
         if ([self.delegate respondsToSelector:@selector(mapView:didUpdateUserLocation:)])
         {
@@ -2398,29 +2431,57 @@ CLLocationCoordinate2D latLngToCoordinate(mbgl::LatLng latLng)
 
 - (void)updateUserLocationAnnotationViewAnimatedWithDuration:(NSTimeInterval)duration
 {
+    MGLUserLocationAnnotationView *annotationView = self.userLocationAnnotationView;
     if ( ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate)) {
-        self.userLocationAnnotationView.layer.hidden = YES;
+        annotationView.layer.hidden = YES;
         return;
     }
 
-    if ( ! self.userLocationAnnotationView.superview) [self.glView addSubview:self.userLocationAnnotationView];
-
     CGPoint userPoint = [self convertCoordinate:self.userLocation.coordinate toPointToView:self];
+    if ( ! annotationView.superview)
+    {
+        [self.glView addSubview:annotationView];
+        // Prevents the view from sliding in from the origin.
+        annotationView.center = userPoint;
+    }
 
     if (CGRectContainsPoint(CGRectInset(self.bounds, -MGLAnnotationUpdateViewportOutset.width,
         -MGLAnnotationUpdateViewportOutset.height), userPoint))
     {
-        [UIView animateWithDuration:duration delay:0 options:UIViewAnimationOptionCurveLinear animations:^{
-            self.userLocationAnnotationView.center = userPoint;
-        } completion:NULL];
+        // Smoothly move the user location annotation view and callout view to
+        // the new location.
+        [UIView animateWithDuration:duration
+                              delay:0
+                            options:(UIViewAnimationOptionCurveLinear |
+                                     UIViewAnimationOptionAllowUserInteraction |
+                                     UIViewAnimationOptionBeginFromCurrentState)
+                         animations:^
+         {
+             if (self.selectedAnnotation == self.userLocation)
+             {
+                 SMCalloutView *calloutView = self.selectedAnnotationCalloutView;
+                 calloutView.frame = CGRectOffset(calloutView.frame,
+                                                  userPoint.x - annotationView.center.x,
+                                                  userPoint.y - annotationView.center.y);
+             }
+             annotationView.center = userPoint;
+         }
+                         completion:NULL];
+        _userLocationAnimationCompletionDate = [NSDate dateWithTimeIntervalSinceNow:duration];
 
-        self.userLocationAnnotationView.layer.hidden = NO;
+        annotationView.layer.hidden = NO;
 
-        [self.userLocationAnnotationView setupLayers];
+        [annotationView setupLayers];
     }
     else
     {
+        // User has moved far enough outside of the viewport that showing it or
+        // its callout would be useless.
         self.userLocationAnnotationView.layer.hidden = YES;
+        if (self.selectedAnnotation == self.userLocation)
+        {
+            [self deselectAnnotation:self.selectedAnnotation animated:YES];
+        }
     }
 }
 
