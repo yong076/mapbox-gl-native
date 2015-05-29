@@ -7,11 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		162BBA0EE0C528C30456A4E5 /* libPods-Mapbox GL Tests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AB01D6D4AB14FE4AEC906EB3 /* libPods-Mapbox GL Tests.a */; };
 		96567A231B0E84CD00D78776 /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 96567A221B0E84CD00D78776 /* LaunchScreen.xib */; };
 		96567A311B0E8BB900D78776 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 96567A301B0E8BB900D78776 /* Images.xcassets */; };
 		96992E581B0FBB6F008978C0 /* CSSwizzler.m in Sources */ = {isa = PBXBuildFile; fileRef = 96992E541B0FBB6F008978C0 /* CSSwizzler.m */; };
 		96992E591B0FBB6F008978C0 /* LocationMocker.m in Sources */ = {isa = PBXBuildFile; fileRef = 96992E561B0FBB6F008978C0 /* LocationMocker.m */; };
 		96992E621B0FBC4F008978C0 /* CLLocationManager+MockLocation.m in Sources */ = {isa = PBXBuildFile; fileRef = 96992E611B0FBC4F008978C0 /* CLLocationManager+MockLocation.m */; };
+		9B67A76A50EE7D156602A769 /* libPods-Test Bundle.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 69833E876690ADC089B37EA8 /* libPods-Test Bundle.a */; };
 		DD043363196DBBD500E6F39D /* MGLTAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = DD04335F196DBBD500E6F39D /* MGLTAppDelegate.m */; };
 		DD043364196DBBD500E6F39D /* MGLTViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = DD043360196DBBD500E6F39D /* MGLTViewController.m */; };
 		DD043366196DBBE000E6F39D /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = DD043365196DBBE000E6F39D /* main.m */; };
@@ -20,13 +22,6 @@
 		DD0581061ACB661C00B112C9 /* MapboxGL.bundle in Resources */ = {isa = PBXBuildFile; fileRef = DD0581051ACB661C00B112C9 /* MapboxGL.bundle */; };
 		DD0581081ACB663200B112C9 /* libMapboxGL.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DD0581071ACB663200B112C9 /* libMapboxGL.a */; };
 		DD0E6F671B01806600DC035A /* MetricsTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DD0E6F661B01806600DC035A /* MetricsTests.m */; };
-		DD0E6F841B0190E200DC035A /* libOCMock.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DD0E6F701B0190E200DC035A /* libOCMock.a */; };
-		DD0E6F981B01B68E00DC035A /* OHHTTPStubs.m in Sources */ = {isa = PBXBuildFile; fileRef = DD0E6F8E1B01B68E00DC035A /* OHHTTPStubs.m */; };
-		DD0E6F991B01B68E00DC035A /* OHHTTPStubs+NSURLSessionConfiguration.m in Sources */ = {isa = PBXBuildFile; fileRef = DD0E6F8F1B01B68E00DC035A /* OHHTTPStubs+NSURLSessionConfiguration.m */; };
-		DD0E6F9A1B01B68E00DC035A /* OHHTTPStubsResponse.m in Sources */ = {isa = PBXBuildFile; fileRef = DD0E6F911B01B68E00DC035A /* OHHTTPStubsResponse.m */; };
-		DD0E6F9B1B01B68E00DC035A /* OHHTTPStubsResponse+HTTPMessage.m in Sources */ = {isa = PBXBuildFile; fileRef = DD0E6F931B01B68E00DC035A /* OHHTTPStubsResponse+HTTPMessage.m */; };
-		DD0E6F9C1B01B68E00DC035A /* OHHTTPStubsResponse+JSON.m in Sources */ = {isa = PBXBuildFile; fileRef = DD0E6F951B01B68E00DC035A /* OHHTTPStubsResponse+JSON.m */; };
-		DD0E6F9D1B01B68E00DC035A /* OHPathHelpers.m in Sources */ = {isa = PBXBuildFile; fileRef = DD0E6F971B01B68E00DC035A /* OHPathHelpers.m */; };
 		DD41CE091ACB5DBC00FA7979 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD41CE081ACB5DBC00FA7979 /* CoreTelephony.framework */; };
 		DD41CE0B1ACB5DC400FA7979 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD41CE0A1ACB5DC400FA7979 /* SystemConfiguration.framework */; };
 		DD41CE0D1ACB5DCB00FA7979 /* libc++.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DD41CE0C1ACB5DCB00FA7979 /* libc++.dylib */; };
@@ -37,45 +32,9 @@
 		DD41CE171ACB5DE700FA7979 /* GLKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD41CE161ACB5DE700FA7979 /* GLKit.framework */; };
 		DDBD016C196DC4740033959E /* MapViewTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DDBD0168196DC4740033959E /* MapViewTests.m */; };
 		DDBD016D196DC4740033959E /* KIFTestActor+MapboxGL.m in Sources */ = {isa = PBXBuildFile; fileRef = DDBD016A196DC4740033959E /* KIFTestActor+MapboxGL.m */; };
-		DDBD016E196DC4A10033959E /* libKIF.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DDBD0144196DC3AE0033959E /* libKIF.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		DDBD0143196DC3AE0033959E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = DDBD013A196DC3AE0033959E /* KIF.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = EABD46AA1857A0C700A5F081;
-			remoteInfo = KIF;
-		};
-		DDBD0145196DC3AE0033959E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = DDBD013A196DC3AE0033959E /* KIF.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = EB72047C1680DDAD00278DA2;
-			remoteInfo = "KIF-OCUnit";
-		};
-		DDBD0147196DC3AE0033959E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = DDBD013A196DC3AE0033959E /* KIF.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = EB60ECC1177F8C83005A041A;
-			remoteInfo = "Test Host";
-		};
-		DDBD0149196DC3AE0033959E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = DDBD013A196DC3AE0033959E /* KIF.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = EABD46CD1857A0F300A5F081;
-			remoteInfo = "KIF Tests";
-		};
-		DDBD014B196DC3AE0033959E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = DDBD013A196DC3AE0033959E /* KIF.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = EB60ECEB177F8DB3005A041A;
-			remoteInfo = "KIF Tests-OCUnit";
-		};
 		DDBD0160196DC3D70033959E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = DD04331B196DB9BC00E6F39D /* Project object */;
@@ -86,6 +45,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		33B984DADCC83940EFBDF66C /* Pods-Test Bundle.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Test Bundle.debug.xcconfig"; path = "Pods/Target Support Files/Pods-Test Bundle/Pods-Test Bundle.debug.xcconfig"; sourceTree = "<group>"; };
+		4EE84DA21EF6A5AF8A117610 /* Pods-Mapbox GL Tests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Mapbox GL Tests.release.xcconfig"; path = "Pods/Target Support Files/Pods-Mapbox GL Tests/Pods-Mapbox GL Tests.release.xcconfig"; sourceTree = "<group>"; };
+		69833E876690ADC089B37EA8 /* libPods-Test Bundle.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Test Bundle.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		96567A221B0E84CD00D78776 /* LaunchScreen.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = LaunchScreen.xib; sourceTree = SOURCE_ROOT; };
 		96567A301B0E8BB900D78776 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = SOURCE_ROOT; };
 		96992E531B0FBB6F008978C0 /* CSSwizzler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CSSwizzler.h; sourceTree = "<group>"; };
@@ -94,6 +56,9 @@
 		96992E561B0FBB6F008978C0 /* LocationMocker.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = LocationMocker.m; sourceTree = "<group>"; };
 		96992E601B0FBC4F008978C0 /* CLLocationManager+MockLocation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "CLLocationManager+MockLocation.h"; sourceTree = "<group>"; };
 		96992E611B0FBC4F008978C0 /* CLLocationManager+MockLocation.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "CLLocationManager+MockLocation.m"; sourceTree = "<group>"; };
+		AB01D6D4AB14FE4AEC906EB3 /* libPods-Mapbox GL Tests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Mapbox GL Tests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B2A14362A5459A17440AC53A /* Pods-Mapbox GL Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Mapbox GL Tests.debug.xcconfig"; path = "Pods/Target Support Files/Pods-Mapbox GL Tests/Pods-Mapbox GL Tests.debug.xcconfig"; sourceTree = "<group>"; };
+		BF559E38E6ACD9E50215AF3A /* Pods-Test Bundle.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Test Bundle.release.xcconfig"; path = "Pods/Target Support Files/Pods-Test Bundle/Pods-Test Bundle.release.xcconfig"; sourceTree = "<group>"; };
 		DACAD7111B08719F009119DC /* MGLMapboxEvents.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MGLMapboxEvents.h; path = ../../platform/ios/MGLMapboxEvents.h; sourceTree = SOURCE_ROOT; };
 		DD043323196DB9BC00E6F39D /* Mapbox GL Tests.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mapbox GL Tests.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DD04335F196DBBD500E6F39D /* MGLTAppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MGLTAppDelegate.m; sourceTree = SOURCE_ROOT; };
@@ -108,27 +73,6 @@
 		DD0581051ACB661C00B112C9 /* MapboxGL.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; name = MapboxGL.bundle; path = ../../build/ios/pkg/static/MapboxGL.bundle; sourceTree = SOURCE_ROOT; };
 		DD0581071ACB663200B112C9 /* libMapboxGL.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libMapboxGL.a; path = ../../build/ios/pkg/static/libMapboxGL.a; sourceTree = SOURCE_ROOT; };
 		DD0E6F661B01806600DC035A /* MetricsTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MetricsTests.m; sourceTree = SOURCE_ROOT; };
-		DD0E6F701B0190E200DC035A /* libOCMock.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libOCMock.a; path = OCMock/libOCMock.a; sourceTree = SOURCE_ROOT; };
-		DD0E6F721B0190E200DC035A /* NSNotificationCenter+OCMAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSNotificationCenter+OCMAdditions.h"; sourceTree = "<group>"; };
-		DD0E6F731B0190E200DC035A /* OCMArg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OCMArg.h; sourceTree = "<group>"; };
-		DD0E6F741B0190E200DC035A /* OCMConstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OCMConstraint.h; sourceTree = "<group>"; };
-		DD0E6F751B0190E200DC035A /* OCMLocation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OCMLocation.h; sourceTree = "<group>"; };
-		DD0E6F761B0190E200DC035A /* OCMMacroState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OCMMacroState.h; sourceTree = "<group>"; };
-		DD0E6F771B0190E200DC035A /* OCMock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OCMock.h; sourceTree = "<group>"; };
-		DD0E6F781B0190E200DC035A /* OCMockObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OCMockObject.h; sourceTree = "<group>"; };
-		DD0E6F791B0190E200DC035A /* OCMRecorder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OCMRecorder.h; sourceTree = "<group>"; };
-		DD0E6F7A1B0190E200DC035A /* OCMStubRecorder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OCMStubRecorder.h; sourceTree = "<group>"; };
-		DD0E6F8D1B01B68E00DC035A /* OHHTTPStubs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OHHTTPStubs.h; path = OHHTTPStubs/OHHTTPStubs/Sources/OHHTTPStubs.h; sourceTree = SOURCE_ROOT; };
-		DD0E6F8E1B01B68E00DC035A /* OHHTTPStubs.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OHHTTPStubs.m; path = OHHTTPStubs/OHHTTPStubs/Sources/OHHTTPStubs.m; sourceTree = SOURCE_ROOT; };
-		DD0E6F8F1B01B68E00DC035A /* OHHTTPStubs+NSURLSessionConfiguration.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "OHHTTPStubs+NSURLSessionConfiguration.m"; path = "OHHTTPStubs/OHHTTPStubs/Sources/OHHTTPStubs+NSURLSessionConfiguration.m"; sourceTree = SOURCE_ROOT; };
-		DD0E6F901B01B68E00DC035A /* OHHTTPStubsResponse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OHHTTPStubsResponse.h; path = OHHTTPStubs/OHHTTPStubs/Sources/OHHTTPStubsResponse.h; sourceTree = SOURCE_ROOT; };
-		DD0E6F911B01B68E00DC035A /* OHHTTPStubsResponse.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OHHTTPStubsResponse.m; path = OHHTTPStubs/OHHTTPStubs/Sources/OHHTTPStubsResponse.m; sourceTree = SOURCE_ROOT; };
-		DD0E6F921B01B68E00DC035A /* OHHTTPStubsResponse+HTTPMessage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "OHHTTPStubsResponse+HTTPMessage.h"; path = "OHHTTPStubs/OHHTTPStubs/Sources/OHHTTPStubsResponse+HTTPMessage.h"; sourceTree = SOURCE_ROOT; };
-		DD0E6F931B01B68E00DC035A /* OHHTTPStubsResponse+HTTPMessage.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "OHHTTPStubsResponse+HTTPMessage.m"; path = "OHHTTPStubs/OHHTTPStubs/Sources/OHHTTPStubsResponse+HTTPMessage.m"; sourceTree = SOURCE_ROOT; };
-		DD0E6F941B01B68E00DC035A /* OHHTTPStubsResponse+JSON.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "OHHTTPStubsResponse+JSON.h"; path = "OHHTTPStubs/OHHTTPStubs/Sources/OHHTTPStubsResponse+JSON.h"; sourceTree = SOURCE_ROOT; };
-		DD0E6F951B01B68E00DC035A /* OHHTTPStubsResponse+JSON.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "OHHTTPStubsResponse+JSON.m"; path = "OHHTTPStubs/OHHTTPStubs/Sources/OHHTTPStubsResponse+JSON.m"; sourceTree = SOURCE_ROOT; };
-		DD0E6F961B01B68E00DC035A /* OHPathHelpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OHPathHelpers.h; path = OHHTTPStubs/OHHTTPStubs/Sources/OHPathHelpers.h; sourceTree = SOURCE_ROOT; };
-		DD0E6F971B01B68E00DC035A /* OHPathHelpers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OHPathHelpers.m; path = OHHTTPStubs/OHHTTPStubs/Sources/OHPathHelpers.m; sourceTree = SOURCE_ROOT; };
 		DD41CE061ACB5DB300FA7979 /* libMapboxGL.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libMapboxGL.a; path = ../../build/ios/pkg/static/libMapboxGL.a; sourceTree = "<group>"; };
 		DD41CE081ACB5DBC00FA7979 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
 		DD41CE0A1ACB5DC400FA7979 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
@@ -138,7 +82,6 @@
 		DD41CE121ACB5DDA00FA7979 /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = System/Library/Frameworks/MobileCoreServices.framework; sourceTree = SDKROOT; };
 		DD41CE141ACB5DE000FA7979 /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = System/Library/Frameworks/ImageIO.framework; sourceTree = SDKROOT; };
 		DD41CE161ACB5DE700FA7979 /* GLKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLKit.framework; path = System/Library/Frameworks/GLKit.framework; sourceTree = SDKROOT; };
-		DDBD013A196DC3AE0033959E /* KIF.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = KIF.xcodeproj; path = KIF/KIF.xcodeproj; sourceTree = SOURCE_ROOT; };
 		DDBD0152196DC3D70033959E /* Test Bundle.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Test Bundle.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDBD0165196DC4560033959E /* Bundle-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Bundle-Info.plist"; sourceTree = SOURCE_ROOT; };
 		DDBD0168196DC4740033959E /* MapViewTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MapViewTests.m; sourceTree = SOURCE_ROOT; };
@@ -160,6 +103,7 @@
 				DD41CE0D1ACB5DCB00FA7979 /* libc++.dylib in Frameworks */,
 				DD41CE0F1ACB5DD000FA7979 /* libsqlite3.dylib in Frameworks */,
 				DD41CE111ACB5DD500FA7979 /* libz.dylib in Frameworks */,
+				162BBA0EE0C528C30456A4E5 /* libPods-Mapbox GL Tests.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,8 +112,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DD0580E81ACB628200B112C9 /* IOKit.framework in Frameworks */,
-				DDBD016E196DC4A10033959E /* libKIF.a in Frameworks */,
-				DD0E6F841B0190E200DC035A /* libOCMock.a in Frameworks */,
+				9B67A76A50EE7D156602A769 /* libPods-Test Bundle.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -189,6 +132,17 @@
 			path = LocationMocker;
 			sourceTree = SOURCE_ROOT;
 		};
+		A30479E724F42C45B3A5FE81 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				B2A14362A5459A17440AC53A /* Pods-Mapbox GL Tests.debug.xcconfig */,
+				4EE84DA21EF6A5AF8A117610 /* Pods-Mapbox GL Tests.release.xcconfig */,
+				33B984DADCC83940EFBDF66C /* Pods-Test Bundle.debug.xcconfig */,
+				BF559E38E6ACD9E50215AF3A /* Pods-Test Bundle.release.xcconfig */,
+			);
+			name = Pods;
+			sourceTree = "<group>";
+		};
 		DD04331A196DB9BC00E6F39D = {
 			isa = PBXGroup;
 			children = (
@@ -196,6 +150,7 @@
 				DDBD0139196DC38D0033959E /* Tests */,
 				DD043325196DB9BC00E6F39D /* Frameworks */,
 				DD043324196DB9BC00E6F39D /* Products */,
+				A30479E724F42C45B3A5FE81 /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -222,6 +177,8 @@
 				DD41CE0C1ACB5DCB00FA7979 /* libc++.dylib */,
 				DD41CE0E1ACB5DD000FA7979 /* libsqlite3.dylib */,
 				DD41CE101ACB5DD500FA7979 /* libz.dylib */,
+				AB01D6D4AB14FE4AEC906EB3 /* libPods-Mapbox GL Tests.a */,
+				69833E876690ADC089B37EA8 /* libPods-Test Bundle.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -251,50 +208,6 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
-		DD0E6F6B1B01906600DC035A /* OCMock */ = {
-			isa = PBXGroup;
-			children = (
-				DD0E6F701B0190E200DC035A /* libOCMock.a */,
-				DD0E6F711B0190E200DC035A /* OCMock */,
-			);
-			name = OCMock;
-			sourceTree = "<group>";
-		};
-		DD0E6F711B0190E200DC035A /* OCMock */ = {
-			isa = PBXGroup;
-			children = (
-				DD0E6F721B0190E200DC035A /* NSNotificationCenter+OCMAdditions.h */,
-				DD0E6F731B0190E200DC035A /* OCMArg.h */,
-				DD0E6F741B0190E200DC035A /* OCMConstraint.h */,
-				DD0E6F751B0190E200DC035A /* OCMLocation.h */,
-				DD0E6F761B0190E200DC035A /* OCMMacroState.h */,
-				DD0E6F771B0190E200DC035A /* OCMock.h */,
-				DD0E6F781B0190E200DC035A /* OCMockObject.h */,
-				DD0E6F791B0190E200DC035A /* OCMRecorder.h */,
-				DD0E6F7A1B0190E200DC035A /* OCMStubRecorder.h */,
-			);
-			name = OCMock;
-			path = OCMock/OCMock;
-			sourceTree = SOURCE_ROOT;
-		};
-		DD0E6F861B01B67100DC035A /* OHHTTPStubs */ = {
-			isa = PBXGroup;
-			children = (
-				DD0E6F8D1B01B68E00DC035A /* OHHTTPStubs.h */,
-				DD0E6F8E1B01B68E00DC035A /* OHHTTPStubs.m */,
-				DD0E6F8F1B01B68E00DC035A /* OHHTTPStubs+NSURLSessionConfiguration.m */,
-				DD0E6F901B01B68E00DC035A /* OHHTTPStubsResponse.h */,
-				DD0E6F911B01B68E00DC035A /* OHHTTPStubsResponse.m */,
-				DD0E6F921B01B68E00DC035A /* OHHTTPStubsResponse+HTTPMessage.h */,
-				DD0E6F931B01B68E00DC035A /* OHHTTPStubsResponse+HTTPMessage.m */,
-				DD0E6F941B01B68E00DC035A /* OHHTTPStubsResponse+JSON.h */,
-				DD0E6F951B01B68E00DC035A /* OHHTTPStubsResponse+JSON.m */,
-				DD0E6F961B01B68E00DC035A /* OHPathHelpers.h */,
-				DD0E6F971B01B68E00DC035A /* OHPathHelpers.m */,
-			);
-			name = OHHTTPStubs;
-			sourceTree = "<group>";
-		};
 		DDAE739B1ACB557500E1A793 /* GL Library */ = {
 			isa = PBXGroup;
 			children = (
@@ -314,33 +227,10 @@
 				DDBD0168196DC4740033959E /* MapViewTests.m */,
 				DD0E6F661B01806600DC035A /* MetricsTests.m */,
 				DDBD0167196DC46B0033959E /* Supporting Files */,
-				DDBD014D196DC3B00033959E /* KIF */,
 				96992E501B0FBB6F008978C0 /* LocationMocker */,
-				DD0E6F6B1B01906600DC035A /* OCMock */,
-				DD0E6F861B01B67100DC035A /* OHHTTPStubs */,
 			);
 			name = Tests;
 			path = "Mapbox GL Tests";
-			sourceTree = "<group>";
-		};
-		DDBD013B196DC3AE0033959E /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				DDBD0144196DC3AE0033959E /* libKIF.a */,
-				DDBD0146196DC3AE0033959E /* libKIF-OCUnit.a */,
-				DDBD0148196DC3AE0033959E /* Test Host.app */,
-				DDBD014A196DC3AE0033959E /* KIF Tests - XCTest.xctest */,
-				DDBD014C196DC3AE0033959E /* KIF Tests-OCUnit.octest */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		DDBD014D196DC3B00033959E /* KIF */ = {
-			isa = PBXGroup;
-			children = (
-				DDBD013A196DC3AE0033959E /* KIF.xcodeproj */,
-			);
-			name = KIF;
 			sourceTree = "<group>";
 		};
 		DDBD0167196DC46B0033959E /* Supporting Files */ = {
@@ -358,9 +248,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = DD043358196DB9BC00E6F39D /* Build configuration list for PBXNativeTarget "Mapbox GL Tests" */;
 			buildPhases = (
+				6D16FE502CB35EB6A5F8D5C9 /* Check Pods Manifest.lock */,
 				DD04331F196DB9BC00E6F39D /* Sources */,
 				DD043320196DB9BC00E6F39D /* Frameworks */,
 				DD043321196DB9BC00E6F39D /* Resources */,
+				1F94CFA6627A069C501643D7 /* Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -375,9 +267,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = DDBD0162196DC3D70033959E /* Build configuration list for PBXNativeTarget "Test Bundle" */;
 			buildPhases = (
+				DAE0AB75EA8E1B0C480FB967 /* Check Pods Manifest.lock */,
 				DDBD014E196DC3D70033959E /* Sources */,
 				DDBD014F196DC3D70033959E /* Frameworks */,
 				DDBD0150196DC3D70033959E /* Resources */,
+				883C926726C6F8294E740FEA /* Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -415,12 +309,6 @@
 			mainGroup = DD04331A196DB9BC00E6F39D;
 			productRefGroup = DD043324196DB9BC00E6F39D /* Products */;
 			projectDirPath = "";
-			projectReferences = (
-				{
-					ProductGroup = DDBD013B196DC3AE0033959E /* Products */;
-					ProjectRef = DDBD013A196DC3AE0033959E /* KIF.xcodeproj */;
-				},
-			);
 			projectRoot = "";
 			targets = (
 				DD043322196DB9BC00E6F39D /* Mapbox GL Tests */,
@@ -428,44 +316,6 @@
 			);
 		};
 /* End PBXProject section */
-
-/* Begin PBXReferenceProxy section */
-		DDBD0144196DC3AE0033959E /* libKIF.a */ = {
-			isa = PBXReferenceProxy;
-			fileType = archive.ar;
-			path = libKIF.a;
-			remoteRef = DDBD0143196DC3AE0033959E /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		DDBD0146196DC3AE0033959E /* libKIF-OCUnit.a */ = {
-			isa = PBXReferenceProxy;
-			fileType = archive.ar;
-			path = "libKIF-OCUnit.a";
-			remoteRef = DDBD0145196DC3AE0033959E /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		DDBD0148196DC3AE0033959E /* Test Host.app */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.application;
-			path = "Test Host.app";
-			remoteRef = DDBD0147196DC3AE0033959E /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		DDBD014A196DC3AE0033959E /* KIF Tests - XCTest.xctest */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = "KIF Tests - XCTest.xctest";
-			remoteRef = DDBD0149196DC3AE0033959E /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		DDBD014C196DC3AE0033959E /* KIF Tests-OCUnit.octest */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.cfbundle;
-			path = "KIF Tests-OCUnit.octest";
-			remoteRef = DDBD014B196DC3AE0033959E /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-/* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		DD043321196DB9BC00E6F39D /* Resources */ = {
@@ -488,6 +338,69 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		1F94CFA6627A069C501643D7 /* Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Pods Resources";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Pods/Target Support Files/Pods-Mapbox GL Tests/Pods-Mapbox GL Tests-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		6D16FE502CB35EB6A5F8D5C9 /* Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Check Pods Manifest.lock";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_ROOT}/../Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [[ $? != 0 ]] ; then\n    cat << EOM\nerror: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\nEOM\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		883C926726C6F8294E740FEA /* Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Pods Resources";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Pods/Target Support Files/Pods-Test Bundle/Pods-Test Bundle-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		DAE0AB75EA8E1B0C480FB967 /* Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Check Pods Manifest.lock";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_ROOT}/../Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [[ $? != 0 ]] ; then\n    cat << EOM\nerror: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\nEOM\n    exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		DD04331F196DB9BC00E6F39D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -506,15 +419,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DD0E6F981B01B68E00DC035A /* OHHTTPStubs.m in Sources */,
-				DD0E6F9C1B01B68E00DC035A /* OHHTTPStubsResponse+JSON.m in Sources */,
-				DD0E6F9B1B01B68E00DC035A /* OHHTTPStubsResponse+HTTPMessage.m in Sources */,
 				DDBD016D196DC4740033959E /* KIFTestActor+MapboxGL.m in Sources */,
-				DD0E6F991B01B68E00DC035A /* OHHTTPStubs+NSURLSessionConfiguration.m in Sources */,
-				DD0E6F9A1B01B68E00DC035A /* OHHTTPStubsResponse.m in Sources */,
 				DD0E6F671B01806600DC035A /* MetricsTests.m in Sources */,
 				DDBD016C196DC4740033959E /* MapViewTests.m in Sources */,
-				DD0E6F9D1B01B68E00DC035A /* OHPathHelpers.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -603,6 +510,7 @@
 		};
 		DD043359196DB9BC00E6F39D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B2A14362A5459A17440AC53A /* Pods-Mapbox GL Tests.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
@@ -617,7 +525,6 @@
 					"$(inherited)",
 					../../build/ios/pkg/static,
 				);
-				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				WRAPPER_EXTENSION = app;
@@ -626,6 +533,7 @@
 		};
 		DD04335A196DB9BC00E6F39D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4EE84DA21EF6A5AF8A117610 /* Pods-Mapbox GL Tests.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
@@ -640,7 +548,6 @@
 					"$(inherited)",
 					../../build/ios/pkg/static,
 				);
-				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				WRAPPER_EXTENSION = app;
@@ -649,6 +556,7 @@
 		};
 		DDBD0163196DC3D70033959E /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 33B984DADCC83940EFBDF66C /* Pods-Test Bundle.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/Mapbox GL Tests.app/Mapbox GL Tests";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -656,11 +564,6 @@
 					"$(inherited)",
 					"$(DEVELOPER_FRAMEWORKS_DIR)",
 					"$(DEVELOPER_DIR)/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk/System/Library/Frameworks",
-				);
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-					"KIF_XCTEST=1",
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -670,16 +573,6 @@
 					OHHTTPStubs/OHHTTPStubs/Sources,
 				);
 				INFOPLIST_FILE = "Bundle-Info.plist";
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/OCMock",
-				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					XCTest,
-					"-ObjC",
-				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_HOST = "$(BUNDLE_LOADER)";
 				WRAPPER_EXTENSION = xctest;
@@ -688,6 +581,7 @@
 		};
 		DDBD0164196DC3D70033959E /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BF559E38E6ACD9E50215AF3A /* Pods-Test Bundle.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/Mapbox GL Tests.app/Mapbox GL Tests";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -696,7 +590,6 @@
 					"$(DEVELOPER_FRAMEWORKS_DIR)",
 					"$(DEVELOPER_DIR)/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk/System/Library/Frameworks",
 				);
-				GCC_PREPROCESSOR_DEFINITIONS = "KIF_XCTEST=1";
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
@@ -705,16 +598,6 @@
 					OHHTTPStubs/OHHTTPStubs/Sources,
 				);
 				INFOPLIST_FILE = "Bundle-Info.plist";
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/OCMock",
-				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					XCTest,
-					"-ObjC",
-				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_HOST = "$(BUNDLE_LOADER)";
 				WRAPPER_EXTENSION = xctest;

@@ -1,0 +1,18 @@
+PODS:
+  - KIF (3.2.2):
+    - KIF/XCTest (= 3.2.2)
+  - KIF/XCTest (3.2.2)
+  - OCMock (3.1.2)
+  - OHHTTPStubs (4.0.2)
+
+DEPENDENCIES:
+  - KIF (~> 3.2.1)
+  - OCMock (~> 3.1.2)
+  - OHHTTPStubs (~> 4.0.2)
+
+SPEC CHECKSUMS:
+  KIF: b0bd762b0c7890b04920cf618021d6d4fd5127bd
+  OCMock: a10ea9f0a6e921651f96f78b6faee95ebc813b92
+  OHHTTPStubs: dbd1957d414659783e07b49c961940b7564c23d9
+
+COCOAPODS: 0.37.2
