@@ -19,6 +19,9 @@
 /test/fixtures/api/1.png
 /test/fixtures/api/2.png
 /test/fixtures/database/*.db
+/test/android/screenshot_*.png
+/test/android/test_servers/
+/test/android/*.apk
 /include/mbgl/shader/shaders.hpp
 /src/shader/shaders_gl.cpp
 /src/shader/shaders_gles2.cpp

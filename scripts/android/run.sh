@@ -3,6 +3,11 @@
 set -e
 set -o pipefail
 
+# We only install mesa on the Travis ARM debug job
+if [ ${ANDROID_ABI} == "arm-v7" ] && [ ${BUILDTYPE} == "Debug" ] ; then
+    source ./scripts/linux/setup.sh
+fi
+
 BUILDTYPE=${BUILDTYPE:-Release}
 TESTMUNK=${TESTMUNK:-no}
 export HOST=android
@@ -29,6 +34,50 @@ mapbox_time "build_apk" \
 make android -j${JOBS} BUILDTYPE=${BUILDTYPE}
 
 ################################################################################
+# Test
+################################################################################
+
+APK_OUTPUTS=./android/java/MapboxGLAndroidSDKTestApp/build/outputs/apk
+
+# Currently release builds will not resign so we have to use debug bulds
+# Also we currently only install the ARM emulator
+if [ ${ANDROID_ABI} == "arm-v7" ] && [ ${BUILDTYPE} == "Debug" ] ; then
+
+    mapbox_time_start "start_emulator"
+    echo "Starting the emulator..."
+    android create avd -n test -t android-22 -b armeabi-v7a -d "Nexus 5"
+    emulator -avd test -no-skin -no-audio -gpu on &
+    adb logcat
+    #emulator -avd test -no-skin -no-audio -no-window -gpu on &
+    ./scripts/android/wait_for_emulator.sh
+    mapbox_time_finish
+
+    mapbox_time_start "calabash_test"
+    echo "Running Calabash tests..."
+
+    if [ ${BUILDTYPE} == "Debug" ] ; then
+        cp \
+            ${APK_OUTPUTS}/MapboxGLAndroidSDKTestApp-debug.apk \
+            ./test/android/test.apk
+    elif [ ${BUILDTYPE} == "Release" ] ; then
+        cp \
+            ${APK_OUTPUTS}/MapboxGLAndroidSDKTestApp-release-unsigned.apk \
+            ./test/android/test.apk
+    fi
+
+    pushd ./test/android
+    calabash-android resign test.apk # This fails on release builds because we
+                                     # dont have release signing set up in gradle
+    calabash-android run test.apk --verbose
+    popd
+
+    # TODO upload logcat to s3 along with screenshots
+    #adb logcat
+
+    mapbox_time_finish
+fi
+
+################################################################################
 # Deploy
 ################################################################################
 
@@ -42,7 +91,6 @@ if [ ! -z "${AWS_ACCESS_KEY_ID}" ] && [ ! -z "${AWS_SECRET_ACCESS_KEY}" ] ; then
     echo "Deploying results..."
 
     S3_PREFIX=s3://mapbox/mapbox-gl-native/android/build/${TRAVIS_JOB_NUMBER}
-    APK_OUTPUTS=./android/java/MapboxGLAndroidSDKTestApp/build/outputs/apk
 
     # Upload either the debug or the release build
     if [ ${BUILDTYPE} == "Debug" ] ; then
