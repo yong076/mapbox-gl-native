@@ -21,10 +21,12 @@ if [[ ${PUBLISH_PLATFORM} = 'ios' ]]; then
     # build & package iOS
     mapbox_time "package_ios" \
     make ipackage
+    make ipackage-strip
 
     # publish iOS build
     mapbox_time "deploy_ios" \
-    ./scripts/ios/publish.sh "${PUBLISH_VERSION}"
+    ./scripts/ios/publish.sh "${PUBLISH_VERSION}" nosymbols
+    ./scripts/ios/publish.sh "${PUBLISH_VERSION}" symbols
 else
     # build & test iOS
     mapbox_time "run_ios_tests" \

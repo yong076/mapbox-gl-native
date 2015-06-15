@@ -9,10 +9,15 @@ OUTPUT=build/ios/pkg
 IOS_SDK_VERSION=`xcrun --sdk iphoneos --show-sdk-version`
 LIBUV_VERSION=0.10.28
 
-if [[ ${#} -eq 0 ]]; then
+if [[ ${#} -eq 0 ]]; then # e.g. "make ipackage"
     BUILD_FOR_DEVICE=true
-else
+    GCC_GENERATE_DEBUGGING_SYMBOLS=true
+else if [[ ${1} -eq "sim" ]]; then # e.g. "make ipackage-sim"
     BUILD_FOR_DEVICE=false
+    GCC_GENERATE_DEBUGGING_SYMBOLS=true
+else # e.g. "make ipackage-strip"
+    BUILD_FOR_DEVICE=true
+    GCC_GENERATE_DEBUGGING_SYMBOLS=false
 fi
 
 function step { >&2 echo -e "\033[1m\033[36m* $@\033[0m"; }
@@ -43,7 +48,8 @@ if [[ "${BUILD_FOR_DEVICE}" == true ]]; then
     step "Building iOS device targets..."
     xcodebuild -sdk iphoneos${IOS_SDK_VERSION} \
         ARCHS="arm64 armv7 armv7s" \
-        ONLY_ACTIVE_ARCH=NO \
+        ONLY_ACTIVE_ARCH=${GCC_GENERATE_DEBUGGING_SYMBOLS} \
+        GCC_GENERATE_DEBUGGING_SYMBOLS=NO \
         -project ./build/ios/mbgl.xcodeproj \
         -configuration ${BUILDTYPE} \
         -target everything \
@@ -54,6 +60,7 @@ step "Building iOS Simulator targets..."
 xcodebuild -sdk iphonesimulator${IOS_SDK_VERSION} \
     ARCHS="x86_64 i386" \
     ONLY_ACTIVE_ARCH=NO \
+    GCC_GENERATE_DEBUGGING_SYMBOLS=${GCC_GENERATE_DEBUGGING_SYMBOLS} \
     -project ./build/ios/mbgl.xcodeproj \
     -configuration ${BUILDTYPE} \
     -target everything \
