@@ -18,15 +18,19 @@ PUBLISH_VERSION=${PUBLISH_TAG[1],-}
 ################################################################################
 
 if [[ ${PUBLISH_PLATFORM} = 'ios' ]]; then
-    # build & package iOS
-    mapbox_time "package_ios" \
+    # default, with debug symbols
+    mapbox_time "package_ios_symbols" \
     make ipackage
+
+    mapbox_time "deploy_ios_symbols"
+    ./scripts/ios/publish.sh "${PUBLISH_VERSION}" symbols
+
+    # no debug symbols, for smaller distribution
+    mapbox_time "package_ios_stripped" \
     make ipackage-strip
 
-    # publish iOS build
-    mapbox_time "deploy_ios" \
-    ./scripts/ios/publish.sh "${PUBLISH_VERSION}" nosymbols
-    ./scripts/ios/publish.sh "${PUBLISH_VERSION}" symbols
+    mapbox_time "deploy_ios_stripped"
+    ./scripts/ios/publish.sh "${PUBLISH_VERSION}"
 else
     # build & test iOS
     mapbox_time "run_ios_tests" \

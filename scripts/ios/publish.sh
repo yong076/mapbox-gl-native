@@ -8,13 +8,18 @@ set -u
 # iOS release tag format is `ios-vX.Y.Z`; `X.Y.Z` gets passed in
 #
 PUBLISH_VERSION="$1"
-PUBLISH_STYLE="$2"
+
+if [[ ${#} -eq 2 ]]; then
+    PUBLISH_STYLE="-$2"
+else
+    PUBLISH_STYLE=""
+fi
 
 #
 # zip
 #
 cd build/ios/pkg/static
-ZIP=mapbox-gl-ios-${PUBLISH_VERSION}-${PUBLISH_STYLE}.zip
+ZIP=mapbox-gl-ios-${PUBLISH_VERSION}${PUBLISH_STYLE}.zip
 rm -f ../${ZIP}
 zip -r ../${ZIP} *
 #
