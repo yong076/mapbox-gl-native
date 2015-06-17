@@ -11,13 +11,13 @@ LIBUV_VERSION=0.10.28
 
 if [[ ${#} -eq 0 ]]; then # e.g. "make ipackage"
     BUILD_FOR_DEVICE=true
-    GCC_GENERATE_DEBUGGING_SYMBOLS=true
-else if [[ ${1} -eq "sim" ]]; then # e.g. "make ipackage-sim"
+    GCC_GENERATE_DEBUGGING_SYMBOLS="YES"
+elif [[ ${1} -eq "sim" ]]; then # e.g. "make ipackage-sim"
     BUILD_FOR_DEVICE=false
-    GCC_GENERATE_DEBUGGING_SYMBOLS=true
+    GCC_GENERATE_DEBUGGING_SYMBOLS="YES"
 else # e.g. "make ipackage-strip"
     BUILD_FOR_DEVICE=true
-    GCC_GENERATE_DEBUGGING_SYMBOLS=false
+    GCC_GENERATE_DEBUGGING_SYMBOLS="NO"
 fi
 
 function step { >&2 echo -e "\033[1m\033[36m* $@\033[0m"; }
