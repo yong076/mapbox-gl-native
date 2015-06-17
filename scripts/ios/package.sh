@@ -12,7 +12,7 @@ LIBUV_VERSION=0.10.28
 if [[ ${#} -eq 0 ]]; then # e.g. "make ipackage"
     BUILD_FOR_DEVICE=true
     GCC_GENERATE_DEBUGGING_SYMBOLS="YES"
-elif [[ ${1} -eq "sim" ]]; then # e.g. "make ipackage-sim"
+elif [[ ${1} == "sim" ]]; then # e.g. "make ipackage-sim"
     BUILD_FOR_DEVICE=false
     GCC_GENERATE_DEBUGGING_SYMBOLS="YES"
 else # e.g. "make ipackage-strip"
