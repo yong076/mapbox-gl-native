@@ -6,6 +6,7 @@ set -u
 
 #
 # iOS release tag format is `ios-vX.Y.Z`; `X.Y.Z` gets passed in
+# In the case of symbolicated builds, we also append the `style`.
 #
 PUBLISH_VERSION="$1"
 
