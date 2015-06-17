@@ -48,8 +48,8 @@ if [[ "${BUILD_FOR_DEVICE}" == true ]]; then
     step "Building iOS device targets..."
     xcodebuild -sdk iphoneos${IOS_SDK_VERSION} \
         ARCHS="arm64 armv7 armv7s" \
-        ONLY_ACTIVE_ARCH=${GCC_GENERATE_DEBUGGING_SYMBOLS} \
-        GCC_GENERATE_DEBUGGING_SYMBOLS=NO \
+        ONLY_ACTIVE_ARCH=NO \
+        GCC_GENERATE_DEBUGGING_SYMBOLS=${GCC_GENERATE_DEBUGGING_SYMBOLS} \
         -project ./build/ios/mbgl.xcodeproj \
         -configuration ${BUILDTYPE} \
         -target everything \
