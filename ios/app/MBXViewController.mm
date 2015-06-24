@@ -340,6 +340,19 @@ mbgl::Settings_NSUserDefaults *settings = nullptr;
 
 #pragma mark - MGLMapViewDelegate
 
+- (UIView *)mapView:(__unused MGLMapView * __nonnull)mapView viewForAnnotation:(__unused id <MGLAnnotation> __nonnull)annotation
+{
+    // FIXME: user location dot
+
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 20, 20)];
+    view.backgroundColor = [UIColor redColor];
+    view.layer.borderColor = [[UIColor blackColor] CGColor];
+    view.layer.borderWidth = 1;
+    view.layer.cornerRadius = 10;
+
+    return view;
+}
+
 - (BOOL)mapView:(__unused MGLMapView *)mapView annotationCanShowCallout:(__unused id <MGLAnnotation>)annotation
 {
     return YES;

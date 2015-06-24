@@ -123,8 +123,6 @@ AnnotationManager::addAnnotations(const AnnotationType type,
                     const std::string& symbol = annotationsProperties.at("symbols")[p];
                     if (symbol.length()) {
                         pointFeatureProperties.emplace("sprite", symbol);
-                    } else {
-                        pointFeatureProperties.emplace("sprite", defaultPointAnnotationSymbol);
                     }
 
                     // add individual point tile feature

@@ -306,6 +306,8 @@ IB_DESIGNABLE
 *   @return The marker symbol to display for the specified annotation or `nil` if you want to display the default symbol. */
 - (nullable NSString *)mapView:(MGLMapView *)mapView symbolNameForAnnotation:(id <MGLAnnotation>)annotation;
 
+- (nullable UIView *)mapView:(MGLMapView *)mapView viewForAnnotation:(id <MGLAnnotation>)annotation;
+
 /** Returns the alpha value to use when rendering a shape annotation. Defaults to `1.0`.
 *   @param mapView The map view rendering the shape annotation.
 *   @param annotation The annotation being rendered.

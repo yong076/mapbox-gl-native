@@ -43,6 +43,7 @@ const CGSize MGLAnnotationUpdateViewportOutset = {150, 150};
 const CGFloat MGLMinimumZoom = 3;
 
 NSString *const MGLAnnotationIDKey = @"MGLAnnotationIDKey";
+NSString *const MGLAnnotationViewKey = @"MGLAnnotationViewKey";
 
 static NSURL *MGLURLForBundledStyleNamed(NSString *styleName)
 {
@@ -1691,10 +1692,13 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
     std::vector<mbgl::StyleProperties> shapesProperties;
 
     BOOL delegateImplementsSymbolLookup = [self.delegate respondsToSelector:@selector(mapView:symbolNameForAnnotation:)];
+    BOOL delegateImplementsViewForAnnotation = [self.delegate respondsToSelector:@selector(mapView:viewForAnnotation:)];
     BOOL delegateImplementsAlphaForShape = [self.delegate respondsToSelector:@selector(mapView:alphaForShapeAnnotation:)];
     BOOL delegateImplementsStrokeColorForShape = [self.delegate respondsToSelector:@selector(mapView:strokeColorForShapeAnnotation:)];
     BOOL delegateImplementsFillColorForPolygon = [self.delegate respondsToSelector:@selector(mapView:fillColorForPolygonAnnotation:)];
     BOOL delegateImplementsLineWidthForPolyline = [self.delegate respondsToSelector:@selector(mapView:lineWidthForPolylineAnnotation:)];
+
+    NSMapTable *annotationViews = [NSMapTable mapTableWithKeyOptions:NSMapTableWeakMemory valueOptions:NSMapTableWeakMemory];
 
     for (id <MGLAnnotation> annotation in annotations)
     {
@@ -1778,9 +1782,23 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
         {
             points.push_back(MGLLatLngFromLocationCoordinate2D(annotation.coordinate));
 
+            UIView *annotationView;
+
+            mbgl::LatLngBounds viewportBounds = [self viewportBounds];
+
+            if (delegateImplementsViewForAnnotation && viewportBounds.contains(points.back()))
+            {
+                annotationView = [self.delegate mapView:self viewForAnnotation:annotation];
+                annotationView.center = [self convertCoordinate:annotation.coordinate toPointToView:self];
+
+                [self addSubview:annotationView];
+
+                [annotationViews setObject:annotationView forKey:annotation];
+            }
+
             NSString *symbolName = nil;
 
-            if (delegateImplementsSymbolLookup)
+            if (annotationView == nil && delegateImplementsSymbolLookup)
             {
                 symbolName = [self.delegate mapView:self symbolNameForAnnotation:annotation];
             }
@@ -1795,7 +1813,10 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
 
         for (size_t i = 0; i < pointAnnotationIDs.size(); ++i)
         {
-            [self.annotationIDsByAnnotation setObject:@{ MGLAnnotationIDKey : @(pointAnnotationIDs[i]) }
+            [self.annotationIDsByAnnotation setObject:@{
+                MGLAnnotationIDKey   : @(pointAnnotationIDs[i]),
+                MGLAnnotationViewKey : [annotationViews objectForKey:annotations[i]]
+            }
                                                forKey:annotations[i]];
         }
     }
@@ -2221,7 +2242,7 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
     self.userLocationAnnotationView.haloLayer.hidden = ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate) ||
         newLocation.horizontalAccuracy > 10;
 
-    [self updateUserLocationAnnotationView];
+    [self updateAnnotationViews];
 }
 
 - (BOOL)locationManagerShouldDisplayHeadingCalibration:(CLLocationManager *)manager
@@ -2382,7 +2403,7 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
         case mbgl::MapChangeRegionWillChange:
         case mbgl::MapChangeRegionWillChangeAnimated:
         {
-            [self updateUserLocationAnnotationView];
+            [self updateAnnotationViews];
             [self updateCompass];
 
             [self deselectAnnotation:self.selectedAnnotation animated:NO];
@@ -2419,7 +2440,7 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
         }
         case mbgl::MapChangeRegionIsChanging:
         {
-            [self updateUserLocationAnnotationView];
+            [self updateAnnotationViews];
             [self updateCompass];
 
             if ([self.delegate respondsToSelector:@selector(mapViewRegionIsChanging:)])
@@ -2430,7 +2451,7 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
         case mbgl::MapChangeRegionDidChange:
         case mbgl::MapChangeRegionDidChangeAnimated:
         {
-            [self updateUserLocationAnnotationView];
+            [self updateAnnotationViews];
             [self updateCompass];
 
             if (self.pan.state       == UIGestureRecognizerStateChanged ||
@@ -2497,8 +2518,19 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
     }
 }
 
-- (void)updateUserLocationAnnotationView
+- (void)updateAnnotationViews
 {
+    NSEnumerator *enumerator = self.annotationIDsByAnnotation.keyEnumerator;
+
+    while (id <MGLAnnotation> annotation = enumerator.nextObject)
+    {
+        CGPoint viewPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
+
+        UIView *view = [self.annotationIDsByAnnotation objectForKey:annotation][MGLAnnotationViewKey];
+
+        view.center = viewPoint;
+    }
+
     if ( ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate)) {
         self.userLocationAnnotationView.layer.hidden = YES;
         return;
