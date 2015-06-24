@@ -2520,16 +2520,25 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
 
 - (void)updateAnnotationViews
 {
-    NSEnumerator *enumerator = self.annotationIDsByAnnotation.keyEnumerator;
+    // FIXME: sort annotation views by y-value
 
-    while (id <MGLAnnotation> annotation = enumerator.nextObject)
-    {
-        CGPoint viewPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
+    [UIView animateWithDuration:0
+                          delay:0
+                        options:UIViewAnimationOptionBeginFromCurrentState
+                     animations:^{
 
-        UIView *view = [self.annotationIDsByAnnotation objectForKey:annotation][MGLAnnotationViewKey];
+                         NSEnumerator *enumerator = self.annotationIDsByAnnotation.keyEnumerator;
 
-        view.center = viewPoint;
-    }
+                         while (id <MGLAnnotation> annotation = enumerator.nextObject)
+                         {
+                             CGPoint viewPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
+
+                             UIView *view = [self.annotationIDsByAnnotation objectForKey:annotation][MGLAnnotationViewKey];
+
+                             view.center = viewPoint;
+                         }
+
+                     } completion:nil];
 
     if ( ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate)) {
         self.userLocationAnnotationView.layer.hidden = YES;
