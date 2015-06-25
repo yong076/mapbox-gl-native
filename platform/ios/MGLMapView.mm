@@ -633,6 +633,8 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
         _mbglMap->renderSync();
 
+        [self updateAnnotationViewsUserLocationOnly:NO];
+
         [self notifyMapChange:@(mbgl::MapChangeDidFinishRenderingMap)];
     }
 }
@@ -2242,7 +2244,7 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
     self.userLocationAnnotationView.haloLayer.hidden = ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate) ||
         newLocation.horizontalAccuracy > 10;
 
-    [self updateAnnotationViews];
+    [self updateAnnotationViewsUserLocationOnly:YES];
 }
 
 - (BOOL)locationManagerShouldDisplayHeadingCalibration:(CLLocationManager *)manager
@@ -2403,7 +2405,6 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
         case mbgl::MapChangeRegionWillChange:
         case mbgl::MapChangeRegionWillChangeAnimated:
         {
-            [self updateAnnotationViews];
             [self updateCompass];
 
             [self deselectAnnotation:self.selectedAnnotation animated:NO];
@@ -2440,7 +2441,6 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
         }
         case mbgl::MapChangeRegionIsChanging:
         {
-            [self updateAnnotationViews];
             [self updateCompass];
 
             if ([self.delegate respondsToSelector:@selector(mapViewRegionIsChanging:)])
@@ -2451,7 +2451,6 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
         case mbgl::MapChangeRegionDidChange:
         case mbgl::MapChangeRegionDidChangeAnimated:
         {
-            [self updateAnnotationViews];
             [self updateCompass];
 
             if (self.pan.state       == UIGestureRecognizerStateChanged ||
@@ -2518,27 +2517,23 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
     }
 }
 
-- (void)updateAnnotationViews
+- (void)updateAnnotationViewsUserLocationOnly:(BOOL)updateOnlyUserLocation
 {
-    // FIXME: sort annotation views by y-value
+    if ( ! updateOnlyUserLocation)
+    {
+        // FIXME: sort annotation views by y-value
 
-    [UIView animateWithDuration:0
-                          delay:0
-                        options:UIViewAnimationOptionBeginFromCurrentState
-                     animations:^{
+        NSEnumerator *enumerator = self.annotationIDsByAnnotation.keyEnumerator;
 
-                         NSEnumerator *enumerator = self.annotationIDsByAnnotation.keyEnumerator;
+        while (id <MGLAnnotation> annotation = enumerator.nextObject)
+        {
+            CGPoint viewPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
 
-                         while (id <MGLAnnotation> annotation = enumerator.nextObject)
-                         {
-                             CGPoint viewPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
+            UIView *view = [self.annotationIDsByAnnotation objectForKey:annotation][MGLAnnotationViewKey];
 
-                             UIView *view = [self.annotationIDsByAnnotation objectForKey:annotation][MGLAnnotationViewKey];
-
-                             view.center = viewPoint;
-                         }
-
-                     } completion:nil];
+            view.center = viewPoint;
+        }
+    }
 
     if ( ! CLLocationCoordinate2DIsValid(self.userLocation.coordinate)) {
         self.userLocationAnnotationView.layer.hidden = YES;
