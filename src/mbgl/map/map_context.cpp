@@ -21,6 +21,9 @@
 #include <mbgl/util/texture_pool.hpp>
 #include <mbgl/util/exception.hpp>
 
+#include <mbgl/shader/plain_shader.hpp>
+#include <mbgl/util/box.hpp>
+
 #include <algorithm>
 
 namespace mbgl {
@@ -322,6 +325,112 @@ void MapContext::render() {
 
     painter->setDebug(data.getDebug());
     painter->render(*style, transformState, data.getAnimationTime());
+
+
+
+
+
+
+    const auto s = data.transform.currentState();
+
+    const auto l = LatLng(38.87031006108791, -77.00896639534831);
+
+    vec2<double> p = s.pixelForLatLng(l);
+
+//    // flip Y to match GL
+//    p.y = s.getHeight() - p.y;
+
+    // create a GL coordinate system billboard rect
+    double size = 20;
+
+    box b;
+    b.tl.x = (p.x - size / 2) / s.getWidth();
+    b.tl.y = (p.y - size / 2) / s.getHeight();
+
+    b.tr.x = b.tl.x + size / s.getWidth();
+    b.tr.y = b.tl.y;
+
+    b.bl.x = b.tl.x;
+    b.bl.y = b.tl.y + size / s.getHeight();
+
+    b.br.x = b.tr.x;
+    b.br.y = b.bl.y;
+
+    b.tl.x = b.tl.x * 2 - 1 + size / 2 / s.getWidth();
+    b.tr.x = b.tr.x * 2 - 1 + size / 2 / s.getWidth();
+    b.bl.x = b.bl.x * 2 - 1 + size / 2 / s.getWidth();
+    b.br.x = b.br.x * 2 - 1 + size / 2 / s.getWidth();
+
+    b.tl.y = b.tl.y * 2 - 1 + size / 2 / s.getHeight();
+    b.tr.y = b.tr.y * 2 - 1 + size / 2 / s.getHeight();
+    b.bl.y = b.bl.y * 2 - 1 + size / 2 / s.getHeight();
+    b.br.y = b.br.y * 2 - 1 + size / 2 / s.getHeight();
+
+    GLfloat vertices[] =
+    {
+        (GLfloat)b.tl.x, (GLfloat)b.tl.y,
+        (GLfloat)b.bl.x, (GLfloat)b.bl.y,
+        (GLfloat)b.br.x, (GLfloat)b.br.y,
+        (GLfloat)b.br.x, (GLfloat)b.br.y,
+        (GLfloat)b.tr.x, (GLfloat)b.tr.y,
+        (GLfloat)b.tl.x, (GLfloat)b.tl.y
+
+//        0, 0,
+//        0, 1,
+//        1, 1
+    };
+
+//    (void)vertices;
+//    (void)vbo;
+//    (void)vao;
+
+//    // hack through a basic shading of the billboard
+    glGenVertexArraysOES(1, &vao);
+    glBindVertexArrayOES(vao);
+
+    glGenBuffers(1, &vbo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+//    const GLchar* vertexSource =
+//    "attribute vec2 position;"
+//    "void main() {"
+//    "   gl_Position = vec4(position, 0.0, 1.0);"
+//    "}";
+//    const GLchar* fragmentSource =
+//    "void main() {"
+//    "   gl_FragColor = vec4(0, 1.0, 0, 1.0);"
+//    "}";
+//
+//    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+//    glShaderSource(vertexShader, 1, &vertexSource, NULL);
+//    MBGL_CHECK_ERROR(glCompileShader(vertexShader));
+//
+//    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+//    glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
+//    MBGL_CHECK_ERROR(glCompileShader(fragmentShader));
+//
+//    GLuint shaderProgram = glCreateProgram();
+//    MBGL_CHECK_ERROR(glAttachShader(shaderProgram, vertexShader));
+//    MBGL_CHECK_ERROR(glAttachShader(shaderProgram, fragmentShader));
+//    MBGL_CHECK_ERROR(glLinkProgram(shaderProgram));
+//    MBGL_CHECK_ERROR(glUseProgram(shaderProgram));
+
+    painter->useProgram(painter->plainShader->program);
+
+    painter->plainShader->u_matrix = painter->identityMatrix;
+    painter->plainShader->u_color = {{ 0.0f, 1.0f, 0.0f, 1.0f }};
+
+    GLint posAttrib = glGetAttribLocation(painter->plainShader->program, "a_pos");
+    glEnableVertexAttribArray(posAttrib);
+    glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices) / sizeof(GLfloat));
+
+
+
+
 
     if (data.mode == MapMode::Still) {
         callback(nullptr, view.readStillImage());

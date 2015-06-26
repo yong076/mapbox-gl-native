@@ -92,6 +92,9 @@ private:
     StillImageCallback callback;
     size_t sourceCacheSize;
     TransformState transformState;
+
+    GLuint vbo;
+    GLuint vao;
 };
 
 }
