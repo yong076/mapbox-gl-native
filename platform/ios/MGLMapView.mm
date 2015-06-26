@@ -708,7 +708,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         glEnableVertexAttribArray(posAttrib);
         glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices) / sizeof(GLfloat));
 
 //        [self updateAnnotationViewsUserLocationOnly:NO];
 
