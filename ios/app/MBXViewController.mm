@@ -155,7 +155,7 @@ mbgl::Settings_NSUserDefaults *settings = nullptr;
     }
     else if (buttonIndex == actionSheet.firstOtherButtonIndex + 4)
     {
-        [self parseFeaturesAddingCount:100];
+        [self parseFeaturesAddingCount:1];
     }
     else if (buttonIndex == actionSheet.firstOtherButtonIndex + 5)
     {

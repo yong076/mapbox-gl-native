@@ -6,6 +6,7 @@
 
 #import <GLKit/GLKit.h>
 #import <OpenGLES/EAGL.h>
+#import <OpenGLES/ES2/gl.h>
 
 #include <mbgl/mbgl.hpp>
 #include <mbgl/platform/platform.hpp>
@@ -103,6 +104,9 @@ CLLocationDegrees MGLDegreesFromRadians(CGFloat radians)
     BOOL _isTargetingInterfaceBuilder;
     CLLocationDegrees _pendingLatitude;
     CLLocationDegrees _pendingLongitude;
+
+    GLuint vbo;
+    GLuint vao;
 }
 
 #pragma mark - Setup & Teardown -
@@ -631,9 +635,82 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
         _mbglMap->setSourceTileCacheSize(cacheSize);
 
+        // draw GL map frame
         _mbglMap->renderSync();
 
-        [self updateAnnotationViewsUserLocationOnly:NO];
+        // return early if no annotations
+        if (self.annotations.count == 0) return;
+
+        // else draw (first, for now)
+        MGLPointAnnotation *annotation = self.annotations[0];
+
+        // convert to screen coordinates
+        CGPoint viewPoint = [self convertCoordinate:annotation.coordinate toPointToView:self];
+
+        // flip Y to match GL
+        viewPoint.y = self.bounds.size.height - viewPoint.y;
+
+        // create a GL coordinate system billboard rect
+        CGFloat size = 40;
+
+        CGRect billboardRect = CGRectMake((viewPoint.x - size / 2) / self.bounds.size.width,
+                                          (viewPoint.y - size / 2) / self.bounds.size.height,
+                                          size / self.bounds.size.width,
+                                          size / self.bounds.size.height);
+
+        billboardRect.origin = CGPointMake(billboardRect.origin.x * 2 - 1 + (size / 2 / self.bounds.size.width),
+                                           billboardRect.origin.y * 2 - 1 + (size / 2 / self.bounds.size.height));
+
+        GLfloat vertices[] =
+        {
+            (GLfloat)billboardRect.origin.x, (GLfloat)billboardRect.origin.y,
+            (GLfloat)billboardRect.origin.x, (GLfloat)(billboardRect.origin.y + billboardRect.size.height),
+            (GLfloat)(billboardRect.origin.x + billboardRect.size.width), (GLfloat)(billboardRect.origin.y + billboardRect.size.height),
+            (GLfloat)(billboardRect.origin.x + billboardRect.size.width), (GLfloat)(billboardRect.origin.y + billboardRect.size.height),
+            (GLfloat)(billboardRect.origin.x + billboardRect.size.width), (GLfloat)billboardRect.origin.y,
+            (GLfloat)billboardRect.origin.x, (GLfloat)billboardRect.origin.y
+        };
+
+        // hack through a basic shading of the billboard
+        glGenVertexArraysOES(1, &vao);
+        glBindVertexArrayOES(vao);
+
+        glGenBuffers(1, &vbo);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        const GLchar* vertexSource =
+        "attribute vec2 position;"
+        "void main() {"
+        "   gl_Position = vec4(position, 0.0, 1.0);"
+        "}";
+        const GLchar* fragmentSource =
+        "void main() {"
+        "   gl_FragColor = vec4(0, 1.0, 0, 1.0);"
+        "}";
+
+        GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vertexShader, 1, &vertexSource, NULL);
+        glCompileShader(vertexShader);
+
+        GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
+        glCompileShader(fragmentShader);
+
+        GLuint shaderProgram = glCreateProgram();
+        glAttachShader(shaderProgram, vertexShader);
+        glAttachShader(shaderProgram, fragmentShader);
+        glLinkProgram(shaderProgram);
+        glUseProgram(shaderProgram);
+
+        GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+//        [self updateAnnotationViewsUserLocationOnly:NO];
 
         [self notifyMapChange:@(mbgl::MapChangeDidFinishRenderingMap)];
     }
@@ -1793,7 +1870,7 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
                 annotationView = [self.delegate mapView:self viewForAnnotation:annotation];
                 annotationView.center = [self convertCoordinate:annotation.coordinate toPointToView:self];
 
-                [self addSubview:annotationView];
+//                [self addSubview:annotationView];
 
                 [annotationViews setObject:annotationView forKey:annotation];
             }
