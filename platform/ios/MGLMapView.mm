@@ -90,6 +90,7 @@ CLLocationDegrees MGLDegreesFromRadians(CGFloat radians)
 @property (nonatomic, getter=isDormant) BOOL dormant;
 @property (nonatomic, getter=isAnimatingGesture) BOOL animatingGesture;
 @property (nonatomic, readonly, getter=isRotationAllowed) BOOL rotationAllowed;
+@property (nonatomic) UIView *captureView;
 
 @end
 
@@ -393,6 +394,31 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         MGLEventKeyZoomLevel: @(zoom),
         MGLEventKeyPushEnabled: @([MGLMapboxEvents checkPushEnabled])
     }];
+
+
+
+
+
+
+
+    _captureView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 40, 40)];
+    _captureView.layer.contents = (id)[[UIImage imageNamed:@"monster"] CGImage];
+    _captureView.center = CGPointMake(self.bounds.size.width - 30, self.bounds.size.height / 2);
+    [self addSubview:_captureView];
+
+    CABasicAnimation *rotationAnimation;
+    rotationAnimation = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
+    rotationAnimation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    rotationAnimation.toValue = @(M_PI * 2.0);
+    rotationAnimation.duration = 3;
+    rotationAnimation.cumulative = YES;
+    rotationAnimation.repeatCount = HUGE_VALF;
+
+    [_captureView.layer addAnimation:rotationAnimation forKey:@"rotationAnimation"];
+
+
+
+
 }
 
 -(void)reachabilityChanged:(NSNotification*)notification
