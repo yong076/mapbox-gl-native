@@ -7,9 +7,8 @@
 
 namespace mbgl {
 
-GlyphStore::GlyphStore(uv_loop_t* loop, Environment& env_)
-    : env(env_),
-      asyncEmitGlyphRangeLoaded(std::make_unique<uv::async>(loop, [this] { emitGlyphRangeLoaded(); })),
+GlyphStore::GlyphStore(uv_loop_t* loop)
+    : asyncEmitGlyphRangeLoaded(std::make_unique<uv::async>(loop, [this] { emitGlyphRangeLoaded(); })),
       asyncEmitGlyphRangeLoadedingFailed(std::make_unique<uv::async>(loop, [this] { emitGlyphRangeLoadingFailed(); })),
       observer(nullptr) {
     asyncEmitGlyphRangeLoaded->unref();
@@ -56,7 +55,7 @@ bool GlyphStore::requestGlyphRangesIfNeeded(const std::string& fontStackName,
     for (const auto& range : glyphRanges) {
         const auto& rangeSets_it = rangeSets.find(range);
         if (rangeSets_it == rangeSets.end()) {
-            auto glyph = std::make_unique<GlyphPBF>(glyphURL, fontStackName, range, env,
+            auto glyph = std::make_unique<GlyphPBF>(glyphURL, fontStackName, range,
                 successCallback, failureCallback);
             rangeSets.emplace(range, std::move(glyph));
             requestIsNeeded = true;

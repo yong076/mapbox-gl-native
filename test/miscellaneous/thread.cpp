@@ -54,6 +54,12 @@ public:
         return string;
     }
 
+    bool checkContext() const {
+        return ThreadContext::currentlyOn(ThreadType::Worker)
+            && ThreadContext::getName() == "Test"
+            && ThreadContext::getPriority() == ThreadPriority::Low;
+    }
+
     const std::thread::id tid;
 };
 
@@ -64,7 +70,7 @@ TEST(Thread, invoke) {
 
     loop.invoke([&] {
         EXPECT_EQ(tid, std::this_thread::get_id());
-        Thread<TestObject> thread("Test", ThreadPriority::Regular, tid);
+        Thread<TestObject> thread({"Test", ThreadType::Map, ThreadPriority::Regular}, tid);
 
         thread.invoke(&TestObject::fn1, 1);
         thread.invokeWithResult<int>(&TestObject::fn2, [&] (int result) {
@@ -96,6 +102,29 @@ TEST(Thread, invoke) {
             loop.stop();
         }, test);
         test.clear();
+    });
+
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+}
+
+TEST(Thread, context) {
+    bool isMainThreadContext = ThreadContext::currentlyOn(ThreadType::Main)
+        && ThreadContext::getName() == "Main"
+        && ThreadContext::getPriority() == ThreadPriority::Regular;
+
+    EXPECT_EQ(isMainThreadContext, true);
+
+    const std::thread::id tid = std::this_thread::get_id();
+
+    RunLoop loop(uv_default_loop());
+
+    loop.invoke([&] {
+        Thread<TestObject> thread({"Test", ThreadType::Worker, ThreadPriority::Low}, tid);
+
+        thread.invokeWithResult<bool>(&TestObject::checkContext, [&] (bool inTestThreadContext) {
+            EXPECT_EQ(inTestThreadContext, true);
+            loop.stop();
+        });
     });
 
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);

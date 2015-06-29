@@ -1,6 +1,8 @@
 #include <mbgl/map/map.hpp>
 #include <mbgl/map/map_context.hpp>
 #include <mbgl/map/view.hpp>
+#include <mbgl/map/transform.hpp>
+#include <mbgl/map/transform_state.hpp>
 #include <mbgl/map/map_data.hpp>
 
 #include <mbgl/util/projection.hpp>
@@ -11,8 +13,9 @@
 namespace mbgl {
 
 Map::Map(View& view, FileSource& fileSource, MapMode mode)
-    : data(std::make_unique<MapData>(view, mode)),
-      context(std::make_unique<util::Thread<MapContext>>("Map", util::ThreadPriority::Regular, view, fileSource, *data))
+    : transform(std::make_unique<Transform>(view)),
+      data(std::make_unique<MapData>(mode)),
+      context(std::make_unique<util::Thread<MapContext>>(util::ThreadContext{"Map", util::ThreadType::Map, util::ThreadPriority::Regular}, view, fileSource, *data))
 {
     view.initialize(this);
 }
@@ -39,19 +42,21 @@ void Map::resume() {
 }
 
 void Map::renderStill(StillImageCallback callback) {
-    context->invoke(&MapContext::renderStill, callback);
+    context->invoke(&MapContext::renderStill, transform->getState(), callback);
 }
 
 void Map::renderSync() {
-    context->invokeSync(&MapContext::render);
-}
+    bool rerender = context->invokeSync<bool>(&MapContext::renderSync, transform->getState());
 
-void Map::renderAsync() {
-    context->invoke(&MapContext::render);
+    if (transform->needsTransition()) {
+        update(Update(transform->updateTransitions(Clock::now())));
+    } else if (rerender) {
+        update();
+    }
 }
 
 void Map::update(Update update_) {
-    context->invoke(&MapContext::triggerUpdate, update_);
+    context->invoke(&MapContext::triggerUpdate, transform->getState(), update_);
 }
 
 #pragma mark - Style
@@ -75,43 +80,44 @@ std::string Map::getStyleJSON() const {
 #pragma mark - Size
 
 void Map::resize(uint16_t width, uint16_t height, float ratio) {
-    if (data->transform.resize(width, height, ratio, width * ratio, height * ratio)) {
+    if (transform->resize(width, height, ratio, width * ratio, height * ratio)) {
         context->invoke(&MapContext::resize, width, height, ratio);
+        update();
     }
 }
 
 #pragma mark - Transitions
 
 void Map::cancelTransitions() {
-    data->transform.cancelTransitions();
+    transform->cancelTransitions();
     update();
 }
 
 void Map::setGestureInProgress(bool inProgress) {
-    data->transform.setGestureInProgress(inProgress);
+    transform->setGestureInProgress(inProgress);
     update();
 }
 
 #pragma mark - Position
 
 void Map::moveBy(double dx, double dy, Duration duration) {
-    data->transform.moveBy(dx, dy, duration);
+    transform->moveBy(dx, dy, duration);
     update();
 }
 
 void Map::setLatLng(LatLng latLng, Duration duration) {
-    data->transform.setLatLng(latLng, duration);
+    transform->setLatLng(latLng, duration);
     update();
 }
 
 LatLng Map::getLatLng() const {
-    return data->transform.getLatLng();
+    return transform->getLatLng();
 }
 
 void Map::resetPosition() {
-    data->transform.setAngle(0);
-    data->transform.setLatLng(LatLng(0, 0));
-    data->transform.setZoom(0);
+    transform->setAngle(0);
+    transform->setLatLng(LatLng(0, 0));
+    transform->setZoom(0);
     update(Update::Zoom);
 }
 
@@ -119,31 +125,80 @@ void Map::resetPosition() {
 #pragma mark - Scale
 
 void Map::scaleBy(double ds, double cx, double cy, Duration duration) {
-    data->transform.scaleBy(ds, cx, cy, duration);
+    transform->scaleBy(ds, cx, cy, duration);
     update(Update::Zoom);
 }
 
 void Map::setScale(double scale, double cx, double cy, Duration duration) {
-    data->transform.setScale(scale, cx, cy, duration);
+    transform->setScale(scale, cx, cy, duration);
     update(Update::Zoom);
 }
 
 double Map::getScale() const {
-    return data->transform.getScale();
+    return transform->getScale();
 }
 
 void Map::setZoom(double zoom, Duration duration) {
-    data->transform.setZoom(zoom, duration);
+    transform->setZoom(zoom, duration);
     update(Update::Zoom);
 }
 
 double Map::getZoom() const {
-    return data->transform.getZoom();
+    return transform->getZoom();
 }
 
 void Map::setLatLngZoom(LatLng latLng, double zoom, Duration duration) {
-    data->transform.setLatLngZoom(latLng, zoom, duration);
+    transform->setLatLngZoom(latLng, zoom, duration);
     update(Update::Zoom);
+}
+
+void Map::fitBounds(LatLngBounds bounds, EdgeInsets padding, Duration duration) {
+    AnnotationSegment segment = {
+        {bounds.ne.latitude, bounds.sw.longitude},
+        bounds.sw,
+        {bounds.sw.latitude, bounds.ne.longitude},
+        bounds.ne,
+    };
+    fitBounds(segment, padding, duration);
+}
+
+void Map::fitBounds(AnnotationSegment segment, EdgeInsets padding, Duration duration) {
+    if (segment.empty()) {
+        return;
+    }
+    
+    // Calculate the bounds of the possibly rotated shape with respect to the viewport.
+    vec2<> nePixel = {-INFINITY, -INFINITY};
+    vec2<> swPixel = {INFINITY, INFINITY};
+    for (LatLng latLng : segment) {
+        vec2<> pixel = pixelForLatLng(latLng);
+        swPixel.x = std::min(swPixel.x, pixel.x);
+        nePixel.x = std::max(nePixel.x, pixel.x);
+        swPixel.y = std::min(swPixel.y, pixel.y);
+        nePixel.y = std::max(nePixel.y, pixel.y);
+    }
+    vec2<> size = nePixel - swPixel;
+
+    // Calculate the zoom level.
+    double scaleX = (getWidth() - padding.left - padding.right) / size.x;
+    double scaleY = (getHeight() - padding.top - padding.bottom) / size.y;
+    double minScale = std::fmin(scaleX, scaleY);
+    double zoom = std::log2(getScale() * minScale);
+    zoom = std::fmax(std::fmin(zoom, getMaxZoom()), getMinZoom());
+
+    // Calculate the center point of a virtual bounds that is extended in all directions by padding.
+    vec2<> paddedNEPixel = {
+        nePixel.x + padding.right / minScale,
+        nePixel.y + padding.top / minScale,
+    };
+    vec2<> paddedSWPixel = {
+        swPixel.x - padding.left / minScale,
+        swPixel.y - padding.bottom / minScale,
+    };
+    vec2<> centerPixel = (paddedNEPixel + paddedSWPixel) * 0.5;
+    LatLng centerLatLng = latLngForPixel(centerPixel);
+
+    setLatLngZoom(centerLatLng, zoom, duration);
 }
 
 void Map::resetZoom() {
@@ -151,48 +206,48 @@ void Map::resetZoom() {
 }
 
 double Map::getMinZoom() const {
-    return data->transform.getMinZoom();
+    return transform->getState().getMinZoom();
 }
 
 double Map::getMaxZoom() const {
-    return data->transform.getMaxZoom();
+    return transform->getState().getMaxZoom();
 }
 
 
 #pragma mark - Size
 
 uint16_t Map::getWidth() const {
-    return data->transform.currentState().getWidth();
+    return transform->getState().getWidth();
 }
 
 uint16_t Map::getHeight() const {
-    return data->transform.currentState().getHeight();
+    return transform->getState().getHeight();
 }
 
 
 #pragma mark - Rotation
 
 void Map::rotateBy(double sx, double sy, double ex, double ey, Duration duration) {
-    data->transform.rotateBy(sx, sy, ex, ey, duration);
+    transform->rotateBy(sx, sy, ex, ey, duration);
     update();
 }
 
 void Map::setBearing(double degrees, Duration duration) {
-    data->transform.setAngle(-degrees * M_PI / 180, duration);
+    transform->setAngle(-degrees * M_PI / 180, duration);
     update();
 }
 
 void Map::setBearing(double degrees, double cx, double cy) {
-    data->transform.setAngle(-degrees * M_PI / 180, cx, cy);
+    transform->setAngle(-degrees * M_PI / 180, cx, cy);
     update();
 }
 
 double Map::getBearing() const {
-    return -data->transform.getAngle() / M_PI * 180;
+    return -transform->getAngle() / M_PI * 180;
 }
 
 void Map::resetNorth() {
-    data->transform.setAngle(0, std::chrono::milliseconds(500));
+    transform->setAngle(0, std::chrono::milliseconds(500));
     update();
 }
 
@@ -220,11 +275,11 @@ const LatLng Map::latLngForProjectedMeters(const ProjectedMeters projectedMeters
 }
 
 const vec2<double> Map::pixelForLatLng(const LatLng latLng) const {
-    return data->transform.currentState().pixelForLatLng(latLng);
+    return transform->getState().pixelForLatLng(latLng);
 }
 
 const LatLng Map::latLngForPixel(const vec2<double> pixel) const {
-    return data->transform.currentState().latLngForPixel(pixel);
+    return transform->getState().latLngForPixel(pixel);
 }
 
 #pragma mark - Annotations
@@ -244,7 +299,7 @@ uint32_t Map::addPointAnnotation(const LatLng& point, const std::string& symbol)
 AnnotationIDs Map::addPointAnnotations(const AnnotationSegment& points,
                                        const std::vector<std::string>& symbols) {
     AnnotationsProperties properties = { { "symbols", symbols } };
-    auto result = data->annotationManager.addPointAnnotations(points, properties, *data);
+    auto result = data->annotationManager.addPointAnnotations(points, properties, getMaxZoom());
     context->invoke(&MapContext::updateAnnotationTiles, result.first);
     return result.second;
 }
@@ -256,7 +311,7 @@ uint32_t Map::addShapeAnnotation(const AnnotationSegments& shape,
 
 AnnotationIDs Map::addShapeAnnotations(const std::vector<AnnotationSegments>& shapes,
                                        const std::vector<StyleProperties>& styleProperties) {
-    auto result = data->annotationManager.addShapeAnnotations(shapes, styleProperties, {{}}, *data);
+    auto result = data->annotationManager.addShapeAnnotations(shapes, styleProperties, {{}}, getMaxZoom());
     context->invoke(&MapContext::updateAnnotationTiles, result.first);
     return result.second;
 }
@@ -266,12 +321,12 @@ void Map::removeAnnotation(uint32_t annotation) {
 }
 
 void Map::removeAnnotations(const std::vector<uint32_t>& annotations) {
-    auto result = data->annotationManager.removeAnnotations(annotations, *data);
+    auto result = data->annotationManager.removeAnnotations(annotations, getMaxZoom());
     context->invoke(&MapContext::updateAnnotationTiles, result);
 }
 
 std::vector<uint32_t> Map::getAnnotationsInBounds(const LatLngBounds& bounds, const AnnotationType& type) {
-    return data->annotationManager.getAnnotationsInBounds(bounds, *data, type);
+    return data->annotationManager.getAnnotationsInBounds(bounds, getMaxZoom(), type);
 }
 
 LatLngBounds Map::getBoundsForAnnotations(const std::vector<uint32_t>& annotations) {

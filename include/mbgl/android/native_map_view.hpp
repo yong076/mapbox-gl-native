@@ -23,9 +23,10 @@ public:
     void activate() override;
     void deactivate() override;
     void notify() override;
-    void invalidate(std::function<void()> render) override;
+    void invalidate() override;
+    void swap() override;
 
-    void notifyMapChange(mbgl::MapChange change, Duration delay = Duration::zero()) override;
+    void notifyMapChange(mbgl::MapChange) override;
 
     mbgl::Map &getMap();
     mbgl::DefaultFileSource &getFileSource();
@@ -44,6 +45,8 @@ public:
 
     void enableFps(bool enable);
     void updateFps();
+
+    void onInvalidate();
 
 private:
     EGLConfig chooseConfig(const EGLConfig configs[], EGLint numConfigs);
@@ -75,6 +78,7 @@ private:
     mbgl::DefaultFileSource fileSource;
     mbgl::Map map;
 
+    std::atomic_flag clean = ATOMIC_FLAG_INIT;
 };
 }
 }

@@ -44,9 +44,11 @@ public:
     virtual void resize(uint16_t width, uint16_t height, float pixelRatio);
 
     // Called from the render thread. The implementation must trigger a rerender.
-    // (i.e. either the passed render() function for rendering immediately on the map thread,
-    // or map->renderSync() from the main thread must be called as a result of this)
-    virtual void invalidate(std::function<void()> render) = 0;
+    // (map->renderSync() from the main thread must be called as a result of this)
+    virtual void invalidate() = 0;
+
+    // Called from the render thread after the render is complete.
+    virtual void swap() = 0;
 
     // Reads the pixel data from the current framebuffer. If your View implementation
     // doesn't support reading from the framebuffer, return a null pointer.
@@ -55,9 +57,7 @@ public:
     // Notifies a watcher of map x/y/scale/rotation changes.
     // Must only be called from the same thread that caused the change.
     // Must not be called from the render thread.
-    virtual void notifyMapChange(
-        MapChange change,
-        Duration delay = Duration::zero());
+    virtual void notifyMapChange(MapChange change);
 
 protected:
     mbgl::Map *map = nullptr;

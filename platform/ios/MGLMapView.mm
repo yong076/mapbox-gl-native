@@ -71,7 +71,9 @@ CLLocationDegrees MGLDegreesFromRadians(CGFloat radians)
 @property (nonatomic) NSOperationQueue *regionChangeDelegateQueue;
 @property (nonatomic) UIImageView *compass;
 @property (nonatomic) UIImageView *logoBug;
+@property (nonatomic) NS_MUTABLE_ARRAY_OF(NSLayoutConstraint *) *logoBugConstraints;
 @property (nonatomic) UIButton *attributionButton;
+@property (nonatomic) NS_MUTABLE_ARRAY_OF(NSLayoutConstraint *) *attributionButtonConstraints;
 @property (nonatomic) UIActionSheet *attributionSheet;
 @property (nonatomic) UIPanGestureRecognizer *pan;
 @property (nonatomic) UIPinchGestureRecognizer *pinch;
@@ -287,6 +289,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     _logoBug.accessibilityLabel = @"Mapbox logo";
     _logoBug.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_logoBug];
+    _logoBugConstraints = [NSMutableArray array];
 
     // setup attribution
     //
@@ -295,6 +298,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     [_attributionButton addTarget:self action:@selector(showAttribution) forControlEvents:UIControlEventTouchUpInside];
     _attributionButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_attributionButton];
+    _attributionButtonConstraints = [NSMutableArray array];
     
     _attributionSheet = [[UIActionSheet alloc] initWithTitle:@"Mapbox GL for iOS"
                                                     delegate:self
@@ -460,6 +464,11 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     {
         [EAGLContext setCurrentContext:nil];
     }
+    
+    [self.logoBugConstraints removeAllObjects];
+    self.logoBugConstraints = nil;
+    [self.attributionButtonConstraints removeAllObjects];
+    self.attributionButtonConstraints = nil;
 }
 
 - (void)setDelegate:(nullable id<MGLMapViewDelegate>)delegate
@@ -488,15 +497,6 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 + (BOOL)requiresConstraintBasedLayout
 {
     return YES;
-}
-
-- (void)didMoveToSuperview
-{
-    [self.compass.superview removeConstraints:self.compass.superview.constraints];
-    [self.logoBug removeConstraints:self.logoBug.constraints];
-    [self.attributionButton removeConstraints:self.attributionButton.constraints];
-
-    [self setNeedsUpdateConstraints];
 }
 
 - (UIViewController *)viewControllerForLayoutGuides
@@ -529,10 +529,19 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     // compass
     //
     UIView *compassContainer = self.compass.superview;
+    if ([NSLayoutConstraint respondsToSelector:@selector(deactivateConstraints:)])
+    {
+        [NSLayoutConstraint deactivateConstraints:compassContainer.constraints];
+    }
+    else
+    {
+        [compassContainer removeConstraints:compassContainer.constraints];
+    }
 
+    NSMutableArray *compassContainerConstraints = [NSMutableArray array];
     if (viewController)
     {
-        [constraintParentView addConstraint:
+        [compassContainerConstraints addObject:
          [NSLayoutConstraint constraintWithItem:compassContainer
                                       attribute:NSLayoutAttributeTop
                                       relatedBy:NSLayoutRelationGreaterThanOrEqual
@@ -541,7 +550,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                      multiplier:1
                                        constant:5]];
     }
-    [constraintParentView addConstraint:
+    [compassContainerConstraints addObject:
      [NSLayoutConstraint constraintWithItem:compassContainer
                                   attribute:NSLayoutAttributeTop
                                   relatedBy:NSLayoutRelationGreaterThanOrEqual
@@ -550,7 +559,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                  multiplier:1
                                    constant:5]];
 
-    [constraintParentView addConstraint:
+    [compassContainerConstraints addObject:
      [NSLayoutConstraint constraintWithItem:self
                                   attribute:NSLayoutAttributeTrailing
                                   relatedBy:NSLayoutRelationEqual
@@ -559,7 +568,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                  multiplier:1
                                    constant:5]];
 
-    [compassContainer addConstraint:
+    [compassContainerConstraints addObject:
      [NSLayoutConstraint constraintWithItem:compassContainer
                                   attribute:NSLayoutAttributeWidth
                                   relatedBy:NSLayoutRelationEqual
@@ -568,7 +577,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                  multiplier:1
                                    constant:self.compass.image.size.width]];
 
-    [compassContainer addConstraint:
+    [compassContainerConstraints addObject:
      [NSLayoutConstraint constraintWithItem:compassContainer
                                   attribute:NSLayoutAttributeHeight
                                   relatedBy:NSLayoutRelationEqual
@@ -576,12 +585,29 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                   attribute:NSLayoutAttributeNotAnAttribute
                                  multiplier:1
                                    constant:self.compass.image.size.height]];
+    if ([NSLayoutConstraint respondsToSelector:@selector(activateConstraints:)])
+    {
+        [NSLayoutConstraint activateConstraints:compassContainerConstraints];
+    }
+    else
+    {
+        [compassContainer addConstraints:compassContainerConstraints];
+    }
 
     // logo bug
     //
+    if ([NSLayoutConstraint respondsToSelector:@selector(deactivateConstraints:)])
+    {
+        [NSLayoutConstraint deactivateConstraints:self.logoBugConstraints];
+    }
+    else
+    {
+        [self.logoBug removeConstraints:self.logoBugConstraints];
+    }
+    [self.logoBugConstraints removeAllObjects];
     if (viewController)
     {
-        [constraintParentView addConstraint:
+        [self.logoBugConstraints addObject:
          [NSLayoutConstraint constraintWithItem:viewController.bottomLayoutGuide
                                       attribute:NSLayoutAttributeTop
                                       relatedBy:NSLayoutRelationGreaterThanOrEqual
@@ -590,7 +616,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                      multiplier:1
                                        constant:8]];
     }
-    [constraintParentView addConstraint:
+    [self.logoBugConstraints addObject:
      [NSLayoutConstraint constraintWithItem:self
                                   attribute:NSLayoutAttributeBottom
                                   relatedBy:NSLayoutRelationGreaterThanOrEqual
@@ -599,7 +625,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                  multiplier:1
                                    constant:8]];
 
-    [constraintParentView addConstraint:
+    [self.logoBugConstraints addObject:
      [NSLayoutConstraint constraintWithItem:self.logoBug
                                   attribute:NSLayoutAttributeLeading
                                   relatedBy:NSLayoutRelationEqual
@@ -607,12 +633,29 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                   attribute:NSLayoutAttributeLeading
                                  multiplier:1
                                    constant:8]];
+    if ([NSLayoutConstraint respondsToSelector:@selector(activateConstraints:)])
+    {
+        [NSLayoutConstraint activateConstraints:self.logoBugConstraints];
+    }
+    else
+    {
+        [constraintParentView addConstraints:self.logoBugConstraints];
+    }
 
     // attribution button
     //
+    if ([NSLayoutConstraint respondsToSelector:@selector(deactivateConstraints:)])
+    {
+        [NSLayoutConstraint deactivateConstraints:self.attributionButtonConstraints];
+    }
+    else
+    {
+        [self.attributionButton removeConstraints:self.attributionButtonConstraints];
+    }
+    [self.attributionButtonConstraints removeAllObjects];
     if (viewController)
     {
-        [constraintParentView addConstraint:
+        [self.attributionButtonConstraints addObject:
          [NSLayoutConstraint constraintWithItem:viewController.bottomLayoutGuide
                                       attribute:NSLayoutAttributeTop
                                       relatedBy:NSLayoutRelationGreaterThanOrEqual
@@ -621,7 +664,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                      multiplier:1
                                        constant:8]];
     }
-    [constraintParentView addConstraint:
+    [self.attributionButtonConstraints addObject:
      [NSLayoutConstraint constraintWithItem:self
                                   attribute:NSLayoutAttributeBottom
                                   relatedBy:NSLayoutRelationGreaterThanOrEqual
@@ -630,7 +673,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                  multiplier:1
                                    constant:8]];
 
-    [constraintParentView addConstraint:
+    [self.attributionButtonConstraints addObject:
      [NSLayoutConstraint constraintWithItem:self
                                   attribute:NSLayoutAttributeTrailing
                                   relatedBy:NSLayoutRelationEqual
@@ -638,6 +681,14 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
                                   attribute:NSLayoutAttributeTrailing
                                  multiplier:1
                                    constant:8]];
+    if ([NSLayoutConstraint respondsToSelector:@selector(activateConstraints:)])
+    {
+        [NSLayoutConstraint activateConstraints:self.attributionButtonConstraints];
+    }
+    else
+    {
+        [constraintParentView addConstraints:self.attributionButtonConstraints];
+    }
 
     [super updateConstraints];
 }
@@ -1551,25 +1602,70 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     [self setZoomLevel:zoomLevel animated:NO];
 }
 
-- (void)zoomToSouthWestCoordinate:(CLLocationCoordinate2D)southWestCoordinate northEastCoordinate:(CLLocationCoordinate2D)northEastCoordinate animated:(BOOL)animated
+MGLCoordinateBounds MGLCoordinateBoundsFromLatLngBounds(mbgl::LatLngBounds latLngBounds)
+{
+    return MGLCoordinateBoundsMake(MGLLocationCoordinate2DFromLatLng(latLngBounds.sw),
+                                   MGLLocationCoordinate2DFromLatLng(latLngBounds.ne));
+}
+
+mbgl::LatLngBounds MGLLatLngBoundsFromCoordinateBounds(MGLCoordinateBounds coordinateBounds)
+{
+    return mbgl::LatLngBounds(MGLLatLngFromLocationCoordinate2D(coordinateBounds.sw), MGLLatLngFromLocationCoordinate2D(coordinateBounds.ne));
+}
+
+- (MGLCoordinateBounds)visibleCoordinateBounds
+{
+    return MGLCoordinateBoundsFromLatLngBounds(self.viewportBounds);
+}
+
+- (void)setVisibleCoordinateBounds:(MGLCoordinateBounds)bounds
+{
+    [self setVisibleCoordinateBounds:bounds animated:NO];
+}
+
+- (void)setVisibleCoordinateBounds:(MGLCoordinateBounds)bounds animated:(BOOL)animated
+{
+    [self setVisibleCoordinateBounds:bounds edgePadding:UIEdgeInsetsZero animated:animated];
+}
+
+- (void)setVisibleCoordinateBounds:(MGLCoordinateBounds)bounds edgePadding:(UIEdgeInsets)insets animated:(BOOL)animated
+{
+    CLLocationCoordinate2D coordinates[] = {
+        {bounds.ne.latitude, bounds.sw.longitude},
+        bounds.sw,
+        {bounds.sw.latitude, bounds.ne.longitude},
+        bounds.ne,
+    };
+    [self setVisibleCoordinates:coordinates
+                          count:sizeof(coordinates) / sizeof(coordinates[0])
+                    edgePadding:insets
+                       animated:animated];
+}
+
+- (void)setVisibleCoordinates:(CLLocationCoordinate2D *)coordinates count:(NSUInteger)count edgePadding:(UIEdgeInsets)insets animated:(BOOL)animated
 {
     // NOTE: does not disrupt tracking mode
-
-    CLLocationCoordinate2D center = CLLocationCoordinate2DMake((northEastCoordinate.latitude + southWestCoordinate.latitude) / 2, (northEastCoordinate.longitude + southWestCoordinate.longitude) / 2);
-
-    CGFloat scale = _mbglMap->getScale();
-    CGFloat scaleX = _mbglMap->getWidth() / (northEastCoordinate.longitude - southWestCoordinate.longitude);
-    CGFloat scaleY = _mbglMap->getHeight() / (northEastCoordinate.latitude - southWestCoordinate.latitude);
-    CGFloat minZoom = _mbglMap->getMinZoom();
-    CGFloat maxZoom = _mbglMap->getMaxZoom();
-    CGFloat zoomLevel = MAX(MIN(log(scale * MIN(scaleX, scaleY)) / log(2), maxZoom), minZoom);
-
-    [self setCenterCoordinate:center zoomLevel:zoomLevel animated:animated];
+    CGFloat duration = animated ? MGLAnimationDuration : 0;
+    
+    [self willChangeValueForKey:@"visibleCoordinateBounds"];
+    mbgl::EdgeInsets mbglInsets = {insets.top, insets.left, insets.bottom, insets.right};
+    mbgl::AnnotationSegment segment;
+    segment.reserve(count);
+    for (NSUInteger i = 0; i < count; i++)
+    {
+        segment.push_back({coordinates[i].latitude, coordinates[i].longitude});
+    }
+    _mbglMap->fitBounds(segment, mbglInsets, secondsAsDuration(duration));
+    [self didChangeValueForKey:@"visibleCoordinateBounds"];
+    
+    [self unrotateIfNeededAnimated:animated];
+    
+    [self notifyMapChange:@(animated ? mbgl::MapChangeRegionDidChangeAnimated : mbgl::MapChangeRegionDidChange)];
 }
 
 - (CLLocationDirection)direction
 {
-    double direction = _mbglMap->getBearing() * -1;
+    double direction = _mbglMap->getBearing();
 
     while (direction > 360) direction -= 360;
     while (direction < 0) direction += 360;
@@ -1585,7 +1681,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
     CGFloat duration = (animated ? MGLAnimationDuration : 0);
 
-    _mbglMap->setBearing(direction * -1, secondsAsDuration(duration));
+    _mbglMap->setBearing(direction, secondsAsDuration(duration));
 
     [self notifyMapChange:@(animated ? mbgl::MapChangeRegionDidChangeAnimated : mbgl::MapChangeRegionDidChange)];
 }
@@ -2338,7 +2434,7 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
                     desiredSouthWest.longitude != actualSouthWest.longitude)
                 {
                     // assumes we won't disrupt tracking mode
-                    [self zoomToSouthWestCoordinate:desiredSouthWest northEastCoordinate:desiredNorthEast animated:YES];
+                    [self setVisibleCoordinateBounds:MGLCoordinateBoundsMake(desiredSouthWest, desiredNorthEast) animated:YES];
                 }
             }
         }
@@ -2377,15 +2473,6 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
     if (headingDirection > 0 && self.userTrackingMode == MGLUserTrackingModeFollowWithHeading)
     {
         _mbglMap->setBearing(headingDirection, secondsAsDuration(MGLAnimationDuration));
-    }
-}
-
-- (void)locationManager:(__unused CLLocationManager *)manager didChangeAuthorizationStatus:(CLAuthorizationStatus)status
-{
-    if (status == kCLAuthorizationStatusDenied || status == kCLAuthorizationStatusRestricted)
-    {
-        self.userTrackingMode  = MGLUserTrackingModeNone;
-        self.showsUserLocation = NO;
     }
 }
 
@@ -2720,10 +2807,7 @@ CLLocationCoordinate2D MGLLocationCoordinate2DFromLatLng(mbgl::LatLng latLng)
 - (void)invalidate
 {
     MGLAssertIsMainThread();
-
     [self.glView setNeedsDisplay];
-
-    [self notifyMapChange:@(mbgl::MapChangeRegionIsChanging)];
 }
 
 - (BOOL)isFullyLoaded
@@ -2849,23 +2933,10 @@ class MBGLView : public mbgl::View
         // no-op
     }
 
-    void notifyMapChange(mbgl::MapChange change, std::chrono::steady_clock::duration delay = std::chrono::steady_clock::duration::zero()) override
+    void notifyMapChange(mbgl::MapChange change) override
     {
-        if (delay != std::chrono::steady_clock::duration::zero())
-        {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, std::chrono::duration_cast<std::chrono::nanoseconds>(delay).count()), dispatch_get_main_queue(), ^
-            {
-                [nativeView performSelector:@selector(notifyMapChange:)
-                                 withObject:@(change)
-                                 afterDelay:0];
-            });
-        }
-        else
-        {
-            assert([[NSThread currentThread] isMainThread]);
-
-            [nativeView notifyMapChange:@(change)];
-        }
+        assert([[NSThread currentThread] isMainThread]);
+        [nativeView notifyMapChange:@(change)];
     }
 
     void activate() override
@@ -2878,11 +2949,16 @@ class MBGLView : public mbgl::View
         [EAGLContext setCurrentContext:nil];
     }
 
-    void invalidate(std::function<void()>) override
+    void invalidate() override
     {
         [nativeView performSelectorOnMainThread:@selector(invalidate)
                                      withObject:nil
                                   waitUntilDone:NO];
+    }
+
+    void swap() override
+    {
+        // no-op
     }
 
     private:

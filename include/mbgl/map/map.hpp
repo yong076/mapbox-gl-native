@@ -23,6 +23,7 @@ class View;
 class MapData;
 class MapContext;
 class StillImage;
+class Transform;
 
 namespace util {
 template <class T> class Thread;
@@ -37,6 +38,10 @@ enum class AnnotationType : uint8_t {
 using AnnotationIDs = std::vector<uint32_t>;
 using AnnotationSegment = std::vector<LatLng>;
 using AnnotationSegments = std::vector<AnnotationSegment>;
+
+using EdgeInsets = struct {
+    double top, left, bottom, right;
+};
 
 class Map : private util::noncopyable {
     friend class View;
@@ -59,7 +64,6 @@ public:
 
     // Triggers a synchronous or asynchronous render.
     void renderSync();
-    void renderAsync();
 
     // Notifies the Map thread that the state has changed and an update might be necessary.
     void update(Update update = Update::Nothing);
@@ -95,6 +99,8 @@ public:
     void setZoom(double zoom, Duration = Duration::zero());
     double getZoom() const;
     void setLatLngZoom(LatLng latLng, double zoom, Duration = Duration::zero());
+    void fitBounds(LatLngBounds bounds, EdgeInsets padding, Duration duration = Duration::zero());
+    void fitBounds(AnnotationSegment segment, EdgeInsets padding, Duration duration = Duration::zero());
     void resetZoom();
     double getMinZoom() const;
     double getMaxZoom() const;
@@ -149,6 +155,7 @@ public:
     bool isFullyLoaded() const;
 
 private:
+    const std::unique_ptr<Transform> transform;
     const std::unique_ptr<MapData> data;
     const std::unique_ptr<util::Thread<MapContext>> context;
     bool paused = false;

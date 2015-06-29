@@ -53,7 +53,7 @@
                    @"compass should be visible when map is rotated");
 
     XCTAssertEqualObjects([NSValue valueWithCGAffineTransform:tester.compass.transform],
-                          [NSValue valueWithCGAffineTransform:CGAffineTransformMakeRotation(M_PI * 1.5)],
+                          [NSValue valueWithCGAffineTransform:CGAffineTransformMakeRotation(M_PI * 0.5)],
                           @"compass rotation should indicate map rotation");
 }
 
@@ -76,9 +76,8 @@
                    0,
                    @"compass should not be visible when map is unrotated");
 
-    XCTAssertEqualObjects([NSValue valueWithCGAffineTransform:tester.compass.transform],
-                          [NSValue valueWithCGAffineTransform:CGAffineTransformIdentity],
-                          @"compass rotation should indicate map rotation");
+    XCTAssert(CGAffineTransformEqualToTransform(tester.compass.transform, CGAffineTransformIdentity),
+              @"compass rotation should indicate map rotation");
 }
 
 - (void)testDirectionReset {
@@ -100,9 +99,8 @@
                    0,
                    @"compass should not be visible when map is unrotated");
 
-    XCTAssertEqualObjects([NSValue valueWithCGAffineTransform:tester.compass.transform],
-                          [NSValue valueWithCGAffineTransform:CGAffineTransformIdentity],
-                          @"compass rotation should indicate map rotation");
+    XCTAssert(CGAffineTransformEqualToTransform(tester.compass.transform, CGAffineTransformIdentity),
+              @"compass rotation should indicate map rotation");
 }
 
 - (void)testZoom {
@@ -150,6 +148,62 @@
     XCTAssertEqual(tester.mapView.zoomLevel,
                    zoom,
                    @"disabling zoom gesture should disallow pinching");
+}
+
+- (void)testFitToBounds {
+    // No-op
+    MGLCoordinateBounds initialBounds = tester.mapView.visibleCoordinateBounds;
+    [tester.mapView setVisibleCoordinateBounds:initialBounds animated:NO];
+    XCTAssertEqualObjects(MGLStringFromCoordinateBounds(initialBounds),
+                          MGLStringFromCoordinateBounds(tester.mapView.visibleCoordinateBounds),
+                          @"setting visible coordinate bounds to currently visible coordinate bounds should be a no-op");
+    
+    // Roundtrip after zooming
+    tester.mapView.zoomLevel -= 3;
+    [tester.mapView setVisibleCoordinateBounds:initialBounds animated:NO];
+    XCTAssertEqualObjects(MGLStringFromCoordinateBounds(initialBounds),
+                          MGLStringFromCoordinateBounds(tester.mapView.visibleCoordinateBounds),
+                          @"after zooming out, setting visible coordinate bounds back to %@ should not leave them at %@",
+                          MGLStringFromCoordinateBounds(initialBounds),
+                          MGLStringFromCoordinateBounds(tester.mapView.visibleCoordinateBounds));
+    tester.mapView.zoomLevel += 3;
+    [tester.mapView setVisibleCoordinateBounds:initialBounds animated:NO];
+    XCTAssertEqualObjects(MGLStringFromCoordinateBounds(initialBounds),
+                          MGLStringFromCoordinateBounds(tester.mapView.visibleCoordinateBounds),
+                          @"after zooming in, setting visible coordinate bounds back to %@ should not leave them at %@",
+                          MGLStringFromCoordinateBounds(initialBounds),
+                          MGLStringFromCoordinateBounds(tester.mapView.visibleCoordinateBounds));
+    
+    // Roundtrip after panning
+    MGLCoordinateBounds offsetBounds = MGLCoordinateBoundsOffset(initialBounds, MGLCoordinateSpanMake(0, 30));
+    [tester.mapView setVisibleCoordinateBounds:offsetBounds animated:NO];
+    [tester.mapView setVisibleCoordinateBounds:initialBounds animated:NO];
+    XCTAssertEqualObjects(MGLStringFromCoordinateBounds(initialBounds),
+                          MGLStringFromCoordinateBounds(tester.mapView.visibleCoordinateBounds),
+                          @"after panning 30° to the east, setting visible coordinate bounds back to %@ should not leave them at %@",
+                          MGLStringFromCoordinateBounds(initialBounds),
+                          MGLStringFromCoordinateBounds(tester.mapView.visibleCoordinateBounds));
+    
+    // Inscribed shapes with rotation
+    tester.mapView.direction = 45;
+    // https://en.wikipedia.org/wiki/Boundary_Markers_of_the_Original_District_of_Columbia
+    CLLocationCoordinate2D dcCoordinates[] = {
+        {38.790339, -77.040583},
+        {38.893219, -77.172304},
+        {38.995946, -77.040947},
+        {38.892829, -76.909229},
+    };
+    MGLCoordinateBounds dcBounds = {{38.790339, -77.172304}, {38.995946, -76.909229}};
+    [tester.mapView setVisibleCoordinateBounds:dcBounds
+                                      animated:NO];
+    double zoomLevel = tester.mapView.zoomLevel;
+    [tester.mapView setVisibleCoordinates:dcCoordinates
+                                    count:sizeof(dcCoordinates) / sizeof(dcCoordinates[0])
+                              edgePadding:UIEdgeInsetsZero
+                                 animated:NO];
+    XCTAssertGreaterThan(tester.mapView.zoomLevel, zoomLevel,
+                         @"when the map is rotated, DC should fit at a zoom level higher than %f, but instead the zoom level is %f",
+                         zoomLevel, tester.mapView.zoomLevel);
 }
 
 - (void)testPan {

@@ -3,9 +3,9 @@
 
 #include <mbgl/map/tile_id.hpp>
 #include <mbgl/map/update.hpp>
-#include <mbgl/map/environment.hpp>
 #include <mbgl/map/transform_state.hpp>
 #include <mbgl/style/style.hpp>
+#include <mbgl/util/gl_object_store.hpp>
 #include <mbgl/util/ptr.hpp>
 
 #include <vector>
@@ -34,14 +34,14 @@ public:
     ~MapContext();
 
     void pause();
-    void render();
 
     void resize(uint16_t width, uint16_t height, float ratio);
 
     using StillImageCallback = std::function<void(std::exception_ptr, std::unique_ptr<const StillImage>)>;
-    void renderStill(StillImageCallback callback);
 
-    void triggerUpdate(Update = Update::Nothing);
+    void triggerUpdate(const TransformState&, Update = Update::Nothing);
+    void renderStill(const TransformState&, StillImageCallback callback);
+    bool renderSync(const TransformState&);
 
     void setStyleURL(const std::string&);
     void setStyleJSON(const std::string& json, const std::string& base);
@@ -61,11 +61,8 @@ public:
     void onResourceLoadingFailed(std::exception_ptr error) override;
 
 private:
-    void updateTiles();
-
     // Style-related updates.
     void cascadeClasses();
-    void recalculateStyle(TimePoint);
 
     // Update the state indicated by the accumulated Update flags, then render.
     void update();
@@ -76,8 +73,7 @@ private:
     View& view;
     MapData& data;
 
-    Environment env;
-    EnvironmentScope envScope;
+    util::GLObjectStore glObjectStore;
 
     UpdateType updated { static_cast<UpdateType>(Update::Nothing) };
     std::unique_ptr<uv::async> asyncUpdate;

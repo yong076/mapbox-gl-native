@@ -1,11 +1,10 @@
 #include "../fixtures/fixture_log_observer.hpp"
 #include "../fixtures/util.hpp"
+#include "../fixtures/mock_view.hpp"
 #include "mock_file_source.hpp"
-#include "mock_view.hpp"
 
-#include <mbgl/map/environment.hpp>
 #include <mbgl/map/map_data.hpp>
-#include <mbgl/map/transform_state.hpp>
+#include <mbgl/map/transform.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/util/exception.hpp>
 #include <mbgl/util/io.hpp>
@@ -25,16 +24,16 @@ public:
                    View& view,
                    FileSource& fileSource,
                    const std::function<void(std::exception_ptr error)>& callback)
-        : env_(fileSource),
-          envScope_(env_, ThreadType::Map, "Map"),
-          data_(view, MapMode::Still),
+        : data_(MapMode::Still),
+          transform_(view),
           callback_(callback) {
+        util::ThreadContext::setFileSource(&fileSource);
 
-        data_.transform.resize(1000, 1000, 1.0, 1000, 1000);
-        data_.transform.setLatLngZoom({0, 0}, 16);
+        transform_.resize(1000, 1000, 1.0, 1000, 1000);
+        transform_.setLatLngZoom({0, 0}, 16);
 
         const std::string style = util::read_file("test/fixtures/resources/style.json");
-        style_ = std::make_unique<Style>(style, "", loop, env_),
+        style_ = std::make_unique<Style>(style, "", loop),
         style_->setObserver(this);
     }
 
@@ -46,10 +45,9 @@ public:
         const auto now = Clock::now();
 
         data_.setAnimationTime(now);
-        data_.transform.updateTransitions(now);
+        transform_.updateTransitions(now);
 
-        transformState_ = data_.transform.currentState();
-        style_->update(data_, transformState_, texturePool_);
+        style_->update(data_, transform_.getState(), texturePool_);
     }
 
     // Style::Observer implementation.
@@ -66,11 +64,8 @@ public:
     }
 
 private:
-    Environment env_;
-    EnvironmentScope envScope_;
-
     MapData data_;
-    TransformState transformState_;
+    Transform transform_;
     TexturePool texturePool_;
 
     std::unique_ptr<Style> style_;
@@ -117,7 +112,7 @@ void runTestCase(MockFileSource::Type type,
 
     std::unique_ptr<util::Thread<MockMapContext>> context(
         std::make_unique<util::Thread<MockMapContext>>(
-            "Map", util::ThreadPriority::Regular, view, fileSource, callback));
+            util::ThreadContext{"Map", util::ThreadType::Map, util::ThreadPriority::Regular}, view, fileSource, callback));
 
     uv_run(loop.get(), UV_RUN_DEFAULT);
 
@@ -152,7 +147,7 @@ TEST_P(ResourceLoading, Success) {
 
 TEST_P(ResourceLoading, RequestFail) {
     std::stringstream message;
-    message << "Failed to load \\[test/fixtures/resources/" << GetParam() << "]: Failed by the test case";
+    message << "Failed to load \\[test\\/fixtures\\/resources\\/" << GetParam() << "\\]\\: Failed by the test case";
 
     runTestCase(MockFileSource::RequestFail, GetParam(), message.str());
 }
@@ -164,13 +159,13 @@ TEST_P(ResourceLoading, RequestWithCorruptedData) {
     message << "Failed to parse ";
 
     if (param == "vector.pbf") {
-        message << "\\[15/1638./1638.]: pbf unknown field type exception";
+        message << "\\[15\\/1638(3|4)\\/1638(3|4)\\]\\: pbf unknown field type exception";
     } else {
-        message << "\\[test/fixtures/resources/" << param << "]";
+        message << "\\[test\\/fixtures\\/resources\\/" << param << "\\]";
     }
 
     if (param.find("json") != std::string::npos) {
-        message << ": 0 - Expect either an object or array at root";
+        message << "\\: 0 - Expect either an object or array at root";
     }
 
     runTestCase(MockFileSource::RequestWithCorruptedData, GetParam(), message.str());

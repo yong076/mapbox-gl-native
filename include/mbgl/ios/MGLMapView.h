@@ -1,4 +1,4 @@
-#import "MGLTypes.h"
+#import "MGLGeometry.h"
 
 #import <UIKit/UIKit.h>
 #import <CoreLocation/CoreLocation.h>
@@ -117,6 +117,29 @@ IB_DESIGNABLE
 *   @param zoomLevel The new zoom level for the map.
 *   @param animated Specify `YES` if you want the map view to animate scrolling and zooming to the new location or `NO` if you want the map to display the new location immediately. */
 - (void)setCenterCoordinate:(CLLocationCoordinate2D)centerCoordinate zoomLevel:(double)zoomLevel animated:(BOOL)animated;
+
+/** The coordinate bounds visible in the receiver’s viewport.
+*   
+*   Changing the value of this property updates the receiver immediately. If you want to animate the change, call `setVisibleCoordinateBounds:animated:` instead. */
+@property (nonatomic) MGLCoordinateBounds visibleCoordinateBounds;
+
+/** Changes the receiver’s viewport to fit the given coordinate bounds, optionally animating the change.
+*   @param bounds The bounds that the viewport will show in its entirety.
+*   @param animated Specify `YES` to animate the change by smoothly scrolling and zooming or `NO` to immediately display the given bounds. */
+- (void)setVisibleCoordinateBounds:(MGLCoordinateBounds)bounds animated:(BOOL)animated;
+
+/** Changes the receiver’s viewport to fit the given coordinate bounds and optionally some additional padding on each side.
+*   @param bounds The bounds that the viewport will show in its entirety.
+*   @param insets The minimum padding (in screen points) that will be visible around the given coordinate bounds.
+*   @param animated Specify `YES` to animate the change by smoothly scrolling and zooming or `NO` to immediately display the given bounds. */
+- (void)setVisibleCoordinateBounds:(MGLCoordinateBounds)bounds edgePadding:(UIEdgeInsets)insets animated:(BOOL)animated;
+
+/** Changes the receiver’s viewport to fit all of the given coordinates and optionally some additional padding on each side.
+*   @param coordinates The coordinates that the viewport will show.
+*   @param count The number of coordinates. This number must not be greater than the number of elements in `coordinates`.
+*   @param insets The minimum padding (in screen points) that will be visible around the given coordinate bounds.
+*   @param animated Specify `YES` to animate the change by smoothly scrolling and zooming or `NO` to immediately display the given bounds. */
+- (void)setVisibleCoordinates:(CLLocationCoordinate2D *)coordinates count:(NSUInteger)count edgePadding:(UIEdgeInsets)insets animated:(BOOL)animated;
 
 /** The heading of the map (measured in degrees) relative to true north. 
 *

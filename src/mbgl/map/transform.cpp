@@ -35,19 +35,17 @@ Transform::Transform(View &view_)
 
 bool Transform::resize(const uint16_t w, const uint16_t h, const float ratio,
                        const uint16_t fb_w, const uint16_t fb_h) {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    if (final.width != w || final.height != h || final.pixelRatio != ratio ||
-        final.framebuffer[0] != fb_w || final.framebuffer[1] != fb_h) {
+    if (state.width != w || state.height != h || state.pixelRatio != ratio ||
+        state.framebuffer[0] != fb_w || state.framebuffer[1] != fb_h) {
 
         view.notifyMapChange(MapChangeRegionWillChange);
 
-        current.width = final.width = w;
-        current.height = final.height = h;
-        current.pixelRatio = final.pixelRatio = ratio;
-        current.framebuffer[0] = final.framebuffer[0] = fb_w;
-        current.framebuffer[1] = final.framebuffer[1] = fb_h;
-        constrain(current.scale, current.y);
+        state.width = w;
+        state.height = h;
+        state.pixelRatio = ratio;
+        state.framebuffer[0] = fb_w;
+        state.framebuffer[1] = fb_h;
+        state.constrain(state.scale, state.y);
 
         view.notifyMapChange(MapChangeRegionDidChange);
 
@@ -64,46 +62,41 @@ void Transform::moveBy(const double dx, const double dy, const Duration duration
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
     _moveBy(dx, dy, duration);
 }
 
 void Transform::_moveBy(const double dx, const double dy, const Duration duration) {
-    // This is only called internally, so we don't need a lock here.
+    double x = state.x + std::cos(state.angle) * dx + std::sin( state.angle) * dy;
+    double y = state.y + std::cos(state.angle) * dy + std::sin(-state.angle) * dx;
 
-    view.notifyMapChange(duration != Duration::zero() ?
-                           MapChangeRegionWillChangeAnimated :
-                           MapChangeRegionWillChange);
-
-    final.x = current.x + std::cos(current.angle) * dx + std::sin(current.angle) * dy;
-    final.y = current.y + std::cos(current.angle) * dy + std::sin(-current.angle) * dx;
-
-    constrain(final.scale, final.y);
+    state.constrain(state.scale, y);
 
     if (duration == Duration::zero()) {
-        current.x = final.x;
-        current.y = final.y;
+        view.notifyMapChange(MapChangeRegionWillChange);
+
+        state.x = x;
+        state.y = y;
+
+        view.notifyMapChange(MapChangeRegionDidChange);
     } else {
-        const double startX = current.x;
-        const double startY = current.y;
-        current.panning = true;
+        view.notifyMapChange(MapChangeRegionWillChangeAnimated);
+
+        const double startX = state.x;
+        const double startY = state.y;
+        state.panning = true;
 
         startTransition(
             [=](double t) {
-                current.x = util::interpolate(startX, final.x, t);
-                current.y = util::interpolate(startY, final.y, t);
+                state.x = util::interpolate(startX, x, t);
+                state.y = util::interpolate(startY, y, t);
+                view.notifyMapChange(MapChangeRegionIsChanging);
                 return Update::Nothing;
             },
             [=] {
-                current.panning = false;
+                state.panning = false;
+                view.notifyMapChange(MapChangeRegionDidChangeAnimated);
             }, duration);
     }
-
-    view.notifyMapChange(duration != Duration::zero() ?
-                           MapChangeRegionDidChangeAnimated :
-                           MapChangeRegionDidChange,
-                           duration);
 }
 
 void Transform::setLatLng(const LatLng latLng, const Duration duration) {
@@ -111,15 +104,13 @@ void Transform::setLatLng(const LatLng latLng, const Duration duration) {
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
     const double m = 1 - 1e-15;
     const double f = std::fmin(std::fmax(std::sin(util::DEG2RAD * latLng.latitude), -m), m);
 
-    double xn = -latLng.longitude * current.Bc;
-    double yn = 0.5 * current.Cc * std::log((1 + f) / (1 - f));
+    double xn = -latLng.longitude * state.Bc;
+    double yn = 0.5 * state.Cc * std::log((1 + f) / (1 - f));
 
-    _setScaleXY(current.scale, xn, yn, duration);
+    _setScaleXY(state.scale, xn, yn, duration);
 }
 
 void Transform::setLatLngZoom(const LatLng latLng, const double zoom, const Duration duration) {
@@ -127,19 +118,17 @@ void Transform::setLatLngZoom(const LatLng latLng, const double zoom, const Dura
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
     double new_scale = std::pow(2.0, zoom);
 
     const double s = new_scale * util::tileSize;
-    current.Bc = s / 360;
-    current.Cc = s / util::M2PI;
+    state.Bc = s / 360;
+    state.Cc = s / util::M2PI;
 
     const double m = 1 - 1e-15;
     const double f = std::fmin(std::fmax(std::sin(util::DEG2RAD * latLng.latitude), -m), m);
 
-    double xn = -latLng.longitude * current.Bc;
-    double yn = 0.5 * current.Cc * std::log((1 + f) / (1 - f));
+    double xn = -latLng.longitude * state.Bc;
+    double yn = 0.5 * state.Cc * std::log((1 + f) / (1 - f));
 
     _setScaleXY(new_scale, xn, yn, duration);
 }
@@ -152,14 +141,12 @@ void Transform::scaleBy(const double ds, const double cx, const double cy, const
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
     // clamp scale to min/max values
-    double new_scale = current.scale * ds;
-    if (new_scale < min_scale) {
-        new_scale = min_scale;
-    } else if (new_scale > max_scale) {
-        new_scale = max_scale;
+    double new_scale = state.scale * ds;
+    if (new_scale < state.min_scale) {
+        new_scale = state.min_scale;
+    } else if (new_scale > state.max_scale) {
+        new_scale = state.max_scale;
     }
 
     _setScale(new_scale, cx, cy, duration);
@@ -171,8 +158,6 @@ void Transform::setScale(const double scale, const double cx, const double cy,
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
     _setScale(scale, cx, cy, duration);
 }
 
@@ -181,129 +166,93 @@ void Transform::setZoom(const double zoom, const Duration duration) {
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
     _setScale(std::pow(2.0, zoom), -1, -1, duration);
 }
 
 double Transform::getZoom() const {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    return final.getZoom();
+    return state.getZoom();
 }
 
 double Transform::getScale() const {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    return final.scale;
-}
-
-double Transform::getMinZoom() const {
-    double test_scale = current.scale;
-    double test_y = current.y;
-    constrain(test_scale, test_y);
-
-    return std::log2(std::fmin(min_scale, test_scale));
-}
-
-double Transform::getMaxZoom() const {
-    return std::log2(max_scale);
+    return state.scale;
 }
 
 void Transform::_setScale(double new_scale, double cx, double cy, const Duration duration) {
-    // This is only called internally, so we don't need a lock here.
-
     // Ensure that we don't zoom in further than the maximum allowed.
-    if (new_scale < min_scale) {
-        new_scale = min_scale;
-    } else if (new_scale > max_scale) {
-        new_scale = max_scale;
+    if (new_scale < state.min_scale) {
+        new_scale = state.min_scale;
+    } else if (new_scale > state.max_scale) {
+        new_scale = state.max_scale;
     }
 
     // Zoom in on the center if we don't have click or gesture anchor coordinates.
     if (cx < 0 || cy < 0) {
-        cx = static_cast<double>(current.width) / 2.0;
-        cy = static_cast<double>(current.height) / 2.0;
+        cx = static_cast<double>(state.width) / 2.0;
+        cy = static_cast<double>(state.height) / 2.0;
     }
 
     // Account for the x/y offset from the center (= where the user clicked or pinched)
-    const double factor = new_scale / current.scale;
-    const double dx = (cx - static_cast<double>(current.width) / 2.0) * (1.0 - factor);
-    const double dy = (cy - static_cast<double>(current.height) / 2.0) * (1.0 - factor);
+    const double factor = new_scale / state.scale;
+    const double dx = (cx - static_cast<double>(state.width) / 2.0) * (1.0 - factor);
+    const double dy = (cy - static_cast<double>(state.height) / 2.0) * (1.0 - factor);
 
     // Account for angle
-    const double angle_sin = std::sin(-current.angle);
-    const double angle_cos = std::cos(-current.angle);
+    const double angle_sin = std::sin(-state.angle);
+    const double angle_cos = std::cos(-state.angle);
     const double ax = angle_cos * dx - angle_sin * dy;
     const double ay = angle_sin * dx + angle_cos * dy;
 
-    const double xn = current.x * factor + ax;
-    const double yn = current.y * factor + ay;
+    const double xn = state.x * factor + ax;
+    const double yn = state.y * factor + ay;
 
     _setScaleXY(new_scale, xn, yn, duration);
 }
 
 void Transform::_setScaleXY(const double new_scale, const double xn, const double yn,
                             const Duration duration) {
-    // This is only called internally, so we don't need a lock here.
+    double scale = new_scale;
+    double x = xn;
+    double y = yn;
 
-    view.notifyMapChange(duration != Duration::zero() ?
-                           MapChangeRegionWillChangeAnimated :
-                           MapChangeRegionWillChange);
-
-    final.scale = new_scale;
-    final.x = xn;
-    final.y = yn;
-
-    constrain(final.scale, final.y);
+    state.constrain(scale, y);
 
     if (duration == Duration::zero()) {
-        current.scale = final.scale;
-        current.x = final.x;
-        current.y = final.y;
-        const double s = current.scale * util::tileSize;
-        current.Bc = s / 360;
-        current.Cc = s / util::M2PI;
+        view.notifyMapChange(MapChangeRegionWillChange);
+
+        state.scale = scale;
+        state.x = x;
+        state.y = y;
+        const double s = state.scale * util::tileSize;
+        state.Bc = s / 360;
+        state.Cc = s / util::M2PI;
+
+        view.notifyMapChange(MapChangeRegionDidChange);
     } else {
-        const double startS = current.scale;
-        const double startX = current.x;
-        const double startY = current.y;
-        current.panning = true;
-        current.scaling = true;
+        view.notifyMapChange(MapChangeRegionWillChangeAnimated);
+
+        const double startS = state.scale;
+        const double startX = state.x;
+        const double startY = state.y;
+        state.panning = true;
+        state.scaling = true;
 
         startTransition(
             [=](double t) {
-                current.scale = util::interpolate(startS, final.scale, t);
-                current.x = util::interpolate(startX, final.x, t);
-                current.y = util::interpolate(startY, final.y, t);
-                const double s = current.scale * util::tileSize;
-                current.Bc = s / 360;
-                current.Cc = s / util::M2PI;
+                state.scale = util::interpolate(startS, scale, t);
+                state.x = util::interpolate(startX, x, t);
+                state.y = util::interpolate(startY, y, t);
+                const double s = state.scale * util::tileSize;
+                state.Bc = s / 360;
+                state.Cc = s / util::M2PI;
+                view.notifyMapChange(MapChangeRegionIsChanging);
                 return Update::Zoom;
             },
             [=] {
-                current.panning = false;
-                current.scaling = false;
+                state.panning = false;
+                state.scaling = false;
+                view.notifyMapChange(MapChangeRegionDidChangeAnimated);
             }, duration);
     }
-
-    view.notifyMapChange(duration != Duration::zero() ?
-                           MapChangeRegionDidChangeAnimated :
-                           MapChangeRegionDidChange,
-                           duration);
-}
-
-#pragma mark - Constraints
-
-void Transform::constrain(double& scale, double& y) const {
-    // Constrain minimum zoom to avoid zooming out far enough to show off-world areas.
-    if (scale < (current.height / util::tileSize)) scale = (current.height / util::tileSize);
-
-    // Constrain min/max vertical pan to avoid showing off-world areas.
-    double max_y = ((scale * util::tileSize) - current.height) / 2;
-
-    if (y > max_y) y = max_y;
-    if (y < -max_y) y = -max_y;
 }
 
 #pragma mark - Angle
@@ -314,9 +263,7 @@ void Transform::rotateBy(const double start_x, const double start_y, const doubl
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    double center_x = static_cast<double>(current.width) / 2.0, center_y = static_cast<double>(current.height) / 2.0;
+    double center_x = static_cast<double>(state.width) / 2.0, center_y = static_cast<double>(state.height) / 2.0;
 
     const double begin_center_x = start_x - center_x;
     const double begin_center_y = start_y - center_y;
@@ -338,7 +285,7 @@ void Transform::rotateBy(const double start_x, const double start_y, const doubl
     const double first_x = start_x - center_x, first_y = start_y - center_y;
     const double second_x = end_x - center_x, second_y = end_y - center_y;
 
-    const double ang = current.angle + util::angle_between(first_x, first_y, second_x, second_y);
+    const double ang = state.angle + util::angle_between(first_x, first_y, second_x, second_y);
 
     _setAngle(ang, duration);
 }
@@ -348,8 +295,6 @@ void Transform::setAngle(const double new_angle, const Duration duration) {
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
     _setAngle(new_angle, duration);
 }
 
@@ -358,13 +303,11 @@ void Transform::setAngle(const double new_angle, const double cx, const double c
         return;
     }
 
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
     double dx = 0, dy = 0;
 
     if (cx >= 0 && cy >= 0) {
-        dx = (static_cast<double>(final.width) / 2.0) - cx;
-        dy = (static_cast<double>(final.height) / 2.0) - cy;
+        dx = (static_cast<double>(state.width) / 2.0) - cx;
+        dy = (static_cast<double>(state.height) / 2.0) - cy;
         _moveBy(dx, dy, Duration::zero());
     }
 
@@ -376,41 +319,36 @@ void Transform::setAngle(const double new_angle, const double cx, const double c
 }
 
 void Transform::_setAngle(double new_angle, const Duration duration) {
-    // This is only called internally, so we don't need a lock here.
-
-    view.notifyMapChange(duration != Duration::zero() ?
-                           MapChangeRegionWillChangeAnimated :
-                           MapChangeRegionWillChange);
-
-    final.angle = _normalizeAngle(new_angle, current.angle);
-    current.angle = _normalizeAngle(current.angle, final.angle);
+    double angle = _normalizeAngle(new_angle, state.angle);
+    state.angle = _normalizeAngle(state.angle, angle);
 
     if (duration == Duration::zero()) {
-        current.angle = final.angle;
+        view.notifyMapChange(MapChangeRegionWillChange);
+
+        state.angle = angle;
+
+        view.notifyMapChange(MapChangeRegionDidChange);
     } else {
-        const double startA = current.angle;
-        current.rotating = true;
+        view.notifyMapChange(MapChangeRegionWillChangeAnimated);
+
+        const double startA = state.angle;
+        state.rotating = true;
 
         startTransition(
             [=](double t) {
-                current.angle = util::interpolate(startA, final.angle, t);
+                state.angle = util::interpolate(startA, angle, t);
+                view.notifyMapChange(MapChangeRegionIsChanging);
                 return Update::Nothing;
             },
             [=] {
-                current.rotating = false;
+                state.rotating = false;
+                view.notifyMapChange(MapChangeRegionDidChangeAnimated);
             }, duration);
     }
-
-    view.notifyMapChange(duration != Duration::zero() ?
-                           MapChangeRegionDidChangeAnimated :
-                           MapChangeRegionDidChange,
-                           duration);
 }
 
 double Transform::getAngle() const {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    return final.angle;
+    return state.angle;
 }
 
 
@@ -444,18 +382,14 @@ void Transform::startTransition(std::function<Update(double)> frame,
 }
 
 bool Transform::needsTransition() const {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
     return !!transitionFrameFn;
 }
 
 UpdateType Transform::updateTransitions(const TimePoint now) {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
     return static_cast<UpdateType>(transitionFrameFn ? transitionFrameFn(now) : Update::Nothing);
 }
 
 void Transform::cancelTransitions() {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
     if (transitionFinishFn) {
         transitionFinishFn();
     }
@@ -465,21 +399,5 @@ void Transform::cancelTransitions() {
 }
 
 void Transform::setGestureInProgress(bool inProgress) {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    current.gestureInProgress = inProgress;
-}
-
-#pragma mark - Transform state
-
-const TransformState Transform::currentState() const {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    return current;
-}
-
-const TransformState Transform::finalState() const {
-    std::lock_guard<std::recursive_mutex> lock(mtx);
-
-    return final;
+    state.gestureInProgress = inProgress;
 }
