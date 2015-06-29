@@ -689,10 +689,14 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         // draw GL map frame
         _mbglMap->renderSync();
 
+        //
+        // BEGIN GREEN SQUARE HACK
+        //
+
         // return early if no annotations
         if (self.annotations.count == 0) return;
 
-        // else draw (first, for now)
+        // else draw (first one, for now)
         MGLPointAnnotation *annotation = self.annotations[0];
 
         // convert to screen coordinates
@@ -760,6 +764,10 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
         glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices) / sizeof(GLfloat));
+
+        //
+        // END GREEN SQUARE HACK
+        //
 
 //        [self updateAnnotationViewsUserLocationOnly:NO];
 
