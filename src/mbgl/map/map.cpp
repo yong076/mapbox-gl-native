@@ -45,12 +45,16 @@ void Map::renderStill(StillImageCallback callback) {
     context->invoke(&MapContext::renderStill, transform->getState(), callback);
 }
 
-void Map::renderSync() {
-    bool rerender = context->invokeSync<bool>(&MapContext::renderSync, transform->getState());
+bool Map::renderSync() {
+    bool hasTransitions = context->invokeSync<bool>(&MapContext::renderSync, transform->getState());
 
+    return hasTransitions;
+}
+
+void Map::nudgeTransitions(bool hasTransitions) {
     if (transform->needsTransition()) {
         update(Update(transform->updateTransitions(Clock::now())));
-    } else if (rerender) {
+    } else if (hasTransitions) {
         update();
     }
 }

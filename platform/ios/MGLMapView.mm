@@ -7,6 +7,8 @@
 #import <GLKit/GLKit.h>
 #import <OpenGLES/EAGL.h>
 #import <OpenGLES/ES2/gl.h>
+#import <mbgl/platform/gl.hpp>
+#import <ImageIO/ImageIO.h>
 
 #include <mbgl/mbgl.hpp>
 #include <mbgl/platform/platform.hpp>
@@ -110,6 +112,7 @@ CLLocationDegrees MGLDegreesFromRadians(CGFloat radians)
 
     GLuint vbo;
     GLuint vao;
+    GLuint texture;
 }
 
 #pragma mark - Setup & Teardown -
@@ -412,7 +415,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
 
     CABasicAnimation *rotationAnimation;
     rotationAnimation = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
-    rotationAnimation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    rotationAnimation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
     rotationAnimation.toValue = @(M_PI * 2.0);
     rotationAnimation.duration = 3;
     rotationAnimation.cumulative = YES;
@@ -713,7 +716,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         _mbglMap->setSourceTileCacheSize(cacheSize);
 
         // draw GL map frame
-        _mbglMap->renderSync();
+        bool hasTransitions = _mbglMap->renderSync();
 
         //
         // BEGIN GREEN SQUARE HACK
@@ -732,7 +735,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         viewPoint.y = self.bounds.size.height - viewPoint.y;
 
         // create a GL coordinate system billboard rect
-        CGFloat size = 40;
+        CGFloat size = 80;
 
         CGRect billboardRect = CGRectMake((viewPoint.x - size / 2) / self.bounds.size.width,
                                           (viewPoint.y - size / 2) / self.bounds.size.height,
@@ -753,22 +756,30 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         };
 
         // hack through a basic shading of the billboard
-        glGenVertexArraysOES(1, &vao);
+        if (!vao) glGenVertexArraysOES(1, &vao);
         glBindVertexArrayOES(vao);
 
-        glGenBuffers(1, &vbo);
+        if (!vbo) glGenBuffers(1, &vbo);
 
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
         const GLchar* vertexSource =
-        "attribute vec2 position;"
+        "precision highp float;"
+        "attribute vec2 a_pos;"
+        "uniform vec2 u_origin;"
+        "uniform float u_size;"
+        "varying vec2 v_pos;"
         "void main() {"
-        "   gl_Position = vec4(position, 0.0, 1.0);"
+        "   gl_Position = vec4(a_pos, 0, 1);"
+        "   v_pos = (a_pos - u_origin) / u_size;"
         "}";
         const GLchar* fragmentSource =
+        "precision highp float;"
+        "varying vec2 v_pos;"
+        "uniform sampler2D u_image;"
         "void main() {"
-        "   gl_FragColor = vec4(0, 1.0, 0, 1.0);"
+        "   gl_FragColor = texture2D(u_image, v_pos);"
         "}";
 
         GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -785,9 +796,70 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         glLinkProgram(shaderProgram);
         glUseProgram(shaderProgram);
 
-        GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
-        glEnableVertexAttribArray(posAttrib);
-        glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+        GLint a_pos = glGetAttribLocation(shaderProgram, "a_pos");
+        glEnableVertexAttribArray(a_pos);
+        glVertexAttribPointer(a_pos, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+        if (!texture) {
+            glGenTextures(1, &texture);
+        }
+
+            glBindTexture(GL_TEXTURE_2D, texture);
+
+            CALayer *p = (CALayer *)_captureView.layer.presentationLayer;
+
+//            CGImageRef image = [[UIImage imageNamed:@"monster.png"] CGImage];
+            CGImageRef image = (__bridge CGImageRef)[p contents];
+
+            GLubyte *pixelBuffer = (GLubyte *)malloc(4 *
+                                                     CGImageGetWidth(image) *
+                                                     CGImageGetHeight(image));
+
+            CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+
+            CGContextRef context = CGBitmapContextCreate(
+                                      pixelBuffer,
+                                      CGImageGetWidth(image), CGImageGetHeight(image),
+                                      8, 4 * CGImageGetWidth(image),
+                                      colorSpace,
+                                      kCGImageAlphaPremultipliedLast);
+
+            CGAffineTransform flipVertical = CGAffineTransformMake(1, 0, 0, -1, 0, CGImageGetHeight(image));
+            CGContextConcatCTM(context, flipVertical);
+
+//            CGAffineTransform moveAnchor = CGAffineTransformMakeTranslation(CGImageGetWidth(image) / 2, CGImageGetHeight(image) / 2);
+//            CGContextConcatCTM(context, moveAnchor);
+
+            CGContextConcatCTM(context, p.affineTransform);
+
+            CGContextClearRect(context, CGRectMake(0, 0, CGImageGetWidth(image), CGImageGetHeight(image)));
+
+            CGContextDrawImage(context, CGRectMake(0, 0, CGImageGetWidth(image), CGImageGetHeight(image)), image);
+
+            assert(pixelBuffer != NULL);
+
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)CGImageGetWidth(image), (GLsizei)CGImageGetHeight(image), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer);
+
+            CGColorSpaceRelease(colorSpace);
+            CGContextRelease(context);
+            free(pixelBuffer);
+//        }
+
+        GLint u_image = glGetUniformLocation(shaderProgram, "u_image");
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glUniform1i(u_image, 0);
+
+        GLint u_origin = glGetUniformLocation(shaderProgram, "u_origin");
+        glUniform2f(u_origin, vertices[0], vertices[1]);
+
+        GLint u_size = glGetUniformLocation(shaderProgram, "u_size");
+        glUniform1f(u_size, billboardRect.size.width);
 
         glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices) / sizeof(GLfloat));
 
@@ -796,6 +868,8 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
         //
 
 //        [self updateAnnotationViewsUserLocationOnly:NO];
+
+        _mbglMap->nudgeTransitions(hasTransitions);
 
         [self notifyMapChange:@(mbgl::MapChangeDidFinishRenderingMap)];
     }
