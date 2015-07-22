@@ -155,12 +155,18 @@ iproj: ios-proj
 
 #### Linux application builds ##################################################
 
-.PHONY: linux run-linux
+.PHONY: linux run-linux qt run-qt
 linux: Makefile/project
 	$(MAKE) -C build/$(HOST) BUILDTYPE=$(BUILDTYPE) linuxapp
 
 run-linux: linux
 	(cd build/$(HOST)/$(BUILDTYPE) && ./mapbox-gl)
+
+qt: Makefile/project
+	$(MAKE) -C build/$(HOST) BUILDTYPE=$(BUILDTYPE) qtapp
+
+run-qt: qt
+	(cd build/$(HOST)/$(BUILDTYPE) && ./qmapbox-gl)
 
 run-valgrind-linux: linux
 	(cd build/$(HOST)/$(BUILDTYPE) && valgrind --leak-check=full --suppressions=$(BUILD_ROOT)/scripts/valgrind.sup ./mapbox-gl)
