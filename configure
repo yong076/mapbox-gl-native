@@ -49,6 +49,7 @@ case ${MASON_PLATFORM} in
         BOOST_PROGRAM_OPTIONS_VERSION=1.57.0
         NUNICODE_VERSION=1.5.1
         LIBZIP_VERSION=0.11.2
+        QT_VERSION=system
         ;;
 esac
 
@@ -136,6 +137,11 @@ fi
 if [ ${MASON_PLATFORM} == 'linux' ]; then
     CONFIG+="    'opengl_cflags%': $(quote_flags $(pkg-config gl x11 --cflags)),"$LN
     CONFIG+="    'opengl_ldflags%': $(quote_flags $(pkg-config gl x11 --libs)),"$LN
+
+    mason install qt ${QT_VERSION}
+    CONFIG+="    'qt_cflags%': $(quote_flags $(mason cflags qt ${QT_VERSION} "QtCore QtGui QtOpenGL")),"$LN
+    CONFIG+="    'qt_ldflags%': $(quote_flags $(mason ldflags qt ${QT_VERSION} "QtCore QtGui QtOpenGL")),"$LN
+    CONFIG+="    'qt_moc%': '$(${PKG_CONFIG} QtCore --variable=moc_location)',"$LN
 else
     CONFIG+="    'opengl_cflags%': $(quote_flags),"$LN
     CONFIG+="    'opengl_ldflags%': $(quote_flags),"$LN
