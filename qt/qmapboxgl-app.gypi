@@ -27,7 +27,8 @@
       ],
 
       'cflags_cc': [
-        '<@(qt_cflags)'
+        '<@(qt_cflags)',
+        '-Wno-error'
       ],
 
       'libraries': [
