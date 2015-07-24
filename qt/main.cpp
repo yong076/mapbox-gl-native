@@ -56,6 +56,10 @@ private:
         lastX = ev->x();
         lastY = ev->y();
 
+        if (ev->type() == QEvent::MouseButtonDblClick) {
+            m_map.scaleBy(2.0, lastX, lastY);
+        }
+
         ev->accept();
     }
 
