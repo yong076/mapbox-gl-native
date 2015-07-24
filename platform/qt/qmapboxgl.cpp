@@ -5,6 +5,7 @@
 #include <mbgl/platform/qt/qmapboxgl.hpp>
 #include <mbgl/storage/default_file_source.hpp>
 
+#include <QApplication>
 #include <QGLContext>
 #include <QString>
 
@@ -148,5 +149,8 @@ void QMapboxGLPrivate::swap()
 }
 
 void QMapboxGLPrivate::triggerRender() {
-    mapObj.renderSync();
+    const bool needsRerender = mapObj.renderSync();
+    if (QApplication::mouseButtons() == Qt::NoButton) {
+        mapObj.nudgeTransitions(needsRerender);
+    }
 }
