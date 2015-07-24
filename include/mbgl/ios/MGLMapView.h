@@ -525,6 +525,8 @@ IB_DESIGNABLE
 *  @param annotation The annotation that was deselected. */
 - (void)mapView:(MGLMapView *)mapView didDeselectAnnotation:(id <MGLAnnotation>)annotation;
 
+- (NSData *)mapView:(MGLMapView *)mapView dataForTileURL:(NSURL *)tileURL;
+
 @end
 
 NS_ASSUME_NONNULL_END

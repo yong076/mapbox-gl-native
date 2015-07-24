@@ -50,7 +50,7 @@ mbgl::Settings_NSUserDefaults *settings = nullptr;
 {
     [super viewDidLoad];
 
-    self.mapView = [[MGLMapView alloc] initWithFrame:self.view.bounds];
+    self.mapView = [[MGLMapView alloc] initWithFrame:self.view.bounds styleURL:[NSURL URLWithString:@"asset://styles/satellite-v7.json"]];
     self.mapView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.mapView.showsUserLocation = YES;
     self.mapView.delegate = self;
@@ -420,6 +420,37 @@ mbgl::Settings_NSUserDefaults *settings = nullptr;
     [UIView animateWithDuration:0.25 animations:^{
         self.navigationItem.rightBarButtonItem.image = newButtonImage;
     }];
+}
+
+- (NSData *)mapView:(__unused MGLMapView * __nonnull)mapView dataForTileURL:(NSURL * __nonnull)tileURL
+{
+//    NSLog(@"query for %@", tileURL);
+
+    NSData *data = [NSURLConnection sendSynchronousRequest:[NSURLRequest requestWithURL:tileURL]
+                                         returningResponse:nil
+                                                     error:nil];
+
+    UIImage *image = [UIImage imageWithData:data];
+
+    CGRect rect = CGRectMake(0, 0, 256, 256);
+
+    UIGraphicsBeginImageContext(rect.size);
+    CGContextRef c = UIGraphicsGetCurrentContext();
+    CGContextTranslateCTM(c, 0, rect.size.height);
+    CGContextScaleCTM(c, 1, -1);
+    CGContextDrawImage(c, rect, image.CGImage);
+    CGContextSetFillColorWithColor(c, [[[UIColor orangeColor] colorWithAlphaComponent:0.25] CGColor]);
+    CGContextFillEllipseInRect(c, rect);
+    CGContextSetStrokeColorWithColor(c, [[UIColor orangeColor] CGColor]);
+    CGContextSetLineWidth(c, 5);
+    CGContextAddEllipseInRect(c, rect);
+    CGContextStrokePath(c);
+    UIImage *outImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+
+//    NSLog(@"got an image");
+
+    return UIImagePNGRepresentation(outImage);
 }
 
 @end

@@ -61,6 +61,8 @@
         '../platform/ios/NSString+MGLAdditions.m',
         '../platform/ios/vendor/SMCalloutView/SMCalloutView.h',
         '../platform/ios/vendor/SMCalloutView/SMCalloutView.m',
+        '../include/mbgl/platform/ios/ios_file_source.h',
+        '../platform/ios/ios_file_source.mm',
       ],
 
       'variables': {

@@ -13,7 +13,6 @@
 #include <mbgl/annotation/sprite_image.hpp>
 #include <mbgl/platform/platform.hpp>
 #include <mbgl/platform/darwin/reachability.h>
-#include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/storage/network_status.hpp>
 #include <mbgl/util/geo.hpp>
 #include <mbgl/util/math.hpp>
@@ -31,6 +30,8 @@
 #import "MGLFileCache.h"
 #import "MGLAccountManager_Private.h"
 #import "MGLMapboxEvents.h"
+
+#include "ios_file_source.h"
 
 #import "SMCalloutView.h"
 
@@ -221,7 +222,7 @@ std::chrono::steady_clock::duration secondsAsDuration(float duration)
     //
     const float scaleFactor = [UIScreen instancesRespondToSelector:@selector(nativeScale)] ? [[UIScreen mainScreen] nativeScale] : [[UIScreen mainScreen] scale];
     _mbglView = new MBGLView(self, scaleFactor);
-    _mbglFileSource = new mbgl::DefaultFileSource([MGLFileCache obtainSharedCacheWithObject:self]);
+    _mbglFileSource = new mbgl::iOSFileSource(self, [MGLFileCache obtainSharedCacheWithObject:self]);
 
     // Start paused
     _mbglMap = new mbgl::Map(*_mbglView, *_mbglFileSource, mbgl::MapMode::Continuous);
