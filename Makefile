@@ -184,6 +184,9 @@ Makefile/android-%: config/android-%.gypi styles/styles geojsonvt
 
 # Builds a particular android architecture.
 android-lib-%: Makefile/android-%
+	@echo "FOO"
+	@echo $*
+	@echo "BAR"
 	@$(ENV_android-$*) ./scripts/flock.py -v build/Android.lock $(MAKE) -C build/android-$* BUILDTYPE=$(BUILDTYPE) androidapp
 
 # Builds the selected/default Android library
