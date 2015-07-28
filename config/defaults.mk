@@ -31,7 +31,7 @@ LIBS_linux += -Dcache_lib=$(word 1,$(CACHE) sqlite)
 LIBS_linux += --depth=. -Goutput_dir=.
 
 ANDROID_ABIS += android-lib-arm64-v8a
-ENV_android-arm-v8 = $(shell MASON_ANDROID_ABI=arm64-v8a ./scripts/android/toolchain.sh)
+ENV_android-lib-arm64-v8a = $(shell MASON_ANDROID_ABI=arm64-v8a ./scripts/android/toolchain.sh)
 CONFIG_android-arm64-v8a = -Dhost=android -Iconfig/android-arm64-v8a.gypi
 
 ANDROID_ABIS += android-lib-arm-v8
