@@ -525,8 +525,6 @@ public class MapView extends GLSurfaceView {
             }
             mNativeMapView.setDefaultTransitionDuration(savedInstanceState.getLong(STATE_DEFAULT_TRANSITION_DURATION));
         }
-
-        // TODO create
     }
 
     // Called when we need to save instance state
@@ -548,7 +546,6 @@ public class MapView extends GLSurfaceView {
     // Called when we need to clean up
     // Must be called from Activity onDestroy
     public void onDestroy() {
-        // TODO destroy
     }
 
     // Called when we need to create the GL context
@@ -571,8 +568,6 @@ public class MapView extends GLSurfaceView {
         // Register for connectivity changes
         getContext().unregisterReceiver(mConnectivityReceiver);
         mConnectivityReceiver = null;
-
-        // TODO pause -> super?
     }
 
     // Called when we need to start the render thread
@@ -585,12 +580,6 @@ public class MapView extends GLSurfaceView {
         // Register for connectivity changes
         mConnectivityReceiver = new ConnectivityReceiver();
         mContext.registerReceiver(mConnectivityReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
-
-        // TODO resume -> super?
-    }
-
-    public void onSizeChanged(int width, int height, int oldw, int oldh) {
-        // TODO resizeView?
     }
 
     // This class handles GLSurfaceView callbacks
@@ -609,16 +598,14 @@ public class MapView extends GLSurfaceView {
         @Override
         public void onSurfaceChanged(GL10 gl, int width, int height) {
             mNativeMapView.surfaceChanged(width, height);
-            // TODO handling
         }
 
         // Called when we need to render a new frame to the surface buffer
         // Must do all GL ES rendering commands here
         @Override
         public void onDrawFrame(GL10 gl) {
-            // TODO inProgress
             boolean inProgress = mRotateGestureDetector.isInProgress() || mScaleGestureDetector.isInProgress();
-            mNativeMapView.drawFrame();
+            mNativeMapView.drawFrame(inProgress);
         }
     }
 
