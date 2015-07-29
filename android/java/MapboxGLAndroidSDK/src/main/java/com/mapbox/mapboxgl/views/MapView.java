@@ -1281,6 +1281,12 @@ public class MapView extends GLSurfaceView {
     // Map events
     //
 
+    // Called when the map needs to be rerendered
+    // Called via JNI from NativeMapView
+    protected void onInvalidate() {
+        requestRender();
+    }
+
     public interface OnMapChangedListener {
         void onMapChanged();
     }

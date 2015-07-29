@@ -367,6 +367,10 @@ class NativeMapView {
     // Callbacks
     //
 
+    protected void onInvalidate() {
+        mMapView.onInvalidate();
+    }
+
     protected void onMapChanged() {
         mMapView.onMapChanged();
     }
