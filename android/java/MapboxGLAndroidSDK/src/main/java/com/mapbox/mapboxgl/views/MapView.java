@@ -132,6 +132,7 @@ public class MapView extends GLSurfaceView {
     //
 
     // Common initialization code goes here
+    @TargetApi(16)
     private void initialize(Context context, AttributeSet attrs) {
 
         // Save the context
@@ -155,8 +156,12 @@ public class MapView extends GLSurfaceView {
         ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
         ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         activityManager.getMemoryInfo(memoryInfo);
-        long totalMemory = memoryInfo.totalMem;
-        mNativeMapView = new NativeMapView(this, cachePath, dataPath, apkPath, mScreenDensity,availableProcessors, totalMemory);
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            long totalMemory = memoryInfo.totalMem;
+            mNativeMapView = new NativeMapView(this, cachePath, dataPath, apkPath, mScreenDensity, availableProcessors, totalMemory);
+        } else {
+            throw new RuntimeException("Need to implement totalMemory on pre-Jelly Bean devices");
+        }
 
         // Load the attributes
         TypedArray typedArray = context.obtainStyledAttributes(attrs, R.styleable.MapView, 0, 0);
@@ -188,7 +193,15 @@ public class MapView extends GLSurfaceView {
         setFocusableInTouchMode(true);
         requestFocus();
 
-        // Register the SurfaceHolder callbacks
+        // Configure the GLSurfaceView
+        setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+        setEGLConfigChooser(8, 8, 8, 0, 16, 8);
+        setEGLContextClientVersion(2);
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            setPreserveEGLContextOnPause(true);
+        }
+
+        // Register the GLSurfaceView callbacks
         setRenderer(new MapRenderer());
 
         // Touch gesture detectors
@@ -545,13 +558,16 @@ public class MapView extends GLSurfaceView {
     }
 
     // Called when we need to terminate the GL context
-    // Must be called from Activity onPause
+    // Must be called from Activity onStop
     public void onStop() {
     }
 
     // Called when we need to stop the render thread
     // Must be called from Activity onPause
+    @Override
     public void onPause() {
+        super.onPause();
+
         // Register for connectivity changes
         getContext().unregisterReceiver(mConnectivityReceiver);
         mConnectivityReceiver = null;
@@ -562,7 +578,10 @@ public class MapView extends GLSurfaceView {
     // Called when we need to start the render thread
     // Must be called from Activity onResume
 
+    @Override
     public void onResume() {
+        super.onResume();
+
         // Register for connectivity changes
         mConnectivityReceiver = new ConnectivityReceiver();
         mContext.registerReceiver(mConnectivityReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
