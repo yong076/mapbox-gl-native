@@ -97,6 +97,8 @@ public:
     void cancelTransitions();
     void setGestureInProgress(bool);
 
+    void easeTo(CameraOptions options, const Duration& = Duration::zero());
+
     // Position
     void moveBy(double dx, double dy, const Duration& = Duration::zero());
     void setLatLng(LatLng latLng, const Duration& = Duration::zero());

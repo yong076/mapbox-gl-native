@@ -118,6 +118,13 @@ void Map::setGestureInProgress(bool inProgress) {
     update();
 }
 
+#pragma mark -
+
+void Map::easeTo(CameraOptions options, const Duration& duration) {
+    transform->easeTo(options, duration);
+    update();
+}
+
 #pragma mark - Position
 
 void Map::moveBy(double dx, double dy, const Duration& duration) {

@@ -1,6 +1,8 @@
 #ifndef MBGL_UTIL_GEO
 #define MBGL_UTIL_GEO
 
+#include "optional.hpp"
+
 namespace mbgl {
 
 class TileID;
@@ -59,6 +61,12 @@ struct LatLngBounds {
                 area.ne.longitude > sw.longitude &&
                 area.sw.longitude < ne.longitude);
     }
+};
+
+struct CameraOptions {
+    mapbox::util::optional<LatLng> center;
+    mapbox::util::optional<double> zoom;
+    mapbox::util::optional<double> angle;
 };
 
 }
