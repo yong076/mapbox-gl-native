@@ -33,14 +33,14 @@ void handleError(CURLcode code) {
 
 namespace mbgl {
 
-class HTTPCURLRequest;
+class HTTPAndroidRequest;
 
-class HTTPCURLContext : public HTTPContextBase {
+class HTTPAndroidContext : public HTTPContextBase {
     MBGL_STORE_THREAD(tid)
 
 public:
-    explicit HTTPCURLContext(uv_loop_t *loop);
-    ~HTTPCURLContext();
+    explicit HTTPAndroidContext(uv_loop_t *loop);
+    ~HTTPAndroidContext();
 
     HTTPRequestBase* createRequest(const Resource&,
                                RequestBase::Callback,
@@ -77,16 +77,16 @@ public:
     std::queue<CURL *> handles;
 };
 
-class HTTPCURLRequest : public HTTPRequestBase {
+class HTTPAndroidRequest : public HTTPRequestBase {
     MBGL_STORE_THREAD(tid)
 
 public:
-    HTTPCURLRequest(HTTPCURLContext*,
+    HTTPAndroidRequest(HTTPAndroidContext*,
                 const Resource&,
                 Callback,
                 uv_loop_t*,
                 std::shared_ptr<const Response>);
-    ~HTTPCURLRequest();
+    ~HTTPAndroidRequest();
 
     void cancel() final;
     void retry() final;
@@ -106,7 +106,7 @@ private:
     void finish(ResponseStatus status);
     void start();
 
-    HTTPCURLContext *context = nullptr;
+    HTTPAndroidContext *context = nullptr;
 
     // Will store the current response.
     std::unique_ptr<Response> response;
@@ -133,11 +133,11 @@ private:
     uv_poll_t poll;
 
 public:
-    HTTPCURLContext *context = nullptr;
+    HTTPAndroidContext *context = nullptr;
     const curl_socket_t sockfd = 0;
 
 public:
-    Socket(HTTPCURLContext *context_, curl_socket_t sockfd_) : context(context_), sockfd(sockfd_) {
+    Socket(HTTPAndroidContext *context_, curl_socket_t sockfd_) : context(context_), sockfd(sockfd_) {
         assert(context);
         uv_poll_init_socket(context->loop, &poll, sockfd);
         poll.data = this;
@@ -164,7 +164,7 @@ private:
 
 // -------------------------------------------------------------------------------------------------
 
-HTTPCURLContext::HTTPCURLContext(uv_loop_t *loop_)
+HTTPAndroidContext::HTTPAndroidContext(uv_loop_t *loop_)
     : HTTPContextBase(loop_),
       loop(loop_) {
     if (curl_global_init(CURL_GLOBAL_ALL)) {
@@ -184,7 +184,7 @@ HTTPCURLContext::HTTPCURLContext(uv_loop_t *loop_)
     handleError(curl_multi_setopt(multi, CURLMOPT_TIMERDATA, this));
 }
 
-HTTPCURLContext::~HTTPCURLContext() {
+HTTPAndroidContext::~HTTPAndroidContext() {
     while (!handles.empty()) {
         curl_easy_cleanup(handles.front());
         handles.pop();
@@ -200,14 +200,14 @@ HTTPCURLContext::~HTTPCURLContext() {
     uv::close(timeout);
 }
 
-HTTPRequestBase* HTTPCURLContext::createRequest(const Resource& resource,
+HTTPRequestBase* HTTPAndroidContext::createRequest(const Resource& resource,
                                             RequestBase::Callback callback,
                                             uv_loop_t* loop_,
                                             std::shared_ptr<const Response> response) {
-    return new HTTPCURLRequest(this, resource, callback, loop_, response);
+    return new HTTPAndroidRequest(this, resource, callback, loop_, response);
 }
 
-CURL *HTTPCURLContext::getHandle() {
+CURL *HTTPAndroidContext::getHandle() {
     if (!handles.empty()) {
         auto handle = handles.front();
         handles.pop();
@@ -217,12 +217,12 @@ CURL *HTTPCURLContext::getHandle() {
     }
 }
 
-void HTTPCURLContext::returnHandle(CURL *handle) {
+void HTTPAndroidContext::returnHandle(CURL *handle) {
     curl_easy_reset(handle);
     handles.push(handle);
 }
 
-void HTTPCURLContext::checkMultiInfo() {
+void HTTPAndroidContext::checkMultiInfo() {
     MBGL_VERIFY_THREAD(tid);
     CURLMsg *message = nullptr;
     int pending = 0;
@@ -230,7 +230,7 @@ void HTTPCURLContext::checkMultiInfo() {
     while ((message = curl_multi_info_read(multi, &pending))) {
         switch (message->msg) {
         case CURLMSG_DONE: {
-            HTTPCURLRequest *baton = nullptr;
+            HTTPAndroidRequest *baton = nullptr;
             curl_easy_getinfo(message->easy_handle, CURLINFO_PRIVATE, (char *)&baton);
             assert(baton);
             baton->handleResult(message->data.result);
@@ -243,7 +243,7 @@ void HTTPCURLContext::checkMultiInfo() {
     }
 }
 
-void HTTPCURLContext::perform(uv_poll_t *req, int /* status */, int events) {
+void HTTPAndroidContext::perform(uv_poll_t *req, int /* status */, int events) {
     assert(req->data);
     auto socket = reinterpret_cast<Socket *>(req->data);
     auto context = socket->context;
@@ -264,11 +264,11 @@ void HTTPCURLContext::perform(uv_poll_t *req, int /* status */, int events) {
     context->checkMultiInfo();
 }
 
-int HTTPCURLContext::handleSocket(CURL * /* handle */, curl_socket_t s, int action, void *userp,
+int HTTPAndroidContext::handleSocket(CURL * /* handle */, curl_socket_t s, int action, void *userp,
                               void *socketp) {
     auto socket = reinterpret_cast<Socket *>(socketp);
     assert(userp);
-    auto context = reinterpret_cast<HTTPCURLContext *>(userp);
+    auto context = reinterpret_cast<HTTPAndroidContext *>(userp);
     MBGL_VERIFY_THREAD(context->tid);
 
     if (!socket && action != CURL_POLL_REMOVE) {
@@ -297,12 +297,12 @@ int HTTPCURLContext::handleSocket(CURL * /* handle */, curl_socket_t s, int acti
 }
 
 #if UV_VERSION_MAJOR == 0 && UV_VERSION_MINOR <= 10
-void HTTPCURLContext::onTimeout(uv_timer_t *req, int /* status */) {
+void HTTPAndroidContext::onTimeout(uv_timer_t *req, int /* status */) {
 #else
-void HTTPCURLContext::onTimeout(uv_timer_t *req) {
+void HTTPAndroidContext::onTimeout(uv_timer_t *req) {
 #endif
     assert(req->data);
-    auto context = reinterpret_cast<HTTPCURLContext *>(req->data);
+    auto context = reinterpret_cast<HTTPAndroidContext *>(req->data);
     MBGL_VERIFY_THREAD(context->tid);
     int running_handles;
     CURLMcode error = curl_multi_socket_action(context->multi, CURL_SOCKET_TIMEOUT, 0, &running_handles);
@@ -312,9 +312,9 @@ void HTTPCURLContext::onTimeout(uv_timer_t *req) {
     context->checkMultiInfo();
 }
 
-int HTTPCURLContext::startTimeout(CURLM * /* multi */, long timeout_ms, void *userp) {
+int HTTPAndroidContext::startTimeout(CURLM * /* multi */, long timeout_ms, void *userp) {
     assert(userp);
-    auto context = reinterpret_cast<HTTPCURLContext *>(userp);
+    auto context = reinterpret_cast<HTTPAndroidContext *>(userp);
     MBGL_VERIFY_THREAD(context->tid);
     if (timeout_ms < 0) {
         // A timeout of 0 ms means that the timer will invoked in the next loop iteration.
@@ -422,7 +422,7 @@ static CURLcode sslctx_function(CURL * /* curl */, void *sslctx, void * /* parm 
     return CURLE_OK;
 }
 
-HTTPCURLRequest::HTTPCURLRequest(HTTPCURLContext* context_, const Resource& resource_, Callback callback_, uv_loop_t*, std::shared_ptr<const Response> response_)
+HTTPAndroidRequest::HTTPAndroidRequest(HTTPAndroidContext* context_, const Resource& resource_, Callback callback_, uv_loop_t*, std::shared_ptr<const Response> response_)
     : HTTPRequestBase(resource_, callback_),
       context(context_),
       existingResponse(response_),
@@ -466,7 +466,7 @@ HTTPCURLRequest::HTTPCURLRequest(HTTPCURLContext* context_, const Resource& reso
     start();
 }
 
-HTTPCURLRequest::~HTTPCURLRequest() {
+HTTPAndroidRequest::~HTTPAndroidRequest() {
     MBGL_VERIFY_THREAD(tid);
 
     context->removeRequest(this);
@@ -488,11 +488,11 @@ HTTPCURLRequest::~HTTPCURLRequest() {
     }
 }
 
-void HTTPCURLRequest::cancel() {
+void HTTPAndroidRequest::cancel() {
    delete this;
 }
 
-void HTTPCURLRequest::start() {
+void HTTPAndroidRequest::start() {
     // Count up the attempts.
     attempts++;
 
@@ -502,9 +502,9 @@ void HTTPCURLRequest::start() {
 
 // This function is called when we have new data for a request. We just append it to the string
 // containing the previous data.
-size_t HTTPCURLRequest::writeCallback(void *const contents, const size_t size, const size_t nmemb, void *userp) {
+size_t HTTPAndroidRequest::writeCallback(void *const contents, const size_t size, const size_t nmemb, void *userp) {
     assert(userp);
-    auto impl = reinterpret_cast<HTTPCURLRequest *>(userp);
+    auto impl = reinterpret_cast<HTTPAndroidRequest *>(userp);
     MBGL_VERIFY_THREAD(impl->tid);
 
     if (!impl->response) {
@@ -546,9 +546,9 @@ int64_t parseCacheControl(const char *value) {
     return 0;
 }
 
-size_t HTTPCURLRequest::headerCallback(char *const buffer, const size_t size, const size_t nmemb, void *userp) {
+size_t HTTPAndroidRequest::headerCallback(char *const buffer, const size_t size, const size_t nmemb, void *userp) {
     assert(userp);
-    auto baton = reinterpret_cast<HTTPCURLRequest *>(userp);
+    auto baton = reinterpret_cast<HTTPAndroidRequest *>(userp);
     MBGL_VERIFY_THREAD(baton->tid);
 
     if (!baton->response) {
@@ -575,7 +575,7 @@ size_t HTTPCURLRequest::headerCallback(char *const buffer, const size_t size, co
     return length;
 }
 
-void HTTPCURLRequest::retry(uint64_t timeout) {
+void HTTPAndroidRequest::retry(uint64_t timeout) {
     handleError(curl_multi_remove_handle(context->multi, handle));
 
     response.reset();
@@ -587,7 +587,7 @@ void HTTPCURLRequest::retry(uint64_t timeout) {
     uv_timer_start(timer, restart, timeout, 0);
 }
 
-void HTTPCURLRequest::retry() {
+void HTTPAndroidRequest::retry() {
     // All batons get notified when the network status changed, but some of them
     // might not actually wait for the network to become available again.
     if (timer && strategy == PreemptImmediately) {
@@ -598,12 +598,12 @@ void HTTPCURLRequest::retry() {
 }
 
 #if UV_VERSION_MAJOR == 0 && UV_VERSION_MINOR <= 10
-void HTTPCURLRequest::restart(uv_timer_t *timer, int) {
+void HTTPAndroidRequest::restart(uv_timer_t *timer, int) {
 #else
-void HTTPCURLRequest::restart(uv_timer_t *timer) {
+void HTTPAndroidRequest::restart(uv_timer_t *timer) {
 #endif
     // Restart the request.
-    auto baton = reinterpret_cast<HTTPCURLRequest *>(timer->data);
+    auto baton = reinterpret_cast<HTTPAndroidRequest *>(timer->data);
 
     // Get rid of the timer.
     baton->timer = nullptr;
@@ -612,7 +612,7 @@ void HTTPCURLRequest::restart(uv_timer_t *timer) {
     baton->start();
 }
 
-void HTTPCURLRequest::finish(ResponseStatus status) {
+void HTTPAndroidRequest::finish(ResponseStatus status) {
     if (status == ResponseStatus::TemporaryError && attempts < maxAttempts) {
         strategy = ExponentialBackoff;
         return retry((1 << (attempts - 1)) * 1000);
@@ -633,7 +633,7 @@ void HTTPCURLRequest::finish(ResponseStatus status) {
     delete this;
 }
 
-void HTTPCURLRequest::handleResult(CURLcode code) {
+void HTTPAndroidRequest::handleResult(CURLcode code) {
     MBGL_VERIFY_THREAD(tid);
 
     if (cancelled) {
@@ -705,7 +705,7 @@ void HTTPCURLRequest::handleResult(CURLcode code) {
 }
 
 std::unique_ptr<HTTPContextBase> HTTPContextBase::createContext(uv_loop_t* loop) {
-    return std::make_unique<HTTPCURLContext>(loop);
+    return std::make_unique<HTTPAndroidContext>(loop);
 }
 
 }
