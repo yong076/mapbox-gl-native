@@ -89,7 +89,7 @@ HTTPAndroidRequest::HTTPAndroidRequest(HTTPAndroidContext* context_, const Resou
       context(context_),
       existingResponse(response_) {
 
-    // TODO 304 stuff
+    // TODO 304 stuff for etag/time
 
     // TODO create the java request object
 
