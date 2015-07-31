@@ -3,13 +3,16 @@ package com.mapbox.mapboxgl.views;
 import android.graphics.PointF;
 import android.view.Surface;
 
+import com.mapbox.mapboxgl.annotations.Annotation;
 import com.mapbox.mapboxgl.annotations.Marker;
 import com.mapbox.mapboxgl.annotations.Polygon;
 import com.mapbox.mapboxgl.annotations.Polyline;
+import com.mapbox.mapboxgl.geometry.BoundingBox;
 import com.mapbox.mapboxgl.geometry.LatLng;
 import com.mapbox.mapboxgl.geometry.LatLngZoom;
 import com.mapbox.mapboxgl.geometry.ProjectedMeters;
 
+import java.util.ArrayList;
 import java.util.List;
 
 // Class that wraps the native methods for convenience
@@ -253,6 +256,10 @@ class NativeMapView {
 
     public void removeAnnotations(long[] ids) {
         nativeRemoveAnnotations(mNativeMapViewPtr, ids);
+    }
+
+    public List<Annotation> getAnnotationsInBounds(BoundingBox bbox) {
+        return nativeGetAnnotationsInBounds(mNativeMapViewPtr, bbox);
     }
 
     public LatLng getLatLng() {
@@ -521,6 +528,8 @@ class NativeMapView {
     private native void nativeRemoveAnnotation(long nativeMapViewPtr, long id);
 
     private native void nativeRemoveAnnotations(long nativeMapViewPtr, long[] id);
+
+    private native ArrayList<Annotation> nativeGetAnnotationsInBounds(long mNativeMapViewPtr, BoundingBox bbox);
 
     private native LatLng nativeGetLatLng(long nativeMapViewPtr);
 

@@ -38,6 +38,7 @@ import com.mapbox.mapboxgl.annotations.Polygon;
 import com.mapbox.mapboxgl.annotations.PolygonOptions;
 import com.mapbox.mapboxgl.annotations.Polyline;
 import com.mapbox.mapboxgl.annotations.PolylineOptions;
+import com.mapbox.mapboxgl.geometry.BoundingBox;
 import com.mapbox.mapboxgl.geometry.LatLng;
 import com.mapbox.mapboxgl.geometry.LatLngZoom;
 import org.apache.commons.validator.routines.UrlValidator;
@@ -303,6 +304,10 @@ public class MapView extends SurfaceView {
             }
         }
         mNativeMapView.removeAnnotations(ids);
+    }
+
+    public List<Annotation> getAnnotationsInBounds(BoundingBox bbox) {
+        return mNativeMapView.getAnnotationsInBounds(bbox);
     }
 
     //
