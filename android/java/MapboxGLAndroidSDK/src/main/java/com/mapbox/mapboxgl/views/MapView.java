@@ -194,7 +194,6 @@ public class MapView extends GLSurfaceView {
         requestFocus();
 
         // Configure the GLSurfaceView
-        setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
         setEGLConfigChooser(8, 8, 8, 0, 16, 8);
         setEGLContextClientVersion(2);
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
@@ -203,6 +202,7 @@ public class MapView extends GLSurfaceView {
 
         // Register the GLSurfaceView callbacks
         setRenderer(new MapRenderer());
+        setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 
         // Touch gesture detectors
         mGestureDetector = new GestureDetectorCompat(context, new GestureListener());
