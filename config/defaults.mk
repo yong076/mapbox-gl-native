@@ -62,6 +62,6 @@ CONFIG_android-mips-64 = -Dhost=android -Iconfig/android-mips-64.gypi
 LIBS_android  = -Dheadless_lib=none
 LIBS_android += -Dplatform_lib=$(word 1,$(PLATFORM) android)
 LIBS_android += -Dasset_lib=$(word 1,$(ASSET) zip)
-LIBS_android += -Dhttp_lib=$(word 1,$(HTTP) curl)
+LIBS_android += -Dhttp_lib=$(word 1,$(HTTP) android)
 LIBS_android += -Dcache_lib=$(word 1,$(CACHE) sqlite)
 LIBS_android += --depth=. -Goutput_dir=.
