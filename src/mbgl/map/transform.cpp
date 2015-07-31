@@ -1,3 +1,4 @@
+#include <mbgl/map/camera.hpp>
 #include <mbgl/map/transform.hpp>
 #include <mbgl/map/view.hpp>
 #include <mbgl/util/constants.hpp>

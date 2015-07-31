@@ -2,6 +2,7 @@
 #define MBGL_MAP_TRANSFORM
 
 #include <mbgl/map/transform_state.hpp>
+#include <mbgl/map/camera.hpp>
 #include <mbgl/util/chrono.hpp>
 #include <mbgl/map/update.hpp>
 #include <mbgl/util/geo.hpp>

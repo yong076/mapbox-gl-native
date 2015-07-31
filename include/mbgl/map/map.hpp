@@ -2,6 +2,7 @@
 #define MBGL_MAP_MAP
 
 #include <mbgl/util/chrono.hpp>
+#include <mbgl/map/camera.hpp>
 #include <mbgl/map/update.hpp>
 #include <mbgl/map/mode.hpp>
 #include <mbgl/util/geo.hpp>
