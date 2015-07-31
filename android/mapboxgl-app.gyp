@@ -25,8 +25,6 @@
         '<@(boost_cflags)',
       ],
       'libraries': [
-          '<@(openssl_static_libs)',
-          '<@(curl_static_libs)',
           '<@(png_static_libs)',
           '<@(jpeg_static_libs)',
           '<@(sqlite3_static_libs)',
@@ -45,8 +43,6 @@
           '<@(png_ldflags)',
           '<@(jpeg_ldflags)',
           '<@(sqlite3_ldflags)',
-          '<@(openssl_ldflags)',
-          '<@(curl_ldflags)',
           '<@(zlib_ldflags)',
           '<@(zip_ldflags)',
         ],
@@ -74,7 +70,6 @@
       'copies': [
         {
           'files': [
-            '../common/ca-bundle.crt',
             '../styles/styles'
           ],
           'destination': '<(pwd)/java/MapboxGLAndroidSDK/src/main/assets'

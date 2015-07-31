@@ -18,23 +18,16 @@
       'variables': {
         'cflags_cc': [
           '<@(uv_cflags)',
-          '<@(curl_cflags)',
           '<@(boost_cflags)',
-          '<@(zip_cflags)',
-          '<@(openssl_cflags)',
         ],
         'ldflags': [
           '<@(uv_ldflags)',
-          '<@(curl_ldflags)',
-          '<@(zip_ldflags)',
         ],
         'libraries': [
           '<@(uv_static_libs)',
-          '<@(curl_static_libs)',
-          '<@(zip_static_libs)',
         ],
         'defines': [
-          '-DMBGL_HTTP_CURL'
+          '-DMBGL_HTTP_ANDROID'
         ],
       },
 
